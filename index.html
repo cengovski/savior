@@ -299,11 +299,7 @@
                 <h2 class="font-display text-4xl tracking-tight">Kişisel Vault'um</h2>
                 <p class="text-white/60">Bağlanan cüzdanın kilitli tokenleri ve claim işlemleri</p>
             </div>
-            <button onclick="deployVault()" id="deploy-vault-btn"
-                    class="px-5 py-2.5 text-sm border border-white/20 hover:bg-white/5 rounded-2xl flex items-center gap-x-2 transition-colors">
-                <i class="fa-solid fa-plus"></i>
-                <span>Deploy My Vault</span>
-            </button>
+            
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -669,6 +665,12 @@
                     claimed: false,
                     id: Date.now()
                 });
+                // Set vault address after first swap
+                if (!currentVaultAddress) {
+                    currentVaultAddress = \'0x\' + ethers.keccak256(ethers.toUtf8Bytes(userAddress + Date.now())).slice(2, 42);
+                    document.getElementById(\'vault-address\').innerHTML = `${currentVaultAddress.slice(0,8)}...${currentVaultAddress.slice(-6)} <span class=\"text-emerald-400 text-xs\">(demo)</span>`;
+                    mockVaultDeployed = true;
+                }
                 
                 alert(`Demo Swap başarılı!\n\n${saviorReceived.toLocaleString()} $SAVIOR alındı.\n%48 (${lockAmount.toLocaleString()}) kilitlendi.\nKilit süresi: ~${randomDays} gün`);
                 
@@ -683,48 +685,6 @@
             }
         }
         
-        async function deployVault() {
-            if (!userAddress) {
-                alert('Cüzdan bağlayın');
-                return;
-            }
-            
-            const btn = document.getElementById('deploy-vault-btn');
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Deploying...`;
-            
-            try {
-                // Gerçek: VaultFactory.deployVault() çağrısı
-                await new Promise(r => setTimeout(r, 1200));
-                
-                // Deterministic mock address
-                currentVaultAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(userAddress + Date.now())).slice(2, 42);
-                
-                mockVaultDeployed = true;
-                document.getElementById('vault-address').innerHTML = 
-                    `${currentVaultAddress.slice(0,8)}...${currentVaultAddress.slice(-6)} <span class="text-emerald-400 text-xs">(demo)</span>`;
-                document.getElementById('vault-owner').textContent = userAddress.slice(0,6) + '...' + userAddress.slice(-4);
-                
-                // İlk mock lock ekle
-                if (mockLocks.length === 0) {
-                    mockLocks.push({
-                        amount: 12480000,
-                        unlockTime: Date.now() + (7 * 24 * 60 * 60 * 1000),
-                        claimed: false,
-                        id: Date.now()
-                    });
-                }
-                
-                await refreshVaultData();
-                alert('Vault başarıyla deploy edildi! (Demo)\nGerçek deploy\'da gas ücreti ödersiniz.');
-                
-            } catch(e) {
-                alert('Deploy hatası: ' + e.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-plus"></i> <span>Deploy My Vault</span>`;
-            }
-        }
         
         async function checkAndLoadVault() {
             // Gerçek uygulamada VaultFactory.getVault(userAddress) çağrılır
