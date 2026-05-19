@@ -1,2 +1,1 @@
-# savior
-savior token
+REPLACED_WITH_FULL_GUIDE
