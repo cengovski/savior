@@ -316,7 +316,12 @@
                     </div>
                 </div>
                 
-                <div class="my-6 h-px bg-white/10"></div>
+                                            <button onclick="deployVault()" id="deploy-vault-btn"
+                                    class="px-5 py-2.5 text-sm border border-white/20 hover:bg-white/5 rounded-2xl flex items-center gap-x-2 transition-colors mt-4">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Deploy My Vault</span>
+                            </button>
+<div class="my-6 h-px bg-white/10"></div>
                 
                 <div class="grid grid-cols-3 gap-4 text-center">
                     <div>
@@ -822,6 +827,33 @@
         }
         
         // Boot
+
+async function deployVault() {
+    if (!userAddress) {
+        alert('Önce cüzdanı bağlayın');
+        return;
+    }
+    const btn = document.getElementById('deploy-vault-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-pulse">Vault deploy ediliyor...</span>`;
+    try {
+        // In a real app, we would call the VaultFactory contract to create a vault for the user
+        // For demo, we generate a deterministic address based on userAddress
+        await new Promise(r => setTimeout(r, 2000));
+        const vaultAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(userAddress + 'savior_vault')).slice(0, 42);
+        currentVaultAddress = vaultAddress;
+        document.getElementById('vault-address').textContent = currentVaultAddress.slice(0,8) + '...' + currentVaultAddress.slice(-6);
+        mockVaultDeployed = true;
+        localStorage.setItem('savior_vault_' + userAddress, currentVaultAddress);
+        alert('Vault başarıyla deploy edildi!\nAdres: ' + currentVaultAddress);
+    } catch (e) {
+        alert('Vault deploy hatası: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i><span>Deploy My Vault</span>';
+    }
+}
+
         window.onload = function() {
             initDemo();
             // Otomatik RPC init
