@@ -5,6 +5,7 @@ import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 
@@ -24,7 +25,9 @@ contract SaviorHook is IHooks {
         treasury = _treasury;
     }
 
-    function getHookPermissions() external pure override returns (Hooks.Permissions memory) {
+    /// @notice Helper function to return the permissions that this hook intends to use.
+    ///         This is not part of the IHooks interface but useful for HookMiner.
+    function getHookPermissions() external pure returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
             beforeInitialize: false,
             afterInitialize: false,
@@ -43,12 +46,66 @@ contract SaviorHook is IHooks {
         });
     }
 
+    function beforeInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96) 
+        external 
+        returns (bytes4)
+    {
+        return IHooks.beforeInitialize.selector;
+    }
+
+    function afterInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96, int24 tick)
+        external
+        returns (bytes4)
+    {
+        return IHooks.afterInitialize.selector;
+    }
+
+    function beforeAddLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        bytes calldata hookData
+    ) external returns (bytes4) {
+        return IHooks.beforeAddLiquidity.selector;
+    }
+
+    function afterAddLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        BalanceDelta delta,
+        BalanceDelta feesAccrued,
+        bytes calldata hookData
+    ) external returns (bytes4, BalanceDelta) {
+        return (IHooks.afterAddLiquidity.selector, BalanceDelta.wrap(0));
+    }
+
+    function beforeRemoveLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        bytes calldata hookData
+    ) external returns (bytes4) {
+        return IHooks.beforeRemoveLiquidity.selector;
+    }
+
+    function afterRemoveLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        BalanceDelta delta,
+        BalanceDelta feesAccrued,
+        bytes calldata hookData
+    ) external returns (bytes4, BalanceDelta) {
+        return (IHooks.afterRemoveLiquidity.selector, BalanceDelta.wrap(0));
+    }
+
     function beforeSwap(
         address sender,
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params,
         bytes calldata hookData
-    ) external override returns (bytes4, BeforeSwapDelta, uint24) {
+    ) external returns (bytes4, BeforeSwapDelta, uint24) {
         // İsteğe bağlı: Sadece belirli Vault'lardan swap'a izin ver
         // if (hookData.length == 0) revert("Must come from Vault");
         return (IHooks.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
@@ -60,7 +117,7 @@ contract SaviorHook is IHooks {
         IPoolManager.SwapParams calldata params,
         BalanceDelta delta,
         bytes calldata hookData
-    ) external override returns (bytes4, int128) {
+    ) external returns (bytes4, int128) {
         // %2 fee implementation (basit örnek)
         // Gerçekte delta.amount0() / amount1() üzerinden fee hesaplanır
         // ve IPoolManager.take() veya donate() ile treasury'ye aktarılır.
@@ -72,5 +129,25 @@ contract SaviorHook is IHooks {
         // }
         
         return (IHooks.afterSwap.selector, 0);
+    }
+
+    function beforeDonate(
+        address sender,
+        PoolKey calldata key,
+        uint256 amount0,
+        uint256 amount1,
+        bytes calldata hookData
+    ) external returns (bytes4) {
+        return IHooks.beforeDonate.selector;
+    }
+
+    function afterDonate(
+        address sender,
+        PoolKey calldata key,
+        uint256 amount0,
+        uint256 amount1,
+        bytes calldata hookData
+    ) external returns (bytes4) {
+        return IHooks.afterDonate.selector;
     }
 }
