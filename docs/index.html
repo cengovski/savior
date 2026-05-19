@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$SAVIOR • Trench'lerin Kurtarıcısı | Base</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+        
+        :root {
+            --base-blue: #0052FF;
+        }
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+        }
+        
+        .font-display {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-weight: 600;
+        }
+
+        .hero-bg {
+            background: linear-gradient(135deg, #0a0a0f 0%, #111118 100%);
+        }
+
+        .section-bg {
+            background: #111118;
+        }
+
+        .base-blue {
+            color: #0052FF;
+        }
+
+        .neon-blue {
+            box-shadow: 0 0 15px rgba(0, 82, 255, 0.5);
+        }
+
+        .meme-gradient {
+            background: linear-gradient(90deg, #0052FF, #00f0ff, #0052FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass {
+            background: rgba(17, 17, 24, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .nav-active {
+            color: #0052FF;
+            border-bottom: 2px solid #0052FF;
+        }
+
+        .crypto-card {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+                       box-shadow 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        .crypto-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        .lock-item {
+            transition: all 0.3s ease;
+        }
+
+        .countdown {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .swap-input {
+            background: #0a0a0f;
+            border: 1px solid #27272a;
+        }
+
+        .metric {
+            font-feature-settings: "ss02";
+        }
+
+        .trench-bg {
+            background-image: 
+                linear-gradient(rgba(0, 82, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 82, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-[#0a0a0f] text-white">
+    <!-- Navbar -->
+    <nav class="border-b border-white/10 bg-[#0a0a0f]/95 backdrop-blur-lg sticky top-0 z-50">
+        <div class="max-w-screen-xl mx-auto px-6">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-11 h-11 bg-[#0052FF] rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-shield-halved text-white text-3xl"></i>
+                    </div>
+                    <div>
+                        <span class="font-display text-3xl font-semibold tracking-tighter">$SAVIOR</span>
+                        <span class="text-xs px-2 py-0.5 bg-white/10 rounded-full ml-1.5 align-super">BASE</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-x-2">
+                    <!-- RPC Selector -->
+                    <div class="relative group">
+                        <button onclick="toggleRpcModal()" 
+                                class="flex items-center gap-x-2 px-4 py-2.5 text-sm bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-colors">
+                            <i class="fa-solid fa-server text-[#0052FF]"></i>
+                            <span id="current-rpc" class="font-mono text-xs">mainnet.base.org</span>
+                            <i class="fa-solid fa-chevron-down text-xs ml-1"></i>
+                        </button>
+                    </div>
+
+                    <!-- Connect Wallet -->
+                    <button onclick="connectWallet()" 
+                            id="connect-btn"
+                            class="flex items-center gap-x-2 px-6 py-2.5 bg-white text-black hover:bg-white/90 font-semibold rounded-2xl text-sm transition-all active:scale-[0.985]">
+                        <i class="fa-solid fa-wallet"></i>
+                        <span id="connect-text">Cüzdanı Bağla</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="max-w-screen-xl mx-auto px-6 pt-12 pb-16">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div class="lg:col-span-7">
+                <div class="inline-flex items-center gap-x-2 px-4 py-1.5 rounded-3xl bg-white/5 border border-white/10 mb-6">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-medium">Base Mainnet • Uniswap V4</span>
+                </div>
+                
+                <h1 class="font-display text-7xl lg:text-7xl leading-[1.05] tracking-tighter font-semibold">
+                    Trench'lerin<br>
+                    <span class="meme-gradient">Kurtarıcısı</span>
+                </h1>
+                <p class="mt-6 text-xl text-white/70 max-w-lg">
+                    %48 otomatik kilit + %2 treasury fee ile güvenli ve adil trade. 
+                    Sadece uyumlu V4 pool'da çalışır.
+                </p>
+                
+                <div class="flex items-center gap-x-4 mt-8">
+                    <button onclick="document.getElementById('swap-section').scrollIntoView({ behavior: 'smooth' })" 
+                            class="px-8 py-4 bg-[#0052FF] hover:bg-[#0047e0] transition-colors font-semibold rounded-3xl flex items-center gap-x-3 text-lg">
+                        <span>Swap Yap</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button onclick="document.getElementById('vault-section').scrollIntoView({ behavior: 'smooth' })" 
+                            class="px-8 py-4 border border-white/20 hover:bg-white/5 font-semibold rounded-3xl flex items-center gap-x-3 text-lg transition-colors">
+                        <span>Vault'umu Gör</span>
+                    </button>
+                </div>
+                
+                <div class="flex items-center gap-x-8 mt-10 text-sm">
+                    <div>
+                        <div class="text-white/50">Treasury</div>
+                        <div class="font-mono text-xs text-white/80">0xb676...b787</div>
+                    </div>
+                    <div>
+                        <div class="text-white/50">Pool</div>
+                        <div class="font-medium">0 ETH / 1B $SAVIOR</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-5">
+                <div class="relative">
+                    <img src="hero-savior.jpg" alt="$SAVIOR Hero - Trench Savior" 
+                         class="rounded-3xl shadow-2xl border border-white/10 w-full">
+                    <div class="absolute -bottom-3 -right-3 bg-[#111118] border border-white/10 px-5 py-2 rounded-2xl text-sm flex items-center gap-x-2">
+                        <i class="fa-solid fa-shield-halved text-[#0052FF]"></i>
+                        <span class="font-medium">Hook Protected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="border-y border-white/10 bg-[#111118]">
+        <div class="max-w-screen-xl mx-auto px-6 py-5 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div>
+                <div class="text-3xl font-semibold metric">1B</div>
+                <div class="text-xs text-white/50 tracking-widest">TOTAL SUPPLY</div>
+            </div>
+            <div>
+                <div class="text-3xl font-semibold metric text-emerald-400">48%</div>
+                <div class="text-xs text-white/50 tracking-widest">AUTO LOCKED ON BUY</div>
+            </div>
+            <div>
+                <div class="text-3xl font-semibold metric">2%</div>
+                <div class="text-xs text-white/50 tracking-widest">FEE TO TREASURY</div>
+            </div>
+            <div>
+                <div class="text-3xl font-semibold metric">5-10</div>
+                <div class="text-xs text-white/50 tracking-widest">DAYS RANDOM LOCK</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SWAP SECTION -->
+    <div id="swap-section" class="max-w-screen-xl mx-auto px-6 pt-16 pb-12">
+        <div class="flex items-end justify-between mb-8">
+            <div>
+                <h2 class="font-display text-4xl tracking-tight">Savior ↔ ETH Swap</h2>
+                <p class="text-white/60 mt-1">Sadece Vault üzerinden • %48 kilit otomatik uygulanır</p>
+            </div>
+            <div class="text-right text-xs px-3 py-1 bg-white/5 rounded-2xl border border-white/10">
+                Uniswap V4 Hook
+            </div>
+        </div>
+
+        <div class="max-w-lg mx-auto">
+            <div class="glass rounded-3xl p-6 border border-white/10">
+                <!-- From -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm mb-2 px-1">
+                        <div class="font-medium">From</div>
+                        <div class="text-white/50">Balance: <span id="eth-balance">0.00</span> ETH</div>
+                    </div>
+                    <div class="flex items-center bg-[#0a0a0f] border border-white/10 rounded-2xl p-1">
+                        <div class="flex-1 px-4">
+                            <input type="number" id="from-amount" value="0.1" 
+                                   class="w-full bg-transparent text-3xl font-semibold outline-none py-3"
+                                   oninput="calculateSwapOutput()">
+                        </div>
+                        <div class="bg-white/5 px-5 py-3 rounded-2xl flex items-center gap-x-2 font-semibold">
+                            <i class="fa-brands fa-ethereum text-[#627EEA]"></i>
+                            <span>ETH</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div class="flex justify-center -my-2 relative z-10">
+                    <div onclick="switchTokens()" 
+                         class="w-9 h-9 bg-[#111118] border border-white/20 hover:border-[#0052FF]/50 cursor-pointer transition-colors rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-arrow-down text-[#0052FF]"></i>
+                    </div>
+                </div>
+
+                <!-- To -->
+                <div>
+                    <div class="flex justify-between text-sm mb-2 px-1">
+                        <div class="font-medium">To (estimated)</div>
+                        <div class="text-white/50">$SAVIOR</div>
+                    </div>
+                    <div class="flex items-center bg-[#0a0a0f] border border-white/10 rounded-2xl p-1">
+                        <div class="flex-1 px-4">
+                            <input type="text" id="to-amount" value="12480000" readonly
+                                   class="w-full bg-transparent text-3xl font-semibold outline-none py-3 text-white/90">
+                        </div>
+                        <div class="bg-white/5 px-5 py-3 rounded-2xl flex items-center gap-x-2 font-semibold">
+                            <i class="fa-solid fa-shield-halved text-[#0052FF]"></i>
+                            <span>$SAVIOR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slippage -->
+                <div class="mt-6 px-1">
+                    <div class="flex items-center justify-between text-sm mb-2">
+                        <div class="font-medium flex items-center gap-x-1.5">
+                            Slippage Tolerance
+                            <i class="fa-solid fa-info-circle text-white/40 cursor-help" title="V4 pool için önerilen 0.5% - 2%"></i>
+                        </div>
+                        <div class="font-mono text-[#0052FF] font-semibold" id="slippage-value">1.00%</div>
+                    </div>
+                    <input type="range" id="slippage-slider" min="0.1" max="5" step="0.1" value="1" 
+                           class="w-full accent-[#0052FF]" oninput="updateSlippage()">
+                    <div class="flex justify-between text-[10px] text-white/40 px-0.5 mt-1">
+                        <div>0.1%</div><div>5%</div>
+                    </div>
+                </div>
+
+                <button onclick="executeSwap()" 
+                        class="mt-6 w-full py-4 bg-[#0052FF] hover:bg-[#0047e0] active:bg-[#0039b3] transition-all font-bold text-lg rounded-3xl flex items-center justify-center gap-x-3 disabled:opacity-60"
+                        id="swap-btn">
+                    <span id="swap-btn-text">Vault ile Swap Yap (Buy)</span>
+                </button>
+                
+                <div class="text-center text-[10px] text-white/40 mt-3">Swap sadece kişisel Vault kontratınız üzerinden gerçekleşir. %48 otomatik kilitlenir.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VAULT SECTION -->
+    <div id="vault-section" class="max-w-screen-xl mx-auto px-6 py-12 border-t border-white/10">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h2 class="font-display text-4xl tracking-tight">Kişisel Vault'um</h2>
+                <p class="text-white/60">Bağlanan cüzdanın kilitli tokenleri ve claim işlemleri</p>
+            </div>
+            <button onclick="deployVault()" id="deploy-vault-btn"
+                    class="px-5 py-2.5 text-sm border border-white/20 hover:bg-white/5 rounded-2xl flex items-center gap-x-2 transition-colors">
+                <i class="fa-solid fa-plus"></i>
+                <span>Deploy My Vault</span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Vault Info Card -->
+            <div class="lg:col-span-5 glass rounded-3xl p-6 border border-white/10">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-xs tracking-[2px] text-white/50">VAULT ADDRESS</div>
+                        <div id="vault-address" class="font-mono text-sm mt-1 break-all text-white/90">Henüz deploy edilmedi</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-white/50">OWNER</div>
+                        <div id="vault-owner" class="font-mono text-xs text-emerald-400">Bağlı cüzdan</div>
+                    </div>
+                </div>
+                
+                <div class="my-6 h-px bg-white/10"></div>
+                
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <div class="text-xs text-white/50">TOPLAM KİLİTLİ</div>
+                        <div id="total-locked" class="text-2xl font-semibold metric mt-1">0</div>
+                        <div class="text-xs">$SAVIOR</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-white/50">CLAIM EDİLEBİLİR</div>
+                        <div id="claimable" class="text-2xl font-semibold metric mt-1 text-emerald-400">0</div>
+                        <div class="text-xs">$SAVIOR</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-white/50">KİLİT SAYISI</div>
+                        <div id="lock-count" class="text-2xl font-semibold metric mt-1">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Locks List -->
+            <div class="lg:col-span-7 glass rounded-3xl p-6 border border-white/10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="font-semibold">Kilitli Pozisyonlar</div>
+                    <button onclick="refreshVaultData()" class="text-xs px-3 py-1 bg-white/5 hover:bg-white/10 rounded-xl flex items-center gap-x-1.5">
+                        <i class="fa-solid fa-sync-alt text-xs"></i>
+                        <span>Yenile</span>
+                    </button>
+                </div>
+                
+                <div id="locks-list" class="space-y-3 max-h-[280px] overflow-auto pr-2 custom-scroll">
+                    <!-- JS ile doldurulur -->
+                    <div class="text-center py-8 text-white/40 text-sm">Cüzdan bağlayın ve Vault deploy edin</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD LIQUIDITY SECTION -->
+    <div class="max-w-screen-xl mx-auto px-6 py-12 border-t border-white/10">
+        <h2 class="font-display text-4xl tracking-tight mb-2">Pool Likidite Ekle / Çıkar</h2>
+        <p class="text-white/60 mb-8">Uniswap V4 Position Manager • Anlık hesaplama</p>
+        
+        <div class="max-w-2xl glass rounded-3xl p-7 border border-white/10">
+            <div class="mb-5">
+                <div class="flex justify-between text-sm mb-3">
+                    <div>Current Pool (yaklaşık)</div>
+                    <div class="font-mono text-xs">0 ETH / ~1B SAVIOR</div>
+                </div>
+                
+                <div class="bg-[#0a0a0f] rounded-2xl p-4">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <div class="text-xs text-white/50">ETH in Pool</div>
+                            <div class="text-2xl font-semibold">~124.8</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-white/50">$SAVIOR in Pool</div>
+                            <div class="text-2xl font-semibold">987,450,000</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="text-sm font-medium">Miktar (ETH)</label>
+                <input type="range" id="liq-slider" min="0" max="10" step="0.01" value="1" 
+                       class="w-full accent-[#0052FF] my-2" oninput="calculateLiquidity()">
+                <div class="flex justify-between text-xs">
+                    <div>0 ETH</div>
+                    <div id="slider-value" class="font-mono">1.00 ETH</div>
+                    <div>10 ETH</div>
+                </div>
+            </div>
+
+            <div class="bg-[#0a0a0f] rounded-2xl p-4 text-sm">
+                <div class="flex justify-between">
+                    <div>Karşılık gelen $SAVIOR</div>
+                    <div id="liq-savior-amount" class="font-mono font-semibold">12,450,000 SAVIOR</div>
+                </div>
+                <div class="text-[10px] text-white/40 mt-1">Fiyat ≈ 0.00000008 ETH / SAVIOR (yaklaşık)</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mt-6">
+                <button onclick="addLiquidity()" 
+                        class="py-3.5 bg-emerald-600 hover:bg-emerald-500 transition-colors rounded-2xl font-semibold flex items-center justify-center gap-x-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Likidite Ekle</span>
+                </button>
+                <button onclick="removeLiquidity()" 
+                        class="py-3.5 border border-white/20 hover:bg-white/5 transition-colors rounded-2xl font-semibold flex items-center justify-center gap-x-2">
+                    <i class="fa-solid fa-minus"></i>
+                    <span>Likidite Çıkar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 mt-12">
+        <div class="max-w-screen-xl mx-auto px-6 py-10 text-xs text-white/50 grid grid-cols-1 md:grid-cols-3 gap-y-6">
+            <div>
+                <div class="font-semibold text-white/70 mb-2">$SAVIOR Protocol</div>
+                <div>Trench'lerin Kurtarıcısı • Base V4</div>
+            </div>
+            <div class="md:text-center">
+                <div>Contracts (placeholder)</div>
+                <div class="font-mono text-[10px] mt-1 space-x-3">
+                    <span>Token: 0x...</span>
+                    <span>Hook: 0x...</span>
+                    <span>Factory: 0x...</span>
+                </div>
+            </div>
+            <div class="md:text-right">
+                Treasury: <span class="font-mono">0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787</span><br>
+                <span class="text-emerald-400">Audit pending • Use at your own risk</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- RPC Modal -->
+    <div id="rpc-modal" onclick="if (event.target.id === 'rpc-modal') toggleRpcModal()" class="hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" class="glass w-full max-w-md mx-4 rounded-3xl border border-white/10 p-6">
+            <div class="flex justify-between items-center mb-5">
+                <div class="font-semibold">RPC Seç veya Özel Gir</div>
+                <button onclick="toggleRpcModal()" class="text-white/60 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-2 mb-5" id="rpc-list">
+                <!-- Populated by JS -->
+            </div>
+            
+            <div class="pt-4 border-t border-white/10">
+                <div class="text-xs mb-2 text-white/60">Özel RPC URL</div>
+                <div class="flex gap-x-2">
+                    <input id="custom-rpc" type="text" placeholder="https://..." 
+                           class="flex-1 bg-[#0a0a0f] border border-white/20 rounded-2xl px-4 py-2.5 text-sm font-mono">
+                    <button onclick="useCustomRpc()" class="px-5 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-medium">Kullan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tailwind script
+        function initTailwind() {
+            document.documentElement.style.setProperty('--accent', '#0052FF');
+        }
+        
+        let provider;
+        let signer;
+        let userAddress;
+        let currentRpc = 'https://mainnet.base.org';
+        let currentVaultAddress = null;
+        
+        const PUBLIC_RPCS = [
+            { name: 'Base Official', url: 'https://mainnet.base.org' },
+            { name: 'PublicNode', url: 'https://base.publicnode.com' },
+            { name: '1RPC', url: 'https://1rpc.io/base' },
+            { name: 'Alchemy Public', url: 'https://base-mainnet.g.alchemy.com/public' },
+            { name: 'GetBlock', url: 'https://go.getblock.us/be0a835176364ef5929d64c12c4a3597' }
+        ];
+        
+        // Mock data for demo (gerçek kontratlar deploy edilince ethers ile değiştir)
+        let mockLocks = [];
+        let mockVaultDeployed = false;
+
+        function updateCurrentRpcDisplay() {
+            const el = document.getElementById('current-rpc');
+            const short = currentRpc.replace('https://', '').split('/')[0];
+            el.textContent = short.length > 18 ? short.substring(0,15) + '...' : short;
+        }
+
+        function toggleRpcModal() {
+            const modal = document.getElementById('rpc-modal');
+            modal.classList.toggle('hidden');
+            
+            if (!modal.classList.contains('hidden')) {
+                renderRpcList();
+            }
+        }
+        
+        function renderRpcList() {
+            const container = document.getElementById('rpc-list');
+            container.innerHTML = '';
+            
+            PUBLIC_RPCS.forEach((rpc, idx) => {
+                const isActive = rpc.url === currentRpc;
+                const div = document.createElement('div');
+                div.className = `flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-colors ${isActive ? 'bg-[#0052FF]/10 border border-[#0052FF]/30' : 'hover:bg-white/5 border border-transparent'}`;
+                div.innerHTML = `
+                    <div class="flex items-center gap-x-3">
+                        <i class="fa-solid fa-globe text-[#0052FF]"></i>
+                        <div>
+                            <div class="font-medium">${rpc.name}</div>
+                            <div class="text-xs text-white/50 font-mono">${rpc.url}</div>
+                        </div>
+                    </div>
+                    ${isActive ? '<i class="fa-solid fa-check text-emerald-400"></i>' : ''}
+                `;
+                div.onclick = () => {
+                    currentRpc = rpc.url;
+                    updateCurrentRpcDisplay();
+                    toggleRpcModal();
+                    // Reconnect provider if needed
+                    if (provider) initProvider();
+                };
+                container.appendChild(div);
+            });
+        }
+        
+        function useCustomRpc() {
+            const input = document.getElementById('custom-rpc').value.trim();
+            if (!input) return alert('RPC URL girin');
+            currentRpc = input;
+            updateCurrentRpcDisplay();
+            toggleRpcModal();
+            if (provider) initProvider();
+        }
+        
+        async function initProvider() {
+            try {
+                provider = new ethers.JsonRpcProvider(currentRpc);
+                console.log('%c[RPC] Provider initialized with', 'color:#666', currentRpc);
+            } catch(e) {
+                console.error(e);
+                alert('RPC bağlantı hatası. Başka RPC deneyin.');
+            }
+        }
+        
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                alert('MetaMask veya uyumlu cüzdan bulunamadı!');
+                return;
+            }
+            
+            try {
+                const browserProvider = new ethers.BrowserProvider(window.ethereum);
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Switch to Base if needed
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== '0x2105') { // Base 8453
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x2105' }],
+                        });
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: '0x2105',
+                                    chainName: 'Base',
+                                    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                    rpcUrls: ['https://mainnet.base.org'],
+                                    blockExplorerUrls: ['https://basescan.org']
+                                }]
+                            });
+                        }
+                    }
+                }
+                
+                signer = await browserProvider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                document.getElementById('connect-text').innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+                document.getElementById('connect-btn').classList.add('!bg-emerald-600', '!text-white');
+                
+                await initProvider();
+                await updateBalances();
+                await checkAndLoadVault();
+                
+            } catch (err) {
+                console.error(err);
+                alert('Cüzdan bağlantı hatası: ' + err.message);
+            }
+        }
+        
+        async function updateBalances() {
+            if (!signer || !provider) return;
+            try {
+                const balance = await provider.getBalance(userAddress);
+                const ethBal = parseFloat(ethers.formatEther(balance)).toFixed(4);
+                document.getElementById('eth-balance').textContent = ethBal;
+            } catch(e) {}
+        }
+        
+        function updateSlippage() {
+            const val = parseFloat(document.getElementById('slippage-slider').value);
+            document.getElementById('slippage-value').textContent = val.toFixed(2) + '%';
+        }
+        
+        function calculateSwapOutput() {
+            const fromVal = parseFloat(document.getElementById('from-amount').value) || 0;
+            // Mock fiyat: 1 ETH ≈ 12,480,000 SAVIOR (başlangıç fiyatı çok düşük)
+            const estimated = (fromVal * 12480000).toFixed(0);
+            document.getElementById('to-amount').value = estimated;
+        }
+        
+        function switchTokens() {
+            // Basit toggle (gerçekte iki yönlü)
+            const from = document.getElementById('from-amount');
+            const to = document.getElementById('to-amount');
+            const temp = from.value;
+            from.value = (parseFloat(to.value) / 12480000).toFixed(4);
+            to.value = (parseFloat(temp) * 12480000).toFixed(0);
+        }
+        
+        async function executeSwap() {
+            if (!userAddress) {
+                alert('Önce cüzdanı bağlayın');
+                return;
+            }
+            if (!currentVaultAddress) {
+                const deploy = confirm('Vault\'unuz deploy edilmemiş. Şimdi deploy edilsin mi?');
+                if (deploy) await deployVault();
+                else return;
+            }
+            
+            const amount = document.getElementById('from-amount').value;
+            const slippage = document.getElementById('slippage-slider').value;
+            
+            const btn = document.getElementById('swap-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-pulse">Vault ile Swap İşleniyor...</span>`;
+            
+            try {
+                // Gerçek implementasyonda:
+                // const vault = new ethers.Contract(currentVaultAddress, VAULT_ABI, signer);
+                // const tx = await vault.buy(ethers.parseEther(amount), minOut, { value: ethers.parseEther(amount) });
+                // await tx.wait();
+                
+                // DEMO: Simüle et
+                await new Promise(r => setTimeout(r, 1800));
+                
+                // Mock lock ekle
+                const saviorReceived = parseFloat(document.getElementById('to-amount').value);
+                const lockAmount = Math.floor(saviorReceived * 0.48);
+                const randomDays = 5 + Math.floor(Math.random() * 6);
+                const unlockTime = Date.now() + (randomDays * 24 * 60 * 60 * 1000);
+                
+                mockLocks.push({
+                    amount: lockAmount,
+                    unlockTime: unlockTime,
+                    claimed: false,
+                    id: Date.now()
+                });
+                
+                alert(`Demo Swap başarılı!\n\n${saviorReceived.toLocaleString()} $SAVIOR alındı.\n%48 (${lockAmount.toLocaleString()}) kilitlendi.\nKilit süresi: ~${randomDays} gün`);
+                
+                await refreshVaultData();
+                await updateBalances();
+                
+            } catch (e) {
+                alert('Swap hatası (demo): ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span id="swap-btn-text">Vault ile Swap Yap (Buy)</span>`;
+            }
+        }
+        
+        async function deployVault() {
+            if (!userAddress) {
+                alert('Cüzdan bağlayın');
+                return;
+            }
+            
+            const btn = document.getElementById('deploy-vault-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Deploying...`;
+            
+            try {
+                // Gerçek: VaultFactory.deployVault() çağrısı
+                await new Promise(r => setTimeout(r, 1200));
+                
+                // Deterministic mock address
+                currentVaultAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(userAddress + Date.now())).slice(2, 42);
+                
+                mockVaultDeployed = true;
+                document.getElementById('vault-address').innerHTML = 
+                    `${currentVaultAddress.slice(0,8)}...${currentVaultAddress.slice(-6)} <span class="text-emerald-400 text-xs">(demo)</span>`;
+                document.getElementById('vault-owner').textContent = userAddress.slice(0,6) + '...' + userAddress.slice(-4);
+                
+                // İlk mock lock ekle
+                if (mockLocks.length === 0) {
+                    mockLocks.push({
+                        amount: 12480000,
+                        unlockTime: Date.now() + (7 * 24 * 60 * 60 * 1000),
+                        claimed: false,
+                        id: Date.now()
+                    });
+                }
+                
+                await refreshVaultData();
+                alert('Vault başarıyla deploy edildi! (Demo)\nGerçek deploy\'da gas ücreti ödersiniz.');
+                
+            } catch(e) {
+                alert('Deploy hatası: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-plus"></i> <span>Deploy My Vault</span>`;
+            }
+        }
+        
+        async function checkAndLoadVault() {
+            // Gerçek uygulamada VaultFactory.getVault(userAddress) çağrılır
+            // Şimdilik localStorage veya mock
+            const saved = localStorage.getItem('savior_vault_' + userAddress);
+            if (saved) {
+                currentVaultAddress = saved;
+                document.getElementById('vault-address').textContent = currentVaultAddress.slice(0,8) + '...' + currentVaultAddress.slice(-6);
+                mockVaultDeployed = true;
+            }
+            await refreshVaultData();
+        }
+        
+        function refreshVaultData() {
+            const container = document.getElementById('locks-list');
+            container.innerHTML = '';
+            
+            if (!mockVaultDeployed || mockLocks.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Henüz kilitli pozisyon yok veya Vault deploy edin.</div>`;
+                document.getElementById('total-locked').textContent = '0';
+                document.getElementById('claimable').textContent = '0';
+                document.getElementById('lock-count').textContent = '0';
+                return;
+            }
+            
+            let totalLocked = 0;
+            let claimable = 0;
+            const now = Date.now();
+            
+            mockLocks.forEach((lock, index) => {
+                if (!lock.claimed) totalLocked += lock.amount;
+                
+                const isUnlocked = now >= lock.unlockTime;
+                if (isUnlocked && !lock.claimed) claimable += lock.amount;
+                
+                const remainingMs = Math.max(0, lock.unlockTime - now);
+                const days = Math.floor(remainingMs / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((remainingMs % (1000*60*60*24)) / (1000*60*60));
+                
+                const div = document.createElement('div');
+                div.className = `lock-item bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between items-center ${isUnlocked && !lock.claimed ? 'border-emerald-500/40' : ''}`;
+                
+                div.innerHTML = `
+                    <div>
+                        <div class="font-mono text-lg font-semibold">${lock.amount.toLocaleString()} <span class="text-xs text-white/60">$SAVIOR</span></div>
+                        <div class="text-xs mt-0.5 ${isUnlocked && !lock.claimed ? 'text-emerald-400' : 'text-white/50'}">
+                            ${isUnlocked && !lock.claimed ? 
+                                '<span class="font-medium">UNLOCKED • Claim edilebilir</span>' : 
+                                `Kilitli • ${days}g ${hours}sa`}
+                        </div>
+                    </div>
+                    
+                    <div>
+                        ${isUnlocked && !lock.claimed ? 
+                            `<button onclick="claimLock(${index})" class="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition-colors rounded-2xl font-semibold flex items-center gap-x-2">
+                                <i class="fa-solid fa-hand-holding-usd"></i>
+                                <span>Claim</span>
+                            </button>` : 
+                            `<div class="text-right text-xs px-4 py-1.5 bg-white/5 rounded-2xl text-white/60">
+                                ${new Date(lock.unlockTime).toLocaleDateString('tr-TR', {month:'short', day:'numeric'})}
+                            </div>`
+                        }
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            document.getElementById('total-locked').textContent = totalLocked.toLocaleString();
+            document.getElementById('claimable').textContent = claimable.toLocaleString();
+            document.getElementById('lock-count').textContent = mockLocks.length;
+        }
+        
+        async function claimLock(index) {
+            if (!currentVaultAddress) return;
+            
+            const lock = mockLocks[index];
+            if (!lock || lock.claimed) return;
+            
+            try {
+                // Gerçek: vault.claim() veya spesifik lock claim
+                await new Promise(r => setTimeout(r, 900));
+                
+                lock.claimed = true;
+                alert(`${lock.amount.toLocaleString()} $SAVIOR başarıyla claim edildi!`);
+                refreshVaultData();
+                
+            } catch(e) {
+                alert('Claim hatası: ' + e.message);
+            }
+        }
+        
+        function calculateLiquidity() {
+            const ethAmount = parseFloat(document.getElementById('liq-slider').value);
+            document.getElementById('slider-value').textContent = ethAmount.toFixed(2) + ' ETH';
+            
+            // Mock hesaplama (gerçek V4 için SDK veya quoter lazım)
+            const saviorAmount = Math.floor(ethAmount * 12480000);
+            document.getElementById('liq-savior-amount').textContent = saviorAmount.toLocaleString() + ' SAVIOR';
+        }
+        
+        async function addLiquidity() {
+            if (!userAddress) return alert('Cüzdan bağlayın');
+            const eth = document.getElementById('liq-slider').value;
+            alert(`Demo: ${eth} ETH + karşılık gelen SAVIOR ile likidite eklendi.\nGerçek implementasyonda V4 PositionManager kullanılır.`);
+        }
+        
+        function removeLiquidity() {
+            alert('Demo: Likidite çıkarma işlemi (V4 hook ile uyumlu olmalı).');
+        }
+        
+        function initDemo() {
+            initTailwind();
+            updateCurrentRpcDisplay();
+            updateSlippage();
+            calculateSwapOutput();
+            calculateLiquidity();
+            
+            // Demo için hafif interaksiyon
+            setTimeout(() => {
+                const connectBtn = document.getElementById('connect-btn');
+                if (connectBtn) {
+                    connectBtn.onclick = connectWallet;
+                }
+            }, 300);
+            
+            // Keyboard support
+            document.addEventListener('keydown', function(e) {
+                if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+                    e.preventDefault();
+                    document.getElementById('from-amount').focus();
+                }
+            });
+            
+            console.log('%c[SAVIOR] Frontend initialized. Connect wallet to interact.', 'color:#555');
+        }
+        
+        // Boot
+        window.onload = function() {
+            initDemo();
+            // Otomatik RPC init
+            initProvider();
+        }
+        
+        // Expose for console debugging
+        window.SAVIOR = { connectWallet, deployVault, refreshVaultData };
+    </script>
+</body>
+</html>
