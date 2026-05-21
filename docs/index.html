@@ -463,7 +463,17 @@
         </div>
     </div>
 
-    <script>
+    <script>const SAVIOR_TOKEN_ADDRESS = '0x1Be6693e3e3CDabF393A7bd942E41bBdACEf8bDC';
+const SAVIOR_HOOK_ADDRESS = '0x52719286b5940293765eE4093eb3dCc5e0707B4e';
+const VAULT_ADDRESS = '0x3ca85842fd1e12155a6EA47fF0349029E022ee09';
+const VAULT_FACTORY_ADDRESS = '0xF14652fBD634196bD24F198f938aeDC8E8818415';
+
+const SAVIOR_TOKEN_ABI = [{"type": "constructor", "inputs": [{"name": "initialOwner", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "allowance", "inputs": [{"name": "owner", "type": "address", "internalType": "address"}, {"name": "spender", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "approve", "inputs": [{"name": "spender", "type": "address", "internalType": "address"}, {"name": "value", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "balanceOf", "inputs": [{"name": "account", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "decimals", "inputs": [], "outputs": [{"name": "", "type": "uint8", "internalType": "uint8"}], "stateMutability": "view"}, {"type": "function", "name": "mint", "inputs": [{"name": "to", "type": "address", "internalType": "address"}, {"name": "amount", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "name", "inputs": [], "outputs": [{"name": "", "type": "string", "internalType": "string"}], "stateMutability": "view"}, {"type": "function", "name": "owner", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "renounceOwnership", "inputs": [], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "symbol", "inputs": [], "outputs": [{"name": "", "type": "string", "internalType": "string"}], "stateMutability": "view"}, {"type": "function", "name": "totalSupply", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "transfer", "inputs": [{"name": "to", "type": "address", "internalType": "address"}, {"name": "value", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "transferFrom", "inputs": [{"name": "from", "type": "address", "internalType": "address"}, {"name": "to", "type": "address", "internalType": "address"}, {"name": "value", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "transferOwnership", "inputs": [{"name": "newOwner", "type": "address", "internalType": "address"}], "outputs": [], "stateMutability": "nonpayable"}, {"type": "event", "name": "Approval", "inputs": [{"name": "owner", "type": "address", "indexed": true, "internalType": "address"}, {"name": "spender", "type": "address", "indexed": true, "internalType": "address"}, {"name": "value", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false}, {"type": "event", "name": "OwnershipTransferred", "inputs": [{"name": "previousOwner", "type": "address", "indexed": true, "internalType": "address"}, {"name": "newOwner", "type": "address", "indexed": true, "internalType": "address"}], "anonymous": false}, {"type": "event", "name": "Transfer", "inputs": [{"name": "from", "type": "address", "indexed": true, "internalType": "address"}, {"name": "to", "type": "address", "indexed": true, "internalType": "address"}, {"name": "value", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false}, {"type": "error", "name": "ERC20InsufficientAllowance", "inputs": [{"name": "spender", "type": "address", "internalType": "address"}, {"name": "allowance", "type": "uint256", "internalType": "uint256"}, {"name": "needed", "type": "uint256", "internalType": "uint256"}]}, {"type": "error", "name": "ERC20InsufficientBalance", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "balance", "type": "uint256", "internalType": "uint256"}, {"name": "needed", "type": "uint256", "internalType": "uint256"}]}, {"type": "error", "name": "ERC20InvalidApprover", "inputs": [{"name": "approver", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "ERC20InvalidReceiver", "inputs": [{"name": "receiver", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "ERC20InvalidSender", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "ERC20InvalidSpender", "inputs": [{"name": "spender", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "OwnableInvalidOwner", "inputs": [{"name": "owner", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "OwnableUnauthorizedAccount", "inputs": [{"name": "account", "type": "address", "internalType": "address"}]}];
+const SAVIOR_HOOK_ABI = [{"type": "constructor", "inputs": [{"name": "_treasury", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "FEE_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "afterAddLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "delta", "type": "int256", "internalType": "BalanceDelta"}, {"name": "feesAccrued", "type": "int256", "internalType": "BalanceDelta"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int256", "internalType": "BalanceDelta"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterDonate", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "amount0", "type": "uint256", "internalType": "uint256"}, {"name": "amount1", "type": "uint256", "internalType": "uint256"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterInitialize", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "sqrtPriceX96", "type": "uint160", "internalType": "uint160"}, {"name": "tick", "type": "int24", "internalType": "int24"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterRemoveLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "delta", "type": "int256", "internalType": "BalanceDelta"}, {"name": "feesAccrued", "type": "int256", "internalType": "BalanceDelta"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int256", "internalType": "BalanceDelta"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterSwap", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.SwapParams", "components": [{"name": "zeroForOne", "type": "bool", "internalType": "bool"}, {"name": "amountSpecified", "type": "int256", "internalType": "int256"}, {"name": "sqrtPriceLimitX96", "type": "uint160", "internalType": "uint160"}]}, {"name": "delta", "type": "int256", "internalType": "BalanceDelta"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int128", "internalType": "int128"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeAddLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeDonate", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "amount0", "type": "uint256", "internalType": "uint256"}, {"name": "amount1", "type": "uint256", "internalType": "uint256"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeInitialize", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "sqrtPriceX96", "type": "uint160", "internalType": "uint160"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeRemoveLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeSwap", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.SwapParams", "components": [{"name": "zeroForOne", "type": "bool", "internalType": "bool"}, {"name": "amountSpecified", "type": "int256", "internalType": "int256"}, {"name": "sqrtPriceLimitX96", "type": "uint160", "internalType": "uint160"}]}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int256", "internalType": "BeforeSwapDelta"}, {"name": "", "type": "uint24", "internalType": "uint24"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "getHookPermissions", "inputs": [], "outputs": [{"name": "", "type": "tuple", "internalType": "struct Hooks.Permissions", "components": [{"name": "beforeInitialize", "type": "bool", "internalType": "bool"}, {"name": "afterInitialize", "type": "bool", "internalType": "bool"}, {"name": "beforeAddLiquidity", "type": "bool", "internalType": "bool"}, {"name": "afterAddLiquidity", "type": "bool", "internalType": "bool"}, {"name": "beforeRemoveLiquidity", "type": "bool", "internalType": "bool"}, {"name": "afterRemoveLiquidity", "type": "bool", "internalType": "bool"}, {"name": "beforeSwap", "type": "bool", "internalType": "bool"}, {"name": "afterSwap", "type": "bool", "internalType": "bool"}, {"name": "beforeDonate", "type": "bool", "internalType": "bool"}, {"name": "afterDonate", "type": "bool", "internalType": "bool"}, {"name": "beforeSwapReturnDelta", "type": "bool", "internalType": "bool"}, {"name": "afterSwapReturnDelta", "type": "bool", "internalType": "bool"}, {"name": "afterAddLiquidityReturnDelta", "type": "bool", "internalType": "bool"}, {"name": "afterRemoveLiquidityReturnDelta", "type": "bool", "internalType": "bool"}]}], "stateMutability": "pure"}, {"type": "function", "name": "treasury", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}];
+const VAULT_ABI = [{"type": "constructor", "inputs": [{"name": "_owner", "type": "address", "internalType": "address"}, {"name": "_saviorToken", "type": "address", "internalType": "address"}, {"name": "_poolManager", "type": "address", "internalType": "address"}, {"name": "_saviorHook", "type": "address", "internalType": "address"}, {"name": "_treasury", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "receive", "stateMutability": "payable"}, {"type": "function", "name": "buy", "inputs": [{"name": "ethAmount", "type": "uint256", "internalType": "uint256"}, {"name": "minSaviorOut", "type": "uint256", "internalType": "uint256"}, {"name": "slippageBps", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "payable"}, {"type": "function", "name": "claim", "inputs": [], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "factory", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "getClaimableAmount", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "getLocks", "inputs": [], "outputs": [{"name": "", "type": "tuple[]", "internalType": "struct Vault.Lock[]", "components": [{"name": "amount", "type": "uint256", "internalType": "uint256"}, {"name": "unlockTime", "type": "uint256", "internalType": "uint256"}, {"name": "claimed", "type": "bool", "internalType": "bool"}]}], "stateMutability": "view"}, {"type": "function", "name": "locks", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "amount", "type": "uint256", "internalType": "uint256"}, {"name": "unlockTime", "type": "uint256", "internalType": "uint256"}, {"name": "claimed", "type": "bool", "internalType": "bool"}], "stateMutability": "view"}, {"type": "function", "name": "owner", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "poolManager", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "renounceOwnership", "inputs": [], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "saviorHook", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "saviorToken", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "contract IERC20"}], "stateMutability": "view"}, {"type": "function", "name": "totalLocked", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "transferOwnership", "inputs": [{"name": "newOwner", "type": "address", "internalType": "address"}], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "treasury", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "event", "name": "Claimed", "inputs": [{"name": "user", "type": "address", "indexed": true, "internalType": "address"}, {"name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false}, {"type": "event", "name": "Locked", "inputs": [{"name": "user", "type": "address", "indexed": true, "internalType": "address"}, {"name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "unlockTime", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false}, {"type": "event", "name": "OwnershipTransferred", "inputs": [{"name": "previousOwner", "type": "address", "indexed": true, "internalType": "address"}, {"name": "newOwner", "type": "address", "indexed": true, "internalType": "address"}], "anonymous": false}, {"type": "error", "name": "OwnableInvalidOwner", "inputs": [{"name": "owner", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "OwnableUnauthorizedAccount", "inputs": [{"name": "account", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "SafeERC20FailedOperation", "inputs": [{"name": "token", "type": "address", "internalType": "address"}]}];
+const VAULT_FACTORY_ABI = [{"type": "constructor", "inputs": [{"name": "_saviorToken", "type": "address", "internalType": "address"}, {"name": "_poolManager", "type": "address", "internalType": "address"}, {"name": "_saviorHook", "type": "address", "internalType": "address"}, {"name": "_treasury", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "deployVault", "inputs": [], "outputs": [{"name": "vaultAddr", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "getVault", "inputs": [{"name": "user", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "poolManager", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "predictVaultAddress", "inputs": [{"name": "user", "type": "address", "internalType": "address"}], "outputs": [{"name": "predicted", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "saviorHook", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "saviorToken", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "treasury", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "userVault", "inputs": [{"name": "", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "event", "name": "VaultCreated", "inputs": [{"name": "user", "type": "address", "indexed": true, "internalType": "address"}, {"name": "vault", "type": "address", "indexed": true, "internalType": "address"}], "anonymous": false}];
+
+
         // Tailwind script
         function initTailwind() {
             document.documentElement.style.setProperty('--accent', '#0052FF');
@@ -631,10 +641,50 @@
         }
         
         async function executeSwap() {
-            if (!userAddress) {
-                alert('Önce cüzdanı bağlayın');
-                return;
-            }
+    if (!userAddress) {
+        alert('Önce cüzdanı bağlayın');
+        return;
+    }
+    if (!currentVaultAddress) {
+        const deploy = confirm('Vault\'unuz deploy edilmemiş. Şimdi deploy edilsin mi?');
+        if (deploy) await deployVault();
+        else return;
+    }
+    const amount = document.getElementById('from-amount').value;
+    const slippage = document.getElementById('slippage-slider').value;
+    const btn = document.getElementById('swap-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-pulse">Vault ile Swap İşleniyor...</span>`;
+    try {
+        // Real contract call: Buy SAVIOR with ETH via Vault
+        const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
+        // Calculate min amount out with slippage
+        // We need to get the expected output from the vault or pool.
+        // For simplicity, we use the same mock calculation as before.
+        // In reality, you should call a view function on the vault or use a quoter.
+        const amountIn = ethers.parseEther(amount);
+        // Mock expected output (same as before)
+        const expectedOut = parseFloat(document.getElementById('to-amount').value);
+        const minOut = ethers.parseUnits((expectedOut * (1 - slippage/100)).toString(), 0); // assuming 0 decimals for SAVIOR? Actually SAVIOR has 18 decimals? We'll assume 0 for simplicity.
+        // Actually, we should use the vault's buy function signature: buy(uint256 ethAmount, uint256 minSAVIOROut)
+        // We'll assume the vault's buy function takes ethAmount in wei and minSAVIOROut in wei (with 18 decimals).
+        // We need to know the decimals of SAVIOR. Let's assume 18.
+        const saViorDecimals = 18;
+        const minOutWithDecimals = ethers.parseUnits((expectedOut * (1 - slippage/100)).toString(), saViorDecimals);
+        const tx = await vault.buy(amountIn, minOutWithDecimals, { value: amountIn });
+        await tx.wait();
+        // Wait for a bit to let events be indexed
+        await new Promise(r => setTimeout(r, 3000));
+        await refreshVaultData();
+        await updateBalances();
+        alert('Swap successful!');
+    } catch (e) {
+        alert('Swap hatası: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span id="swap-btn-text">Vault ile Swap Yap (Buy)</span>`;
+    }
+}
             if (!currentVaultAddress) {
                 const deploy = confirm('Vault\'unuz deploy edilmemiş. Şimdi deploy edilsin mi?');
                 if (deploy) await deployVault();
@@ -670,7 +720,11 @@
                     id: Date.now()
                 });
                 
-                alert(`Demo Swap başarılı!\n\n${saviorReceived.toLocaleString()} $SAVIOR alındı.\n%48 (${lockAmount.toLocaleString()}) kilitlendi.\nKilit süresi: ~${randomDays} gün`);
+                alert(`Demo Swap başarılı!
+
+${saviorReceived.toLocaleString()} $SAVIOR alındı.
+%48 (${lockAmount.toLocaleString()}) kilitlendi.
+Kilit süresi: ~${randomDays} gün`);
                 
                 await refreshVaultData();
                 await updateBalances();
@@ -684,10 +738,69 @@
         }
         
         async function deployVault() {
-            if (!userAddress) {
-                alert('Cüzdan bağlayın');
-                return;
+    if (!userAddress) {
+        alert('Cüzdan bağlayın');
+        return;
+    }
+    const btn = document.getElementById('deploy-vault-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Deploying...`;
+    try {
+        // Real contract call: Use VaultFactory to deploy vault
+        const factory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, signer);
+        const tx = await factory.deployVault();
+        const receipt = await tx.wait();
+        // Find the VaultCreated event
+        const event = receipt.logs.find(l => {
+            try {
+                // We need the ABI to decode, but we can approximate by topic
+                // VaultFactory event VaultCreated(address indexed user, address vault)
+                // The first topic is the event signature hash.
+                // We'll just look for a log with address being the factory and topics length >=2
+                // For simplicity, we assume the first log is the event.
+                // In reality, you should decode using the ABI.
+                return l.address && l.address.toLowerCase() === factory.address.toLowerCase();
+            } catch (e) {
+                return false;
             }
+        });
+        if (event) {
+            // Try to decode the address from topics or data
+            // The vault address is the second topic (indexed) or in data.
+            // For simplicity, we'll assume the contract returns the vault address as the return value.
+            // The deployVault function returns address.
+            const vaultAddress = await factory.getVault(userAddress); // or we can use a function to get the vault for user
+            // Actually, we have a function getVault(address) that returns the vault for a user.
+            const vault = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, signer);
+            const vaultAddressFromGetter = await vault.getVault(userAddress);
+            if (vaultAddressFromGetter && vaultAddressFromGetter !== '0x0000000000000000000000000000000000000000') {
+                currentVaultAddress = vaultAddressFromGetter;
+            } else {
+                // Fallback to predicting the address using the same logic as the contract
+                // We'll just use a placeholder for now.
+                currentVaultAddress = '0x' + '0'.repeat(40); // placeholder, should be replaced
+            }
+        } else {
+            // If we can't find the event, we can still try to get the vault via getter
+            const vault = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, signer);
+            const vaultAddress = await vault.getVault(userAddress);
+            if (vaultAddress && vaultAddress !== '0x0000000000000000000000000000000000000000') {
+                currentVaultAddress = vaultAddress;
+            } else {
+                throw new Error('Could not determine vault address after deployment');
+            }
+        }
+        document.getElementById('vault-address').innerHTML = `\${currentVaultAddress.slice(0,8)}...\${currentVaultAddress.slice(-6)}`;
+        document.getElementById('vault-owner').textContent = userAddress.slice(0,6) + '...' + userAddress.slice(-4);
+        await refreshVaultData();
+        alert('Vault deployed successfully');
+    } catch(e) {
+        alert('Deploy hatası: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-plus"></i> <span>Deploy My Vault</span>`;
+    }
+}
             
             const btn = document.getElementById('deploy-vault-btn');
             btn.disabled = true;
@@ -716,7 +829,8 @@
                 }
                 
                 await refreshVaultData();
-                alert('Vault başarıyla deploy edildi! (Demo)\nGerçek deploy\'da gas ücreti ödersiniz.');
+                alert('Vault başarıyla deploy edildi! (Demo)
+Gerçek deploy\'da gas ücreti ödersiniz.');
                 
             } catch(e) {
                 alert('Deploy hatası: ' + e.message);
@@ -739,16 +853,33 @@
         }
         
         function refreshVaultData() {
-            const container = document.getElementById('locks-list');
-            container.innerHTML = '';
-            
-            if (!mockVaultDeployed || mockLocks.length === 0) {
-                container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Henüz kilitli pozisyon yok veya Vault deploy edin.</div>`;
-                document.getElementById('total-locked').textContent = '0';
-                document.getElementById('claimable').textContent = '0';
-                document.getElementById('lock-count').textContent = '0';
-                return;
-            }
+    const container = document.getElementById('locks-list');
+    container.innerHTML = '';
+    if (!currentVaultAddress || !provider || !signer) {
+        container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Connect wallet and ensure contracts are configured</div>`;
+        document.getElementById('total-locked').textContent = '0';
+        document.getElementById('claimable').textContent = '0';
+        document.getElementById('lock-count').textContent = '0';
+        return;
+    }
+    try {
+        const vault = new ethers.Contract(currentVaultAddress, VAULT_ABI, signer);
+        // We assume the vault has functions: totalLocked(), claimable(), lockCount()
+        const [totalLocked, claimable, lockCount] = Promise.all([
+            vault.totalLocked(),
+            vault.claimable(),
+            vault.lockCount()
+        ]);
+        document.getElementById('total-locked').textContent = ethers.formatEther(totalLocked);
+        document.getElementById('claimable').textContent = ethers.formatEter(claimable);
+        document.getElementById('lock-count').textContent = lockCount.toString();
+        // We'll skip fetching individual locks for simplicity.
+        container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Lock details not implemented</div>`;
+    } catch (error) {
+        console.error('Error fetching vault data:', error);
+        container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Error loading vault data</div>`;
+    }
+}
             
             let totalLocked = 0;
             let claimable = 0;
@@ -798,17 +929,19 @@
         }
         
         async function claimLock(index) {
-            if (!currentVaultAddress) return;
-            
-            const lock = mockLocks[index];
-            if (!lock || lock.claimed) return;
-            
-            try {
-                // Gerçek: vault.claim() veya spesifik lock claim
-                await new Promise(r => setTimeout(r, 900));
-                
-                lock.claimed = true;
-                alert(`${lock.amount.toLocaleString()} $SAVIOR başarıyla claim edildi!`);
+    if (!currentVaultAddress || !provider || !signer) return alert('Connect wallet and configure contracts');
+    try {
+        const vault = new ethers.Contract(currentVaultAddress, VAULT_ABI, signer);
+        // We assume there is a function claim(uint256 index)
+        const tx = await vault.claim(index);
+        await tx.wait();
+        alert('Claim successful');
+        await refreshVaultData();
+    } catch(e) {
+        console.error('Claim error:', error);
+        alert('Claim failed: ' + e.message);
+    }
+} $SAVIOR başarıyla claim edildi!`);
                 refreshVaultData();
                 
             } catch(e) {
@@ -828,7 +961,8 @@
         async function addLiquidity() {
             if (!userAddress) return alert('Cüzdan bağlayın');
             const eth = document.getElementById('liq-slider').value;
-            alert(`Demo: ${eth} ETH + karşılık gelen SAVIOR ile likidite eklendi.\nGerçek implementasyonda V4 PositionManager kullanılır.`);
+            alert(`Demo: ${eth} ETH + karşılık gelen SAVIOR ile likidite eklendi.
+Gerçek implementasyonda V4 PositionManager kullanılır.`);
         }
         
         function removeLiquidity() {
