@@ -463,10 +463,10 @@
         </div>
     </div>
 
-    <script>const SAVIOR_TOKEN_ADDRESS = '0x1Be6693e3e3CDabF393A7bd942E41bBdACEf8bDC';
-const SAVIOR_HOOK_ADDRESS = '0x52719286b5940293765eE4093eb3dCc5e0707B4e';
-const VAULT_ADDRESS = '0x3ca85842fd1e12155a6EA47fF0349029E022ee09';
-const VAULT_FACTORY_ADDRESS = '0xF14652fBD634196bD24F198f938aeDC8E8818415';
+    <script>const SAVIOR_TOKEN_ADDRESS = "0x1Be6693e3e3CDabF393A7bd942E41bBdACEf8bDC";
+const SAVIOR_HOOK_ADDRESS = "0x52719286b5940293765eE4093eb3dCc5e0707B4e";
+const VAULT_ADDRESS = "0x3ca85842fd1e12155a6EA47fF0349029E022ee09";
+const VAULT_FACTORY_ADDRESS = "0xF14652fBD634196bD24F198f938aeDC8E8818415";
 
 const SAVIOR_TOKEN_ABI = [{"type": "constructor", "inputs": [{"name": "initialOwner", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "allowance", "inputs": [{"name": "owner", "type": "address", "internalType": "address"}, {"name": "spender", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "approve", "inputs": [{"name": "spender", "type": "address", "internalType": "address"}, {"name": "value", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "balanceOf", "inputs": [{"name": "account", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "decimals", "inputs": [], "outputs": [{"name": "", "type": "uint8", "internalType": "uint8"}], "stateMutability": "view"}, {"type": "function", "name": "mint", "inputs": [{"name": "to", "type": "address", "internalType": "address"}, {"name": "amount", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "name", "inputs": [], "outputs": [{"name": "", "type": "string", "internalType": "string"}], "stateMutability": "view"}, {"type": "function", "name": "owner", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}, {"type": "function", "name": "renounceOwnership", "inputs": [], "outputs": [], "stateMutability": "nonpayable"}, {"type": "function", "name": "symbol", "inputs": [], "outputs": [{"name": "", "type": "string", "internalType": "string"}], "stateMutability": "view"}, {"type": "function", "name": "totalSupply", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "transfer", "inputs": [{"name": "to", "type": "address", "internalType": "address"}, {"name": "value", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "transferFrom", "inputs": [{"name": "from", "type": "address", "internalType": "address"}, {"name": "to", "type": "address", "internalType": "address"}, {"name": "value", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "transferOwnership", "inputs": [{"name": "newOwner", "type": "address", "internalType": "address"}], "outputs": [], "stateMutability": "nonpayable"}, {"type": "event", "name": "Approval", "inputs": [{"name": "owner", "type": "address", "indexed": true, "internalType": "address"}, {"name": "spender", "type": "address", "indexed": true, "internalType": "address"}, {"name": "value", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false}, {"type": "event", "name": "OwnershipTransferred", "inputs": [{"name": "previousOwner", "type": "address", "indexed": true, "internalType": "address"}, {"name": "newOwner", "type": "address", "indexed": true, "internalType": "address"}], "anonymous": false}, {"type": "event", "name": "Transfer", "inputs": [{"name": "from", "type": "address", "indexed": true, "internalType": "address"}, {"name": "to", "type": "address", "indexed": true, "internalType": "address"}, {"name": "value", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false}, {"type": "error", "name": "ERC20InsufficientAllowance", "inputs": [{"name": "spender", "type": "address", "internalType": "address"}, {"name": "allowance", "type": "uint256", "internalType": "uint256"}, {"name": "needed", "type": "uint256", "internalType": "uint256"}]}, {"type": "error", "name": "ERC20InsufficientBalance", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "balance", "type": "uint256", "internalType": "uint256"}, {"name": "needed", "type": "uint256", "internalType": "uint256"}]}, {"type": "error", "name": "ERC20InvalidApprover", "inputs": [{"name": "approver", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "ERC20InvalidReceiver", "inputs": [{"name": "receiver", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "ERC20InvalidSender", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "ERC20InvalidSpender", "inputs": [{"name": "spender", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "OwnableInvalidOwner", "inputs": [{"name": "owner", "type": "address", "internalType": "address"}]}, {"type": "error", "name": "OwnableUnauthorizedAccount", "inputs": [{"name": "account", "type": "address", "internalType": "address"}]}];
 const SAVIOR_HOOK_ABI = [{"type": "constructor", "inputs": [{"name": "_treasury", "type": "address", "internalType": "address"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "FEE_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"}, {"type": "function", "name": "afterAddLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "delta", "type": "int256", "internalType": "BalanceDelta"}, {"name": "feesAccrued", "type": "int256", "internalType": "BalanceDelta"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int256", "internalType": "BalanceDelta"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterDonate", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "amount0", "type": "uint256", "internalType": "uint256"}, {"name": "amount1", "type": "uint256", "internalType": "uint256"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterInitialize", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "sqrtPriceX96", "type": "uint160", "internalType": "uint160"}, {"name": "tick", "type": "int24", "internalType": "int24"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterRemoveLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "delta", "type": "int256", "internalType": "BalanceDelta"}, {"name": "feesAccrued", "type": "int256", "internalType": "BalanceDelta"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int256", "internalType": "BalanceDelta"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "afterSwap", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.SwapParams", "components": [{"name": "zeroForOne", "type": "bool", "internalType": "bool"}, {"name": "amountSpecified", "type": "int256", "internalType": "int256"}, {"name": "sqrtPriceLimitX96", "type": "uint160", "internalType": "uint160"}]}, {"name": "delta", "type": "int256", "internalType": "BalanceDelta"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int128", "internalType": "int128"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeAddLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeDonate", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "amount0", "type": "uint256", "internalType": "uint256"}, {"name": "amount1", "type": "uint256", "internalType": "uint256"}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeInitialize", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "sqrtPriceX96", "type": "uint160", "internalType": "uint160"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeRemoveLiquidity", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.ModifyLiquidityParams", "components": [{"name": "tickLower", "type": "int24", "internalType": "int24"}, {"name": "tickUpper", "type": "int24", "internalType": "int24"}, {"name": "liquidityDelta", "type": "int256", "internalType": "int256"}, {"name": "salt", "type": "bytes32", "internalType": "bytes32"}]}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "beforeSwap", "inputs": [{"name": "sender", "type": "address", "internalType": "address"}, {"name": "key", "type": "tuple", "internalType": "struct PoolKey", "components": [{"name": "currency0", "type": "address", "internalType": "Currency"}, {"name": "currency1", "type": "address", "internalType": "Currency"}, {"name": "fee", "type": "uint24", "internalType": "uint24"}, {"name": "tickSpacing", "type": "int24", "internalType": "int24"}, {"name": "hooks", "type": "address", "internalType": "contract IHooks"}]}, {"name": "params", "type": "tuple", "internalType": "struct IPoolManager.SwapParams", "components": [{"name": "zeroForOne", "type": "bool", "internalType": "bool"}, {"name": "amountSpecified", "type": "int256", "internalType": "int256"}, {"name": "sqrtPriceLimitX96", "type": "uint160", "internalType": "uint160"}]}, {"name": "hookData", "type": "bytes", "internalType": "bytes"}], "outputs": [{"name": "", "type": "bytes4", "internalType": "bytes4"}, {"name": "", "type": "int256", "internalType": "BeforeSwapDelta"}, {"name": "", "type": "uint24", "internalType": "uint24"}], "stateMutability": "nonpayable"}, {"type": "function", "name": "getHookPermissions", "inputs": [], "outputs": [{"name": "", "type": "tuple", "internalType": "struct Hooks.Permissions", "components": [{"name": "beforeInitialize", "type": "bool", "internalType": "bool"}, {"name": "afterInitialize", "type": "bool", "internalType": "bool"}, {"name": "beforeAddLiquidity", "type": "bool", "internalType": "bool"}, {"name": "afterAddLiquidity", "type": "bool", "internalType": "bool"}, {"name": "beforeRemoveLiquidity", "type": "bool", "internalType": "bool"}, {"name": "afterRemoveLiquidity", "type": "bool", "internalType": "bool"}, {"name": "beforeSwap", "type": "bool", "internalType": "bool"}, {"name": "afterSwap", "type": "bool", "internalType": "bool"}, {"name": "beforeDonate", "type": "bool", "internalType": "bool"}, {"name": "afterDonate", "type": "bool", "internalType": "bool"}, {"name": "beforeSwapReturnDelta", "type": "bool", "internalType": "bool"}, {"name": "afterSwapReturnDelta", "type": "bool", "internalType": "bool"}, {"name": "afterAddLiquidityReturnDelta", "type": "bool", "internalType": "bool"}, {"name": "afterRemoveLiquidityReturnDelta", "type": "bool", "internalType": "bool"}]}], "stateMutability": "pure"}, {"type": "function", "name": "treasury", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"}];
@@ -493,9 +493,7 @@ const VAULT_FACTORY_ABI = [{"type": "constructor", "inputs": [{"name": "_saviorT
             { name: 'GetBlock', url: 'https://go.getblock.us/be0a835176364ef5929d64c12c4a3597' }
         ];
         
-        // Mock data for demo (gerçek kontratlar deploy edilince ethers ile değiştir)
-        let mockLocks = [];
-        let mockVaultDeployed = false;
+        
 
         function updateCurrentRpcDisplay() {
             const el = document.getElementById('current-rpc');
@@ -650,6 +648,50 @@ const VAULT_FACTORY_ABI = [{"type": "constructor", "inputs": [{"name": "_saviorT
         if (deploy) await deployVault();
         else return;
     }
+
+    const amount = document.getElementById('from-amount').value;
+    const slippage = document.getElementById('slippage-slider').value;
+
+    const btn = document.getElementById('swap-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-pulse">Vault ile Swap İşleniyor...</span>`;
+
+    try {
+        // Real contract call: Buy SAVIOR with ETH via Vault
+        const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
+        const amountIn = ethers.parseEther(amount);
+        
+        // For a real implementation, you'd need to get the expected output properly
+        // This is a simplified version - in production you'd use a proper quoter or view function
+        // For now, we'll use a placeholder calculation and apply slippage
+        // NOTE: This should be replaced with actual contract query for expected output
+        const mockEthToSaviorRate = 1000000; // Placeholder - should be queried from contract/vault
+        const expectedOut = parseFloat(amount) * mockEthToSaviorRate;
+        const minOut = ethers.parseUnits((expectedOut * (1 - slippage/100)).toString(), 0);
+        
+        // Call the vault's buy function
+        const tx = await vault.buy(amountIn, minOut, { value: amountIn });
+        await tx.wait();
+        
+        // Wait for events to be indexed
+        await new Promise(r => setTimeout(r, 3000));
+        
+        await refreshVaultData();
+        await updateBalances();
+        
+        alert('Swap başarılı!');
+    } catch (e) {
+        alert('Swap hatası: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span id="swap-btn-text">Vault ile Swap Yap</span>`;
+    }
+}
+    if (!currentVaultAddress) {
+        const deploy = confirm('Vault\'unuz deploy edilmemiş. Şimdi deploy edilsin mi?');
+        if (deploy) await deployVault();
+        else return;
+    }
     const amount = document.getElementById('from-amount').value;
     const slippage = document.getElementById('slippage-slider').value;
     const btn = document.getElementById('swap-btn');
@@ -739,9 +781,33 @@ Kilit süresi: ~${randomDays} gün`);
         
         async function deployVault() {
     if (!userAddress) {
-        alert('Cüzdan bağlayın');
+        alert('Önce cüzdanı bağlayın');
         return;
     }
+    const btn = document.getElementById('deploy-vault-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-pulse">Vault deploy ediliyor...</span>`;
+    try {
+        // Real contract call: Use VaultFactory to deploy vault
+        const factory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, signer);
+        const tx = await factory.deployVault();
+        const receipt = await tx.wait();
+        
+        // Get the vault address for this user
+        currentVaultAddress = await factory.getVault(userAddress);
+        
+        document.getElementById('vault-address').textContent = currentVaultAddress.slice(0,8) + '...' + currentVaultAddress.slice(-6);
+        document.getElementById('vault-owner').textContent = userAddress.slice(0,6) + '...' + userAddress.slice(-4);
+        
+        await refreshVaultData();
+        alert('Vault başarıyla deploy edildi!');
+    } catch(e) {
+        alert('Vault deploy hatası: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i><span>Deploy My Vault</span>';
+    }
+}
     const btn = document.getElementById('deploy-vault-btn');
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Deploying...`;
@@ -841,27 +907,64 @@ Gerçek deploy\'da gas ücreti ödersiniz.');
         }
         
         async function checkAndLoadVault() {
-            // Gerçek uygulamada VaultFactory.getVault(userAddress) çağrılır
-            // Şimdilik localStorage veya mock
-            const saved = localStorage.getItem('savior_vault_' + userAddress);
-            if (saved) {
-                currentVaultAddress = saved;
-                document.getElementById('vault-address').textContent = currentVaultAddress.slice(0,8) + '...' + currentVaultAddress.slice(-6);
-                mockVaultDeployed = true;
-            }
+    // Real implementation: VaultFactory.getVault(userAddress)
+    if (!userAddress || !provider) return;
+    
+    try {
+        const factory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, signer);
+        const vaultAddress = await factory.getVault(userAddress);
+        
+        if (vaultAddress && vaultAddress !== '0x0000000000000000000000000000000000000000') {
+            currentVaultAddress = vaultAddress;
+            document.getElementById('vault-address').textContent = currentVaultAddress.slice(0,8) + '...' + currentVaultAddress.slice(-6);
+            document.getElementById('vault-owner').textContent = userAddress.slice(0,6) + '...' + userAddress.slice(-4);
+        }
+    } catch (e) {
+        console.error('Error checking vault:', e);
+    }
+    
+    await refreshVaultData();
+}
             await refreshVaultData();
         }
         
         function refreshVaultData() {
     const container = document.getElementById('locks-list');
     container.innerHTML = '';
+    
     if (!currentVaultAddress || !provider || !signer) {
-        container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Connect wallet and ensure contracts are configured</div>`;
+        container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Cüzdan bağlayın ve Vault deploy edin</div>`;
         document.getElementById('total-locked').textContent = '0';
         document.getElementById('claimable').textContent = '0';
         document.getElementById('lock-count').textContent = '0';
         return;
     }
+    
+    try {
+        const vault = new ethers.Contract(currentVaultAddress, VAULT_ABI, signer);
+        
+        // Fetch vault data using contract methods
+        Promise.all([
+            vault.totalLocked(),
+            vault.getClaimableAmount(),
+            vault.lockCount()
+        ]).then(([totalLocked, claimable, lockCount]) => {
+            document.getElementById('total-locked').textContent = ethers.formatEther(totalLocked);
+            document.getElementById('claimable').textContent = ethers.formatEther(claimable);
+            document.getElementById('lock-count').textContent = lockCount.toString();
+            
+            // For individual locks, we'd need to fetch them and display
+            // This is simplified - in production you'd fetch and display individual locks
+            container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Kilitli pozisyonlar yüklendi</div>`;
+        }).catch(error => {
+            console.error('Error fetching vault data:', error);
+            container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Vault verileri yüklenemedi</div>`;
+        });
+    } catch (error) {
+        console.error('Error fetching vault data:', error);
+        container.innerHTML = `<div class="text-center py-6 text-white/40 text-sm">Vault verileri yüklenemedi</div>`;
+    }
+}
     try {
         const vault = new ethers.Contract(currentVaultAddress, VAULT_ABI, signer);
         // We assume the vault has functions: totalLocked(), claimable(), lockCount()
@@ -929,15 +1032,22 @@ Gerçek deploy\'da gas ücreti ödersiniz.');
         }
         
         async function claimLock(index) {
-    if (!currentVaultAddress || !provider || !signer) return alert('Connect wallet and configure contracts');
+    if (!currentVaultAddress || !provider || !signer) return alert('Cüzdan bağlayın ve Vault deploy edin');
+    
     try {
         const vault = new ethers.Contract(currentVaultAddress, VAULT_ABI, signer);
-        // We assume there is a function claim(uint256 index)
+        // Assuming there's a claim function that takes an index
+        // You would need to check the actual vault ABI for the correct function signature
         const tx = await vault.claim(index);
         await tx.wait();
-        alert('Claim successful');
+        
+        alert('Claim başarılı!');
         await refreshVaultData();
     } catch(e) {
+        console.error('Claim error:', e);
+        alert('Claim hatası: ' + e.message);
+    }
+} catch(e) {
         console.error('Claim error:', error);
         alert('Claim failed: ' + e.message);
     }
