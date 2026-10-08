@@ -5,8 +5,30 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>$SAVIOR • Arc Mainnet</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
-<script src="wallet.js"></script>
+<script>
+// Load ethers then wallet.js sequentially to avoid race condition
+(function() {
+  function loadScript(src, cb) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = cb;
+    s.onerror = function() { console.error('Failed to load: ' + src); cb(); };
+    document.head.appendChild(s);
+  }
+  var ETHERS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js';
+  var ETHERS_FB  = 'https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js';
+  loadScript(ETHERS_CDN, function() {
+    if (!window.ethers) loadScript(ETHERS_FB, loadWallet);
+    else loadWallet();
+  });
+  function loadWallet() {
+    loadScript('wallet.js', function() {
+      if (!window.WalletConnector) console.error('WalletConnector not defined after wallet.js load');
+      else document.dispatchEvent(new Event('walletReady'));
+    });
+  }
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
 *{font-family:'Inter',sans-serif}
@@ -318,17 +340,33 @@ function showTab(t) {
 
 // ── Wallet ─────────────────────────────────────────────────────────────
 async function connectWallet() {
-  if (!window.WalletConnector) { alert('wallet.js not loaded'); return; }
+  // Wait up to 5s for wallet.js to load
+  if (!window.WalletConnector) {
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('wallet.js yüklenemedi — sayfayı yenileyin')), 5000);
+      document.addEventListener('walletReady', () => { clearTimeout(t); resolve(); }, { once: true });
+    }).catch(e => { alert(e.message); throw e; });
+  }
   await WalletConnector.connect();
+}
+
+function initWalletListeners() {
+  if (!window.WalletConnector) return;
+  WalletConnector.on('connect', addr => onConnected(addr));
+  WalletConnector.on('accountsChanged', addr => addr ? onConnected(addr) : onDisconnected());
+  WalletConnector.on('disconnect', () => onDisconnected());
+  if (WalletConnector.address) onConnected(WalletConnector.address);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   loadContracts();
+  // wallet.js loads async — listen for walletReady or fall back to DOMContentLoaded
   if (window.WalletConnector) {
-    WalletConnector.on('connect', addr => onConnected(addr));
-    WalletConnector.on('accountsChanged', addr => addr ? onConnected(addr) : onDisconnected());
-    WalletConnector.on('disconnect', () => onDisconnected());
-    if (WalletConnector.address) onConnected(WalletConnector.address);
+    initWalletListeners();
+  } else {
+    document.addEventListener('walletReady', initWalletListeners, { once: true });
+    // Also retry after a short delay as safety net
+    setTimeout(() => { if (window.WalletConnector) initWalletListeners(); }, 2000);
   }
 });
 
