@@ -252,13 +252,13 @@ const ARC_MAINNET_ID = 5042;
 const STAKING_ABI = [
   'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
   'function claim(uint256 i) external',
-  'function claim() external',
+  'function claimAll() external',
   'function emergencyUnlockAll() external',
-  'function globalUnlock() external view returns (bool)',
-  'function getUserLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockTime, bool claimed)[])',
-  'function getClaimable(address user) external view returns (uint256)',
-  'function emergencyUnlocked() external view returns (bool)',
-  'function poolKeySet() external view returns (bool)',
+  'function globalUnlock() view returns (bool)',
+  'function getLocks(address user) view returns (tuple(uint128 amount, uint64 unlockAt)[])',
+  'function claimable(address user) view returns (uint256)',
+  'function keySet() view returns (bool)',
+  'function lastBuyBlock(address) view returns (uint64)',
 ];
 const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
@@ -422,7 +422,7 @@ async function fetchSellQuote(saviorAmount) {
     const [c0, c1] = BigInt(USDC_ADDRESS) < BigInt(tokenAddr)
       ? [USDC_ADDRESS, tokenAddr]
       : [tokenAddr, USDC_ADDRESS];
-    const zeroForOne = c0.toLowerCase() === tokenAddr.toLowerCase(); // SAVIOR→USDC = token1→token0 = zeroForOne=false
+    const zeroForOne = c0.toLowerCase() !== USDC_ADDRESS.toLowerCase(); // SAVIOR→USDC: if SAVIOR=c0 zeroForOne=true, else false
 
     const quoter = new ethers.Contract(QUOTER, QUOTER_ABI, provider);
     const result = await quoter.quoteExactInputSingle.staticCall(
@@ -486,8 +486,16 @@ async function executeSell() {
     const staking   = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
     // zeroForOne=false: SAVIOR(c1) in → USDC(c0) out
     document.getElementById('sell-btn-text').textContent = 'Selling...';
-    // minUsdcOut18 = 0 (no minimum floor — slippage shown on UI)
-    const tx = await staking.swapExactIn(false, saviorAmtBig, 0n);
+    // Calculate minOut from displayed quote with slippage
+    let sellMinOut = 0n;
+    try {
+      const rawQ = document.getElementById('sell-out').textContent.replace(/[^0-9.]/g,'');
+      if (rawQ && parseFloat(rawQ) > 0) {
+        const quotedBig = ethers.parseUnits(parseFloat(rawQ).toFixed(6), 6);
+        sellMinOut = quotedBig * BigInt(10000 - sellSlippageBps) / 10000n;
+      }
+    } catch(_) {}
+    const tx = await staking.swapExactIn(false, saviorAmtBig, sellMinOut);
     document.getElementById('sell-btn-text').textContent = 'Confirming...';
     await tx.wait();
     document.getElementById('sell-btn-text').textContent = 'Sold ✓';
@@ -544,7 +552,7 @@ async function fetchQuote(usdcAmount) {
     const [c0, c1] = BigInt(USDC_ADDRESS) < BigInt(tokenAddr)
       ? [USDC_ADDRESS, tokenAddr]
       : [tokenAddr, USDC_ADDRESS];
-    const zeroForOne = c0.toLowerCase() === USDC_ADDRESS.toLowerCase(); // USDC→SAVIOR
+    const zeroForOne = c0.toLowerCase() === USDC_ADDRESS.toLowerCase(); // USDC(c0)→SAVIOR(c1) = true
 
     const quoter = new ethers.Contract(QUOTER, QUOTER_ABI, provider);
     const result = await quoter.quoteExactInputSingle.staticCall(
@@ -587,8 +595,15 @@ async function executeSwap() {
 
     // zeroForOne=true: USDC(c0) in → SAVIOR(c1) out
     const amountIn  = ethers.parseUnits(usdcAmt.toString(), 6);  // USDC 6 dec ERC-20
-    const quoteOut  = document.getElementById('swap-out').textContent;
-    const minOut    = 0n; // quote shown on UI; contract slippage guard via minOut
+    // Parse quoted output and apply slippage to get minOut
+    let minOut = 0n;
+    try {
+      const rawQuote = document.getElementById('swap-out').textContent.replace(/[^0-9.]/g,'');
+      if (rawQuote && parseFloat(rawQuote) > 0) {
+        const quotedBig = ethers.parseUnits(parseFloat(rawQuote).toFixed(6), 6);
+        minOut = quotedBig * BigInt(10000 - slippageBps) / 10000n;
+      }
+    } catch(_) {}
 
     // Approve staking to spend USDC if needed
     const allowance = await usdcToken.allowance(WalletConnector.address, stakingAddr);
@@ -627,8 +642,8 @@ async function refreshStakes() {
     const provider = WalletConnector.provider || new ethers.JsonRpcProvider('https://rpc.mainnet.arc.io');
     const staking  = new ethers.Contract(stakingAddr, STAKING_ABI, provider);
     const [locks, claimable, emergencyUnlocked] = await Promise.all([
-      staking.getUserLocks(WalletConnector.address),
-      staking.getClaimable(WalletConnector.address),
+      staking.getLocks(WalletConnector.address),
+      staking.claimable(WalletConnector.address),
       staking.globalUnlock(),
     ]);
 
@@ -667,7 +682,7 @@ async function claimStakes() {
   if (!WalletConnector.signer || !stakingAddr) return;
   try {
     const staking = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
-    const tx = await staking.claim();
+    const tx = await staking.claimAll();
     await tx.wait();
     refreshStakes();
     updateSaviorBalance();

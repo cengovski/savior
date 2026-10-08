@@ -267,19 +267,22 @@ const TOKEN_ABI = [
   'function upgradeToAndCall(address,bytes)',
 ];
 const STAKING_ABI = [
-  // initialize(owner, poolManager)
-  'function initialize(address,address)',
-  // setPoolKey takes a PoolKey struct: (currency0, currency1, fee, tickSpacing, hooks)
-  'function setPoolKey(tuple(address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) k)',
-  // buy: caller approves USDC first, then calls buy(amountIn, minOut)
-  'function buy(uint256 amountIn,uint256 minOut)',
-  // sell: caller approves SAVIOR first, then calls sell(amountIn, minOut)
-  'function sell(uint256 amountIn,uint256 minOut)',
+  // initialize(savior, usdc, poolManager, treasury, owner)
+  'function initialize(address,address,address,address,address)',
+  // setPoolKey(currency0, currency1, fee, tickSpacing, hooks) — flat params, NOT tuple
+  'function setPoolKey(address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks)',
+  // swapExactIn — used for both buy and sell
+  'function swapExactIn(bool zeroForOne,uint256 amountIn,uint256 minOut)',
   'function claim(uint256 i)',
+  'function claimAll()',
   'function getLocks(address user) view returns (tuple(uint128 amount,uint64 unlockAt)[])',
+  'function claimable(address user) view returns (uint256)',
+  'function addLiquidity(int24 tickLower,int24 tickUpper,uint128 liquidity)',
+  'function removeLiquidity(int24 tickLower,int24 tickUpper,uint128 liquidity)',
   'function emergencyUnlockAll()',
   'function globalUnlock() view returns (bool)',
   'function keySet() view returns (bool)',
+  'function lastBuyBlock(address) view returns (uint64)',
   'function rescueERC20(address,uint256)',
   'function rescueNative()',
   'function upgradeToAndCall(address,bytes)',
@@ -383,16 +386,19 @@ async function mineAndDeployHook() {
   document.getElementById('btnMineHook').disabled = true;
   try {
     await ensureSigner();
-    // New ABI: initialize(owner, poolManager, treasury)
-    const hookIface = new ethers.Interface(['function initialize(address,address,address)']);
-    const initData = hookIface.encodeFunctionData('initialize',[deployer, POOL_MANAGER, TREASURY]);
+    // New ABI: initialize(poolManager, stakingContract, owner, validateAddress)
+    // stakingContract can be address(0) at deploy — setStakingContract called in Step 5
+    const hookIface = new ethers.Interface(['function initialize(address,address,address,bool)']);
+    const initData = hookIface.encodeFunctionData('initialize',[POOL_MANAGER, ethers.ZeroAddress, deployer, false]);
     const constructorArgs = ethers.AbiCoder.defaultAbiCoder().encode(['address','bytes'],[hookImplAddr, initData]);
     const proxyCreationCode = PROXY_BC + constructorArgs.slice(2);
     const codeHash = ethers.keccak256(proxyCreationCode);
     let salt = null, predictedHook = null;
     // flags = 0xC0 = beforeSwap(0x40) + afterSwap(0x80)
-    const FLAGS = 0xC0n;
-    const MASK  = 0x3FFFn;
+    // Hook permissions: beforeInitialize(14)+afterInitialize(13)+beforeSwap(7)+afterSwap(6)
+    // = 0x4000+0x2000+0x0080+0x0040 = 0x60C0
+    const FLAGS = 0x60C0n;
+    const MASK  = 0xFFFFn;
     for (let i = 0; i < 1000000; i++) {
       const saltHex = '0x' + i.toString(16).padStart(64,'0');
       const pre = ethers.keccak256('0xff' + C2_FACTORY.slice(2) + saltHex.slice(2) + codeHash.slice(2));
@@ -416,9 +422,12 @@ async function deployStaking() {
   setResult('stakingResult','Deploy ediliyor...','');
   try {
     await ensureSigner();
-    // New ABI: initialize(owner, poolManager) — no token/treasury/usdc in constructor
-    const iface = new ethers.Interface(['function initialize(address,address)']);
-    const initData = iface.encodeFunctionData('initialize',[deployer, POOL_MANAGER]);
+    // initialize(saviorToken, usdcToken, poolManager, treasury, owner)
+    const USDC = '0x3600000000000000000000000000000000000000';
+    const TREASURY = document.getElementById('stakingTreasury')?.value?.trim() || '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
+    if (!tokenAddr) throw new Error('Önce Token deploy edin (Step 1)');
+    const iface = new ethers.Interface(['function initialize(address,address,address,address,address)']);
+    const initData = iface.encodeFunctionData('initialize',[tokenAddr, USDC, POOL_MANAGER, TREASURY, deployer]);
     const implAddr = await deployBytecode(STAKING_BC,'SaviorStaking impl');
     stakingAddr = await deployProxy(implAddr, initData,'SaviorStaking proxy');
     ['mgmtStaking','upgradeProxy','emergencyProxy','treasuryProxy','infoStaking','liqStaking','remLiqStaking'].forEach(id=>{
@@ -530,7 +539,7 @@ async function setPoolKeyAndApprove() {
     const tickSpacing = parseInt(document.getElementById('poolTickSpacing').value);
     const stakingC = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
     const tokenC   = new ethers.Contract(tokenAddr,   TOKEN_ABI,   signer);
-    const t1 = await stakingC.setPoolKey(USDC, tokenAddr, fee, tickSpacing, hookAddr);
+    const t1 = await stakingC.setPoolKey(USDC, tokenAddr, fee, tickSpacing, hookAddr, {gasLimit: 200000});
     await t1.wait();
     const t2 = await tokenC.approve(stakingAddr, ethers.MaxUint256);
     await t2.wait();
@@ -571,7 +580,7 @@ async function seedLiquidity() {
     const txs = [];
     for (const [tl, tu] of bands) {
       setResult('liquidityResult', 'Band ['+tl+','+tu+'] ekleniyor...', '');
-      const tx = await stakingC.addLiquidityDirect(tl, tu, L, {value: 0, gasLimit: 600000});
+      const tx = await stakingC.addLiquidity(tl, tu, L, {value: 0, gasLimit: 600000});
       const rc = await tx.wait();
       txs.push('['+tl+','+tu+']: '+tx.hash.slice(0,22)+'...');
     }
@@ -673,7 +682,7 @@ async function addLiquidityAdmin() {
     const tu=parseInt(document.getElementById('liqTickUpper').value);
     const L=BigInt(document.getElementById('liqLiquidity').value);
     const c=new ethers.Contract(s,STAKING_ABI,signer);
-    const tx=await c.addLiquidityDirect(tl,tu,L,{value:0}); await tx.wait();
+    const tx=await c.addLiquidity(tl,tu,L,{value:0}); await tx.wait();
     setResult('liqAddResult','✓ Eklendi\nTx: '+tx.hash,'ok');
   } catch(e){ setResult('liqAddResult',e.message,'err'); }
 }
