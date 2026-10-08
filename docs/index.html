@@ -250,10 +250,11 @@ const ARC_MAINNET_ID = 5042;
 
 // ── ABI fragments ──────────────────────────────────────────────────────
 const STAKING_ABI = [
-  'function buy(uint256 minSaviorOut) external payable',
-  'function sell(uint256 saviorAmount, uint256 minUsdcOut18) external',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
+  'function claim(uint256 i) external',
   'function claim() external',
   'function emergencyUnlockAll() external',
+  'function globalUnlock() external view returns (bool)',
   'function getUserLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockTime, bool claimed)[])',
   'function getClaimable(address user) external view returns (uint256)',
   'function emergencyUnlocked() external view returns (bool)',
@@ -482,10 +483,11 @@ async function executeSell() {
       await approveTx.wait();
     }
 
-    const staking = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
+    const staking   = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
+    // zeroForOne=false: SAVIOR(c1) in → USDC(c0) out
     document.getElementById('sell-btn-text').textContent = 'Selling...';
     // minUsdcOut18 = 0 (no minimum floor — slippage shown on UI)
-    const tx = await staking.sell(saviorAmtBig, 0n);
+    const tx = await staking.swapExactIn(false, saviorAmtBig, 0n);
     document.getElementById('sell-btn-text').textContent = 'Confirming...';
     await tx.wait();
     document.getElementById('sell-btn-text').textContent = 'Sold ✓';
@@ -580,15 +582,24 @@ async function executeSwap() {
   document.getElementById('swap-btn-text').textContent = 'Processing...';
 
   try {
-    const staking = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
-    // Check pool key set
-    const poolKeySet = await staking.poolKeySet();
-    if (!poolKeySet) throw new Error('Pool not initialized yet. Run "Initialize Pool" in admin panel.');
+    const staking  = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
+    const usdcToken = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns(bool)','function allowance(address,address) view returns(uint256)'], WalletConnector.signer);
 
-    // Arc native = USDC 18 dec — msg.value is the payment
-    const valueWei = ethers.parseUnits(usdcAmt.toString(), 18);
-    // minSaviorOut = 0 (no floor) — quote shown on UI; slippage not on-contract
-    const tx = await staking.buy(0n, { value: valueWei });
+    // zeroForOne=true: USDC(c0) in → SAVIOR(c1) out
+    const amountIn  = ethers.parseUnits(usdcAmt.toString(), 6);  // USDC 6 dec ERC-20
+    const quoteOut  = document.getElementById('swap-out').textContent;
+    const minOut    = 0n; // quote shown on UI; contract slippage guard via minOut
+
+    // Approve staking to spend USDC if needed
+    const allowance = await usdcToken.allowance(WalletConnector.address, stakingAddr);
+    if (allowance < amountIn) {
+      document.getElementById('swap-btn-text').textContent = 'Approving USDC...';
+      const approveTx = await usdcToken.approve(stakingAddr, ethers.MaxUint256);
+      await approveTx.wait();
+    }
+
+    document.getElementById('swap-btn-text').textContent = 'Swapping...';
+    const tx = await staking.swapExactIn(true, amountIn, minOut);
     document.getElementById('swap-btn-text').textContent = 'Confirming...';
     await tx.wait();
     document.getElementById('swap-btn-text').textContent = 'Swap successful ✓';
@@ -618,12 +629,12 @@ async function refreshStakes() {
     const [locks, claimable, emergencyUnlocked] = await Promise.all([
       staking.getUserLocks(WalletConnector.address),
       staking.getClaimable(WalletConnector.address),
-      staking.emergencyUnlocked(),
+      staking.globalUnlock(),
     ]);
 
     document.getElementById('global-unlock-banner').classList.toggle('hidden', !emergencyUnlocked);
 
-    const totalLocked = locks.reduce((s, l) => s + (l.claimed ? 0n : l.amount), 0n);
+    const totalLocked = locks.reduce((s, l) => s + (l.amount || 0n), 0n);
     document.getElementById('stakes-locked').textContent    = Number(ethers.formatUnits(totalLocked, 6)).toLocaleString(undefined,{maximumFractionDigits:2});
     document.getElementById('stakes-claimable').textContent = Number(ethers.formatUnits(claimable, 6)).toLocaleString(undefined,{maximumFractionDigits:2});
 
@@ -631,8 +642,8 @@ async function refreshStakes() {
 
     const now = Math.floor(Date.now()/1000);
     list.innerHTML = locks.map((l, i) => {
-      if (l.claimed) return '';
-      const unlockTs = Number(l.unlockTime);
+      if (!l.amount || l.amount === 0n) return '';
+      const unlockTs = Number(l.unlockAt);
       const matured  = emergencyUnlocked || now >= unlockTs;
       const pct      = emergencyUnlocked ? 100 : Math.min(100, Math.round((now - (unlockTs - 10*86400)) / (10*86400) * 100));
       const daysLeft = matured ? 0 : Math.ceil((unlockTs - now) / 86400);

@@ -1,0 +1,8 @@
+lib/
+out/
+cache/
+node_modules/
+contracts/
+scripts/
+.env
+.env.*

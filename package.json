@@ -1,0 +1,8 @@
+{
+  "name": "savior-protocol",
+  "version": "1.0.0",
+  "description": "$SAVIOR - Arc Testnet Protocol",
+  "scripts": {
+    "start": "bunx serve docs -l 7860"
+  }
+}
