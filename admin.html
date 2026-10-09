@@ -841,9 +841,9 @@ async function deployBytecode(bc, label) {
 }
 
 async function deployBytecodeWithArgs(bytecode, constructorArgs, label) {
-  // Deploy a contract with constructor arguments using ethers ContractFactory
-  // ABI includes only constructor; args are ABI-encoded by ethers
-  const factory = new ethers.ContractFactory([], bytecode, signer);
+  // ERC1967Proxy: constructor(address impl, bytes data)
+  const abi = ['constructor(address,bytes)'];
+  const factory = new ethers.ContractFactory(abi, bytecode, signer);
   console.log(label + ' deploy...');
   const contract = await factory.deploy(...constructorArgs);
   await contract.waitForDeployment();
