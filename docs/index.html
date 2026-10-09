@@ -3,40 +3,335 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>$SAVIOR • Arc Mainnet</title>
+<title>$SAVIOR — Arc Mainnet</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-/* ethers.js multi-CDN loader — tries 3 sources, no external race */
-(function(){
-  var CDNS = [
-    'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js',
-    'https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js',
-    'https://unpkg.com/ethers@6.11.1/dist/ethers.umd.min.js'
-  ];
-  var idx = 0;
-  function tryNext() {
-    if (idx >= CDNS.length) {
-      document.body.innerHTML = '<div style="color:#f00;padding:40px;font-family:monospace">ethers.js yüklenemedi. İnternet bağlantınızı kontrol edin ve sayfayı yenileyin.</div>';
-      return;
-    }
-    var s = document.createElement('script');
-    s.src = CDNS[idx++];
-    s.onload = function(){ window.__ethersReady = true; };
-    s.onerror = function(){ tryNext(); };
-    document.head.appendChild(s);
+<script>tailwind.config={darkMode:'class'}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js" crossorigin="anonymous"></script>
+<script>if(typeof ethers==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"><\/script>')}</script>
+<style>
+  *{box-sizing:border-box}
+  body{background:#08080f;color:#e2e8f0;font-family:'Inter',sans-serif;min-height:100vh;
+       background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(59,91,219,.18),transparent)}
+  .glass{background:rgba(15,16,28,.85);border:1px solid rgba(255,255,255,.07);border-radius:20px;backdrop-filter:blur(12px)}
+  .glass-inner{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px}
+  .btn-primary{
+    background:linear-gradient(135deg,#3b5bdb 0%,#1971c2 100%);
+    color:#fff;border-radius:14px;font-weight:700;cursor:pointer;
+    transition:all .2s;padding:15px 24px;font-size:15px;width:100%;
+    box-shadow:0 4px 24px rgba(59,91,219,.35);border:none;
+    position:relative;overflow:hidden;
   }
-  tryNext();
-})();
-</script>
-<script>
-/* wallet.js — runs after ethers is confirmed loaded */
-function __initWallet() {
-  if (typeof ethers === 'undefined') {
-    setTimeout(__initWallet, 50);
-    return;
+  .btn-primary::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);
+    opacity:0;transition:opacity .2s;
   }
+  .btn-primary:hover::before{opacity:1}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 32px rgba(59,91,219,.45)}
+  .btn-primary:active{transform:translateY(0)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .btn-ghost{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#e2e8f0;
+             border-radius:12px;font-weight:600;cursor:pointer;transition:all .2s;padding:10px 18px;font-size:13px}
+  .btn-ghost:hover{background:rgba(59,91,219,.15);border-color:rgba(59,91,219,.4);color:#74c0fc}
+  .btn-sm{padding:7px 14px;font-size:12px;border-radius:10px}
+  .input-wrap{background:rgba(6,7,18,.7);border:1px solid rgba(255,255,255,.08);border-radius:14px;
+              padding:14px 16px;transition:border-color .2s}
+  .input-wrap:focus-within{border-color:rgba(59,91,219,.6)}
+  .input-f{background:transparent;border:none;color:#fff;font-size:18px;font-weight:600;
+           outline:none;width:100%;font-family:'Inter',sans-serif}
+  .input-f::placeholder{color:rgba(255,255,255,.2)}
+  .token-pill{display:flex;align-items:center;gap:8px;padding:8px 14px;
+              background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+              border-radius:100px;white-space:nowrap;font-weight:600;font-size:14px}
+  .tab{cursor:pointer;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:500;
+       color:rgba(255,255,255,.4);transition:all .2s}
+  .tab.active{background:rgba(59,91,219,.2);color:#fff;border:1px solid rgba(59,91,219,.3)}
+  .tab:not(.active):hover{color:rgba(255,255,255,.7)}
+  .tab-content{display:none}.tab-content.active{display:block}
+  .spin{animation:spin 1s linear infinite}
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .badge{padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600}
+  .lock-row{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+            border-radius:14px;padding:14px 16px;transition:border-color .2s}
+  .lock-row:hover{border-color:rgba(59,91,219,.3)}
+  .progress-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#3b5bdb,#51cf66);transition:width .5s}
+  .glow-blue{text-shadow:0 0 20px rgba(59,91,219,.6)}
+  .nav-blur{background:rgba(8,8,15,.8);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.05)}
+  .hero-gradient{background:linear-gradient(135deg,#3b5bdb,#9c36b5);-webkit-background-clip:text;
+                 -webkit-text-fill-color:transparent;background-clip:text}
+  .split-preview{background:linear-gradient(135deg,rgba(59,91,219,.1),rgba(156,54,181,.1));
+                 border:1px solid rgba(59,91,219,.2);border-radius:14px;padding:14px 16px}
+  .arrow-circle{width:40px;height:40px;border-radius:50%;background:rgba(59,91,219,.15);
+                border:1px solid rgba(59,91,219,.3);display:flex;align-items:center;
+                justify-content:center;cursor:default}
+  .savior-pill{display:flex;align-items:center;gap:8px;padding:8px 14px;
+               background:linear-gradient(135deg,rgba(59,91,219,.2),rgba(156,54,181,.2));
+               border:1px solid rgba(59,91,219,.3);border-radius:100px;
+               white-space:nowrap;font-weight:700;font-size:14px}
+</style>
+</head>
+<body>
 
-/* wallet.js inline — guaranteed after ethers */
+<!-- Nav -->
+<nav class="nav-blur sticky top-0 z-50 px-4 py-3">
+  <div class="max-w-5xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/30">S</div>
+      <div>
+        <span class="font-black text-base tracking-tight">$SAVIOR</span>
+        <span class="ml-2 badge bg-blue-500/15 text-blue-400 border border-blue-500/20">ARC MAINNET</span>
+      </div>
+    </div>
+    <button id="connect-btn" onclick="connectWallet()" class="btn-ghost btn-sm flex items-center gap-2">
+      <i class="fa-solid fa-wallet text-xs"></i>
+      <span>Connect Wallet</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="max-w-5xl mx-auto px-4 pt-8 pb-4">
+  <div class="flex flex-wrap gap-2 mb-6">
+    <span class="badge bg-purple-500/15 text-purple-300 border border-purple-500/20"><i class="fa-solid fa-bolt text-xs mr-1.5"></i>Sub-second Finality</span>
+    <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20"><i class="fa-solid fa-dollar-sign text-xs mr-1.5"></i>USDC Gas Token</span>
+    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>50% Auto-Lock</span>
+    <span class="badge bg-amber-500/15 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-clock text-xs mr-1.5"></i>5–10 Day Staking</span>
+    <span class="badge bg-pink-500/15 text-pink-300 border border-pink-500/20"><i class="fa-brands fa-uniswap text-xs mr-1.5"></i>Uniswap V4 Hook</span>
+    <div class="ml-auto flex items-center gap-1.5 text-xs text-white/25 self-center hidden sm:flex">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+      Arc Mainnet · Chain 5042
+    </div>
+  </div>
+</div>
+
+<!-- Main Grid -->
+<div class="max-w-5xl mx-auto px-4 pb-16 grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+  <!-- Swap Card (wider) -->
+  <div class="lg:col-span-3 flex flex-col gap-4">
+    <div class="glass p-6">
+
+      <!-- Title + tabs -->
+      <div class="flex items-start justify-between mb-5">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight">USDC <span class="text-white/30">↔</span> <span class="hero-gradient">$SAVIOR</span></h1>
+          <div class="text-xs text-white/35 mt-1">Via SaviorStaking · 50% instantly yours, 50% locked 5–10 days</div>
+        </div>
+        <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20 mt-1">V4 Hook</span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-5 p-1 bg-white/3 rounded-xl w-fit border border-white/5">
+        <div class="tab active" id="tab-swap"   onclick="switchTab('swap')"><i class="fa-solid fa-arrows-rotate text-xs mr-1.5"></i>Swap</div>
+        <div class="tab"        id="tab-stakes" onclick="switchTab('stakes')"><i class="fa-solid fa-lock-open text-xs mr-1.5"></i>My Stakes</div>
+        <div class="tab"        id="tab-arc"    onclick="switchTab('arc')"><i class="fa-solid fa-bolt text-xs mr-1.5"></i>About</div>
+      </div>
+
+      <!-- ── Swap Tab ─────────────────────────────────────────── -->
+      <div id="content-swap" class="tab-content active">
+
+        <!-- From -->
+        <div class="input-wrap mb-2">
+          <div class="flex justify-between text-xs text-white/35 mb-2">
+            <span>You pay</span>
+            <span>Balance: <span id="usdc-balance" class="text-white/60">—</span> USDC</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <input id="swap-amount" class="input-f flex-1" type="number" min="0.000001" step="any"
+              placeholder="0.0" oninput="onSwapInput()" value="0.1"/>
+            <div class="token-pill">
+              <i class="fa-solid fa-circle-dollar-sign text-blue-400 text-base"></i>
+              <span>USDC</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div class="flex justify-center my-3">
+          <div class="arrow-circle">
+            <i class="fa-solid fa-arrow-down text-blue-400 text-sm"></i>
+          </div>
+        </div>
+
+        <!-- To -->
+        <div class="input-wrap mb-4">
+          <div class="flex justify-between text-xs text-white/35 mb-2">
+            <span>You receive <span class="text-white/25">(estimated)</span></span>
+            <span class="text-white/40">$SAVIOR</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="input-f flex-1 text-white/50 text-lg" id="savior-out-display">—</div>
+            <div class="savior-pill">
+              <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>
+              <span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slippage -->
+        <div class="mb-4">
+          <div class="flex justify-between text-xs text-white/35 mb-2">
+            <span>Slippage tolerance</span>
+            <span class="text-white/60 font-semibold" id="slip-label">1.00%</span>
+          </div>
+          <input id="slippage-range" type="range" min="10" max="500" value="100" step="10"
+            class="w-full accent-blue-500 h-1" oninput="updateSlippage()"/>
+          <div class="flex justify-between text-xs text-white/20 mt-1"><span>0.1%</span><span>5%</span></div>
+        </div>
+
+        <!-- Split preview -->
+        <div id="lock-preview" class="hidden split-preview mb-4">
+          <div class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-wide">Estimated split</div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-white/50">Instant (50%)</span>
+            <span class="text-emerald-400 font-semibold" id="immediate-preview">—</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/50">Locked 5–10 days (50%)</span>
+            <span class="text-amber-400 font-semibold" id="locked-preview">—</span>
+          </div>
+        </div>
+
+        <button id="swap-btn" onclick="executeSwap()" class="btn-primary flex items-center justify-center gap-2">
+          <i class="fa-solid fa-shield-halved text-sm"></i>Swap via Staking
+        </button>
+
+        <div id="pool-key-warning" class="hidden mt-3 text-xs text-amber-400 bg-amber-400/8 border border-amber-400/20 rounded-xl p-3 flex items-start gap-2">
+          <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
+          <span>Pool not initialized yet. Admin must initialize the V4 pool first.</span>
+        </div>
+      </div>
+
+      <!-- ── Stakes Tab ───────────────────────────────────────── -->
+      <div id="content-stakes" class="tab-content">
+        <div class="flex items-center justify-between mb-4">
+          <div class="font-semibold text-sm">My Locked Positions</div>
+          <button onclick="refreshStakes()" class="btn-ghost btn-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate text-xs"></i>Refresh
+          </button>
+        </div>
+        <div id="stakes-loading" class="text-center py-10 text-white/25 text-sm">Connect wallet to see your positions</div>
+        <div id="stakes-list" class="flex flex-col gap-3"></div>
+        <div id="stakes-summary" class="hidden mt-4 glass-inner p-4 text-sm">
+          <div class="flex justify-between mb-2">
+            <span class="text-white/40">Total locked</span>
+            <span id="total-locked-display" class="text-amber-400 font-bold">—</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-white/40">Claimable now</span>
+            <span id="claimable-display" class="text-emerald-400 font-bold">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── About Tab ──────────────────────────────────────────── -->
+      <div id="content-arc" class="tab-content">
+        <div class="space-y-3">
+          <div class="glass-inner p-4">
+            <div class="font-semibold text-sm text-blue-300 mb-1.5 flex items-center gap-2">
+              <i class="fa-solid fa-circle-dollar-sign"></i>USDC is the gas token on Arc
+            </div>
+            <div class="text-xs text-white/45 leading-relaxed">Arc is a Layer 2 blockchain where USDC is the native gas token. You pay fees in USDC — no ETH needed. The same USDC balance covers gas and token swaps.</div>
+          </div>
+          <div class="glass-inner p-4">
+            <div class="font-semibold text-sm text-purple-300 mb-1.5 flex items-center gap-2">
+              <i class="fa-solid fa-lock"></i>50% auto-lock mechanism
+            </div>
+            <div class="text-xs text-white/45 leading-relaxed">Every swap locks 50% of your $SAVIOR for 5–10 days (random). The rest hits your wallet instantly. This reduces sell pressure and rewards patient holders.</div>
+          </div>
+          <div class="glass-inner p-4">
+            <div class="font-semibold text-sm text-emerald-300 mb-1.5 flex items-center gap-2">
+              <i class="fa-brands fa-uniswap"></i>Uniswap V4 Hook enforcement
+            </div>
+            <div class="text-xs text-white/45 leading-relaxed">All swaps are routed through SaviorHook on Uniswap V4. Direct swaps that bypass the staking contract are blocked at the hook level. 2% of each swap goes to treasury.</div>
+          </div>
+          <div class="glass-inner p-4">
+            <div class="font-semibold text-sm text-amber-300 mb-1.5 flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved"></i>Emergency unlock (admin)
+            </div>
+            <div class="text-xs text-white/45 leading-relaxed">Only the admin can trigger <code class="text-blue-400">emergencyUnlockAll()</code>. This sets <code class="text-blue-400">globalUnlock=true</code> permanently — all locked positions become instantly claimable. Cannot be reversed.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /glass -->
+  </div><!-- /left -->
+
+  <!-- Sidebar -->
+  <div class="lg:col-span-2 flex flex-col gap-4">
+
+    <!-- How it works -->
+    <div class="glass p-5">
+      <div class="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">How it works</div>
+      <div class="space-y-3">
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400 flex-shrink-0 mt-0.5">1</div>
+          <div class="text-xs text-white/55 leading-relaxed">Connect your wallet and switch to <span class="text-white/75 font-semibold">Arc Mainnet</span></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400 flex-shrink-0 mt-0.5">2</div>
+          <div class="text-xs text-white/55 leading-relaxed">Enter USDC amount and click <span class="text-white/75 font-semibold">Swap via Staking</span></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0 mt-0.5">3</div>
+          <div class="text-xs text-white/55 leading-relaxed"><span class="text-emerald-400 font-semibold">50% $SAVIOR</span> arrives in your wallet immediately</div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-400 flex-shrink-0 mt-0.5">4</div>
+          <div class="text-xs text-white/55 leading-relaxed"><span class="text-amber-400 font-semibold">50% $SAVIOR</span> locked 5–10 days in the staking contract</div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-400 flex-shrink-0 mt-0.5">5</div>
+          <div class="text-xs text-white/55 leading-relaxed">After lock expires, claim from <span class="text-white/75 font-semibold">My Stakes</span> tab</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contracts -->
+    <div class="glass p-5">
+      <div class="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">Deployed Contracts</div>
+      <div class="text-xs space-y-2.5" id="contracts-display">
+        <div class="text-white/20">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Network info -->
+    <div class="glass p-5">
+      <div class="text-xs font-bold uppercase tracking-widest text-white/30 mb-3">Network</div>
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between">
+          <span class="text-white/40">Chain</span>
+          <span class="text-white/70 font-mono">Arc Mainnet (5042)</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-white/40">Gas token</span>
+          <span class="text-white/70">USDC</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-white/40">USDC address</span>
+          <span class="font-mono text-white/50">0x3600...0000</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-white/40">Treasury</span>
+          <a href="https://explorer.arc.io/address/0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de" target="_blank"
+             class="font-mono text-blue-400 hover:underline">0xb311...c7de</a>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-white/40">Hook fee</span>
+          <span class="text-white/70">2% per swap</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+</div><!-- /grid -->
+
+<script>
 /**
  * wallet.js — Shared wallet connector
  * Supports: MetaMask, Coinbase, Rainbow, Trust, Brave, any EIP-1193 injected wallet,
@@ -284,687 +579,261 @@ const WalletConnector = (() => {
 })();
 
 window.WalletConnector = WalletConnector;
-}
-__initWallet();
+
 </script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
-*{font-family:'Inter',sans-serif}
-.font-display{font-family:'Space Grotesk',sans-serif}
-.glass{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08)}
-.btn-primary{background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;font-weight:600;border-radius:12px;padding:14px 28px;transition:all .2s;cursor:pointer}
-.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
-.btn-secondary{background:rgba(255,255,255,0.06);color:#fff;font-weight:500;border-radius:12px;padding:12px 24px;border:1px solid rgba(255,255,255,0.12);transition:all .2s;cursor:pointer}
-.btn-secondary:hover{background:rgba(255,255,255,0.1)}
-.input-f{width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;color:#fff;font-size:1rem;outline:none}
-.input-f:focus{border-color:rgba(99,102,241,.6)}
-.tab-btn{padding:8px 20px;border-radius:8px;font-size:.875rem;font-weight:500;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s}
-.tab-btn.active{background:rgba(99,102,241,.2);color:#fff}
-.lock-row{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 16px}
-.progress-bar{height:4px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width .3s}
-body{background:#0a0a0f;color:#fff;min-height:100vh}
-</style>
-</head>
-<body>
-
-<!-- Header -->
-<header class="glass sticky top-0 z-50 px-4 py-3">
-  <div class="max-w-5xl mx-auto flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-bold">S</div>
-      <span class="font-display font-semibold text-lg">$SAVIOR</span>
-      <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">ARC MAINNET</span>
-    </div>
-    <button id="connect-btn" onclick="connectWallet()" class="btn-secondary text-sm px-4 py-2">Connect Wallet</button>
-  </div>
-</header>
-
-<!-- Hero -->
-<section class="max-w-5xl mx-auto px-4 py-12 text-center">
-  <div class="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 mb-6">
-    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-    Uniswap V4 Hook Protected
-  </div>
-  <h1 class="font-display text-5xl font-semibold mb-4 leading-tight">The Trench's<br><span class="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Savior</span></h1>
-  <p class="text-white/50 text-lg max-w-xl mx-auto mb-8">Buy $SAVIOR via Uniswap V4. 50% delivered instantly, 50% auto-staked for 5–10 days. Unstake anytime after lock expires.</p>
-  <div class="flex gap-3 justify-center flex-wrap">
-    <button onclick="showTab('swap')" class="btn-primary">Swap Now →</button>
-    <button onclick="showTab('stakes')" class="btn-secondary">My Stakes</button>
-  </div>
-
-  <!-- Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10">
-    <div class="glass rounded-xl p-4"><div class="text-2xl font-display font-semibold">1B</div><div class="text-xs text-white/40 mt-1">TOTAL SUPPLY</div></div>
-    <div class="glass rounded-xl p-4"><div class="text-2xl font-display font-semibold text-indigo-400">50%</div><div class="text-xs text-white/40 mt-1">AUTO STAKED</div></div>
-    <div class="glass rounded-xl p-4"><div class="text-2xl font-display font-semibold">2%</div><div class="text-xs text-white/40 mt-1">TREASURY FEE</div></div>
-    <div class="glass rounded-xl p-4"><div class="text-2xl font-display font-semibold text-amber-400">5–10d</div><div class="text-xs text-white/40 mt-1">RANDOM LOCK</div></div>
-  </div>
-</section>
-
-<!-- Tabs -->
-<div class="max-w-5xl mx-auto px-4">
-  <div class="flex gap-2 mb-6 glass rounded-xl p-1 w-fit">
-    <button id="tab-swap" class="tab-btn active" onclick="showTab('swap')">Buy $SAVIOR</button>
-    <button id="tab-sell" class="tab-btn" onclick="showTab('sell')">Sell $SAVIOR</button>
-    <button id="tab-stakes" class="tab-btn" onclick="showTab('stakes')">My Stakes</button>
-    <button id="tab-info" class="tab-btn" onclick="showTab('info')">Info</button>
-  </div>
-
-  <!-- Buy Tab -->
-  <div id="panel-swap" class="glass rounded-2xl p-6 max-w-lg">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="font-display font-semibold text-lg">USDC → $SAVIOR</h2>
-      <span class="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">V4 Hook</span>
-    </div>
-
-    <!-- From -->
-    <div class="bg-black/30 rounded-xl p-4 mb-2">
-      <div class="flex justify-between text-xs text-white/40 mb-2">
-        <span>From</span>
-        <span>Balance: <span id="usdc-balance">–</span> USDC</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <input id="swap-in" type="number" class="input-f bg-transparent border-none p-0 text-2xl font-semibold flex-1" placeholder="0.0" oninput="onSwapInput()"/>
-        <div class="flex items-center gap-2 bg-indigo-500/20 px-3 py-2 rounded-lg">
-          <div class="w-5 h-5 rounded-full bg-blue-400 flex items-center justify-center text-xs font-bold">U</div>
-          <span class="font-semibold text-sm">USDC</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="flex justify-center my-2 text-white/30">↓</div>
-
-    <!-- To -->
-    <div class="bg-black/30 rounded-xl p-4 mb-4">
-      <div class="flex justify-between text-xs text-white/40 mb-2">
-        <span>To (estimated)</span>
-        <span>$SAVIOR</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <div id="swap-out" class="text-2xl font-semibold flex-1 text-white/60">–</div>
-        <div class="flex items-center gap-2 bg-indigo-500/20 px-3 py-2 rounded-lg">
-          <div class="w-5 h-5 rounded-full bg-indigo-400 flex items-center justify-center text-xs font-bold">S</div>
-          <span class="font-semibold text-sm">$SAVIOR</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Slippage -->
-    <div class="flex justify-between items-center mb-4 text-sm">
-      <span class="text-white/40">Slippage Tolerance</span>
-      <div class="flex gap-1">
-        <button onclick="setSlippage(50)" id="slip-50" class="px-2 py-1 rounded text-xs bg-white/5">0.5%</button>
-        <button onclick="setSlippage(100)" id="slip-100" class="px-2 py-1 rounded text-xs bg-indigo-500/30 text-indigo-300">1%</button>
-        <button onclick="setSlippage(300)" id="slip-300" class="px-2 py-1 rounded text-xs bg-white/5">3%</button>
-        <button onclick="setSlippage(500)" id="slip-500" class="px-2 py-1 rounded text-xs bg-white/5">5%</button>
-      </div>
-    </div>
-
-    <!-- Info -->
-    <div class="text-xs text-white/30 mb-4 space-y-1">
-      <div class="flex justify-between"><span>Instant (~50%)</span><span id="info-instant">–</span></div>
-      <div class="flex justify-between"><span>Auto-staked (~50%)</span><span id="info-locked">–</span></div>
-      <div class="flex justify-between"><span>Lock duration</span><span>5–10 days (random)</span></div>
-    </div>
-
-    <button id="swap-btn" onclick="executeSwap()" class="btn-primary w-full text-center">
-      <span id="swap-btn-text">Connect Wallet to Swap</span>
-    </button>
-    <p id="swap-error" class="text-red-400 text-xs mt-2 hidden"></p>
-  </div>
-
-  <!-- Sell Tab -->
-  <div id="panel-sell" class="hidden glass rounded-2xl p-6 max-w-lg">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="font-display font-semibold text-lg">$SAVIOR → USDC</h2>
-      <span class="text-xs px-2 py-1 rounded-full bg-rose-500/20 text-rose-300">0.3% treasury fee</span>
-    </div>
-
-    <!-- From SAVIOR -->
-    <div class="bg-black/30 rounded-xl p-4 mb-2">
-      <div class="flex justify-between text-xs text-white/40 mb-2">
-        <span>From</span>
-        <span>Balance: <span id="savior-balance">–</span> $SAVIOR</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <input id="sell-in" type="number" class="input-f bg-transparent border-none p-0 text-2xl font-semibold flex-1" placeholder="0.0" oninput="onSellInput()"/>
-        <div class="flex items-center gap-2 bg-rose-500/20 px-3 py-2 rounded-lg">
-          <div class="w-5 h-5 rounded-full bg-indigo-400 flex items-center justify-center text-xs font-bold">S</div>
-          <span class="font-semibold text-sm">$SAVIOR</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="flex justify-center my-2 text-white/30">↓</div>
-
-    <!-- To USDC -->
-    <div class="bg-black/30 rounded-xl p-4 mb-4">
-      <div class="flex justify-between text-xs text-white/40 mb-2">
-        <span>You receive (estimated)</span>
-        <span class="text-rose-400 text-xs">After 2% fee</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <div id="sell-out" class="text-2xl font-semibold flex-1 text-white/60">–</div>
-        <div class="flex items-center gap-2 bg-indigo-500/20 px-3 py-2 rounded-lg">
-          <div class="w-5 h-5 rounded-full bg-blue-400 flex items-center justify-center text-xs font-bold">U</div>
-          <span class="font-semibold text-sm">USDC</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Slippage -->
-    <div class="flex justify-between items-center mb-4 text-sm">
-      <span class="text-white/40">Slippage</span>
-      <div class="flex gap-1">
-        <button onclick="setSellSlippage(50)"  id="sell-slip-50"  class="px-2 py-1 rounded text-xs bg-white/5">0.5%</button>
-        <button onclick="setSellSlippage(100)" id="sell-slip-100" class="px-2 py-1 rounded text-xs bg-indigo-500/30 text-indigo-300">1%</button>
-        <button onclick="setSellSlippage(300)" id="sell-slip-300" class="px-2 py-1 rounded text-xs bg-white/5">3%</button>
-        <button onclick="setSellSlippage(500)" id="sell-slip-500" class="px-2 py-1 rounded text-xs bg-white/5">5%</button>
-      </div>
-    </div>
-
-    <!-- Approve + Sell buttons -->
-    <div class="flex flex-col gap-2">
-      <button id="approve-btn" onclick="approveSavior()" class="btn-secondary w-full text-center hidden">
-        <span id="approve-btn-text">Approve $SAVIOR</span>
-      </button>
-      <button id="sell-btn" onclick="executeSell()" class="btn-primary w-full text-center">
-        <span id="sell-btn-text">Connect Wallet to Sell</span>
-      </button>
-    </div>
-    <p id="sell-error" class="text-red-400 text-xs mt-2 hidden"></p>
-  </div>
-
-  <!-- Stakes Tab -->
-  <div id="panel-stakes" class="hidden max-w-2xl">
-    <div class="glass rounded-2xl p-6 mb-4">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="font-display font-semibold text-lg">My Stakes</h2>
-        <button onclick="refreshStakes()" class="btn-secondary text-xs px-3 py-1.5">↻ Refresh</button>
-      </div>
-      <div class="grid grid-cols-2 gap-4 mb-4">
-        <div class="bg-black/30 rounded-xl p-3 text-center">
-          <div id="stakes-locked" class="text-xl font-semibold">–</div>
-          <div class="text-xs text-white/40 mt-1">Total Locked</div>
-        </div>
-        <div class="bg-black/30 rounded-xl p-3 text-center">
-          <div id="stakes-claimable" class="text-xl font-semibold text-emerald-400">–</div>
-          <div class="text-xs text-white/40 mt-1">Claimable Now</div>
-        </div>
-      </div>
-      <div id="stakes-list" class="space-y-2">
-        <div class="text-white/30 text-sm text-center py-4">Connect wallet to see your stakes</div>
-      </div>
-      <p id="global-unlock-banner" class="hidden mt-3 text-xs text-center text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2">
-        🔓 Emergency unlock active — all stakes can be withdrawn now
-      </p>
-    </div>
-  </div>
-
-  <!-- Info Tab -->
-  <div id="panel-info" class="hidden max-w-2xl">
-    <div class="glass rounded-2xl p-6 space-y-4">
-      <h2 class="font-display font-semibold text-lg">Protocol Info</h2>
-      <div class="space-y-3 text-sm">
-        <div class="flex justify-between py-2 border-b border-white/5"><span class="text-white/40">Chain</span><span>Arc Mainnet (5042)</span></div>
-        <div class="flex justify-between py-2 border-b border-white/5"><span class="text-white/40">USDC (native)</span><span class="font-mono text-xs">0x3600...0000</span></div>
-        <div class="flex justify-between py-2 border-b border-white/5"><span class="text-white/40">SaviorToken</span><span id="info-token" class="font-mono text-xs">–</span></div>
-        <div class="flex justify-between py-2 border-b border-white/5"><span class="text-white/40">SaviorStaking</span><span id="info-staking" class="font-mono text-xs">–</span></div>
-        <div class="flex justify-between py-2 border-b border-white/5"><span class="text-white/40">SaviorHook</span><span id="info-hook" class="font-mono text-xs">–</span></div>
-        <div class="flex justify-between py-2 border-b border-white/5"><span class="text-white/40">Treasury</span><span class="font-mono text-xs">0xb676...b787</span></div>
-        <div class="flex justify-between py-2"><span class="text-white/40">PoolManager</span><span class="font-mono text-xs">0x8366...0951</span></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="h-20"></div>
-
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
-const POOL_MANAGER   = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
-const USDC_ADDRESS   = '0x3600000000000000000000000000000000000000';
-const TREASURY       = '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
-const ARC_MAINNET_ID = 5042;
+const USDC_ADDR    = '0x3600000000000000000000000000000000000000';
+const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
+const QUOTER_ADDR  = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
 
-// ── ABI fragments ──────────────────────────────────────────────────────
 const STAKING_ABI = [
-  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
-  'function claim(uint256 i) external',
-  'function claimAll() external',
-  'function emergencyUnlockAll() external',
+  'function buy(uint256 minSaviorOut, uint256 slippageBps) external payable',
+  'function unstake(uint256 lockIndex) external',
+  'function getUserLocks(address user) external view returns (tuple(uint256 amount, uint256 unlockTime, bool claimed)[])',
+  'function getClaimable(address user) external view returns (uint256)',
+  'function getLockCount(address user) external view returns (uint256)',
+  'function totalStaked() view returns (uint256)',
   'function globalUnlock() view returns (bool)',
-  'function getLocks(address user) view returns (tuple(uint128 amount, uint64 unlockAt)[])',
-  'function claimable(address user) view returns (uint256)',
-  'function keySet() view returns (bool)',
-  'function lastBuyBlock(address) view returns (uint64)',
-];
-const ERC20_ABI = [
-  'function balanceOf(address) view returns (uint256)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
+  'function poolKeySet() view returns (bool)',
+  'function poolKey() view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
 ];
 
-// V4 Quoter — quoteExactInputSingle (PoolKey + QuoteExactSingleParams)
-// Arc Mainnet V4 Quoter: 0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94
 const QUOTER_ABI = [
-  // V4 style: takes PoolKey + ExactInputSingleParams
-  'function quoteExactInputSingle((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) poolKey,(bool zeroForOne,uint128 exactAmount,uint160 sqrtPriceLimitX96,bytes hookData) params) external returns (int128[] deltaAmounts, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed)',
+  'function quoteExactInputSingle(tuple(address poolKey_currency0, address poolKey_currency1, uint24 poolKey_fee, int24 poolKey_tickSpacing, address poolKey_hooks, bool zeroForOne, uint128 exactAmount, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
 ];
-const QUOTER = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
 
-// ── State ──────────────────────────────────────────────────────────────
-let slippageBps = 100;
-let quoteTimer  = null;
-let stakingAddr = null;
-let tokenAddr   = null;
+let STAKING_ADDR = localStorage.getItem('savior_staking') || '';
+let TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
+let userAddress  = '';
+let quoteTimer   = null;
 
-// ── Active mainnet contract addresses ─────────────────────────────────
-// Update these after deploying via admin.html
-(function(){
-  // Leave blank — admin.html seeds these via localStorage after each deploy step
-  // Once deployed, admin sets: savior_staking, savior_token, savior_hook,
-  //   pool_fee (10000), pool_tick_spacing (200)
-  const existing = localStorage.getItem('savior_staking');
-  if (!existing) {
-    // Placeholder: replace with real addresses after deploy
-    localStorage.setItem('pool_fee', '10000');
-    localStorage.setItem('pool_tick_spacing', '200');
-  }
-})();
+// ── Init ───────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  STAKING_ADDR = localStorage.getItem('savior_staking') || '';
+  TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
+  refreshContractsDisplay();
 
-// Load from localStorage
-function loadContracts() {
-  stakingAddr = localStorage.getItem('savior_staking');
-  tokenAddr   = localStorage.getItem('savior_token');
-  document.getElementById('info-token').textContent   = tokenAddr   ? tokenAddr.slice(0,8)+'...'+tokenAddr.slice(-6)   : 'Not deployed';
-  document.getElementById('info-staking').textContent = stakingAddr ? stakingAddr.slice(0,8)+'...'+stakingAddr.slice(-6) : 'Not deployed';
-  const hookAddr = localStorage.getItem('savior_hook');
-  document.getElementById('info-hook').textContent    = hookAddr    ? hookAddr.slice(0,8)+'...'+hookAddr.slice(-6)    : 'Not deployed';
-}
-
-// ── Tabs ───────────────────────────────────────────────────────────────
-function showTab(t) {
-  ['swap','sell','stakes','info'].forEach(id => {
-    const panel = document.getElementById('panel-'+id);
-    const tab   = document.getElementById('tab-'+id);
-    if(panel) panel.classList.toggle('hidden', id !== t);
-    if(tab)   tab.classList.toggle('active', id === t);
+  WalletConnector.on('connect', async addr => {
+    userAddress = addr;
+    const btn = document.getElementById('connect-btn');
+    btn.innerHTML = `<i class="fa-solid fa-check-circle text-xs text-emerald-400"></i><span class="font-mono">${addr.slice(0,6)}…${addr.slice(-4)}</span>`;
+    await updateUSDCBalance();
+    await refreshStakes();
   });
-  if (t === 'stakes' && WalletConnector.address) refreshStakes();
-  if (t === 'sell'   && WalletConnector.address) updateSaviorBalance();
-}
+  WalletConnector.on('disconnect', () => {
+    userAddress = null;
+    const btn = document.getElementById('connect-btn');
+    btn.innerHTML = '<i class="fa-regular fa-wallet"></i> Connect Wallet';
+  });
+  WalletConnector.on('accountsChanged', async addr => {
+    if (addr) {
+      userAddress = addr;
+      await updateUSDCBalance();
+      await refreshStakes();
+    } else {
+      userAddress = null;
+    }
+  });
+  updateSwapQuote();
+});
 
-// ── Wallet ─────────────────────────────────────────────────────────────
-async function connectWallet() {
+async function connectWallet(){
   await WalletConnector.connect();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadContracts();
-  WalletConnector.on('connect', addr => onConnected(addr));
-  WalletConnector.on('accountsChanged', addr => addr ? onConnected(addr) : onDisconnected());
-  WalletConnector.on('disconnect', () => onDisconnected());
-  if (WalletConnector.address) onConnected(WalletConnector.address);
-});
-
-function onConnected(addr) {
-  const btn = document.getElementById('connect-btn');
-  btn.textContent = addr.slice(0,6)+'...'+addr.slice(-4);
-  btn.classList.add('!bg-emerald-600');
-  document.getElementById('swap-btn-text').textContent = 'Swap Now';
-  document.getElementById('sell-btn-text').textContent = 'Sell $SAVIOR';
-  updateUsdcBalance();
-  updateSaviorBalance();
-}
-
-function onDisconnected() {
-  document.getElementById('connect-btn').textContent = 'Connect Wallet';
-  document.getElementById('connect-btn').classList.remove('!bg-emerald-600');
-  document.getElementById('swap-btn-text').textContent = 'Connect Wallet to Swap';
-  document.getElementById('usdc-balance').textContent = '–';
-}
-
-async function updateUsdcBalance() {
-  if (!WalletConnector.provider) return;
-  try {
-    const bal = await WalletConnector.provider.getBalance(WalletConnector.address);
-    // Arc native = USDC 18 dec → display as 6 dec
-    const display = (Number(ethers.formatUnits(bal, 18))).toFixed(4);
-    document.getElementById('usdc-balance').textContent = display;
-  } catch(e) {}
-}
-
-async function updateSaviorBalance() {
-  if (!WalletConnector.provider || !tokenAddr) return;
-  try {
-    const token = new ethers.Contract(tokenAddr, ERC20_ABI, WalletConnector.provider);
-    const bal = await token.balanceOf(WalletConnector.address);
-    const display = Number(ethers.formatUnits(bal, 6)).toLocaleString(undefined, {maximumFractionDigits: 2});
-    document.getElementById('savior-balance').textContent = display;
-    // Check allowance for sell button
-    if(stakingAddr) {
-      const allowance = await token.allowance(WalletConnector.address, stakingAddr);
-      const sellAmt = parseFloat(document.getElementById('sell-in').value || '0');
-      const sellAmtBig = sellAmt > 0 ? ethers.parseUnits(sellAmt.toString(), 6) : 0n;
-      const needsApprove = sellAmtBig > 0n && allowance < sellAmtBig;
-      document.getElementById('approve-btn').classList.toggle('hidden', !needsApprove);
-    }
-  } catch(e) {}
-}
-
-// ── Slippage ───────────────────────────────────────────────────────────
-let sellSlippageBps = 100;
-let sellQuoteTimer  = null;
-
-function setSlippage(bps) {
-  slippageBps = bps;
-  [50,100,300,500].forEach(b => {
-    document.getElementById('slip-'+b).className = 'px-2 py-1 rounded text-xs ' +
-      (b === bps ? 'bg-indigo-500/30 text-indigo-300' : 'bg-white/5');
+function switchTab(tab){
+  ['swap','stakes','arc'].forEach(t=>{
+    document.getElementById(`tab-${t}`).classList.toggle('active',t===tab);
+    document.getElementById(`content-${t}`).classList.toggle('active',t===tab);
   });
-  onSwapInput();
+  if(tab==='stakes'&&userAddress) refreshStakes();
 }
 
-function setSellSlippage(bps) {
-  sellSlippageBps = bps;
-  [50,100,300,500].forEach(b => {
-    const el = document.getElementById('sell-slip-'+b);
-    if(el) el.className = 'px-2 py-1 rounded text-xs ' + (b === bps ? 'bg-indigo-500/30 text-indigo-300' : 'bg-white/5');
-  });
-  onSellInput();
+function updateSlippage(){
+  const v = parseInt(document.getElementById('slippage-range').value);
+  document.getElementById('slip-label').textContent=(v/100).toFixed(2)+'%';
+  updateSwapQuote();
 }
 
-function onSellInput() {
-  clearTimeout(sellQuoteTimer);
-  const val = parseFloat(document.getElementById('sell-in').value);
-  if (!val || val <= 0) {
-    document.getElementById('sell-out').textContent = '–';
-    return;
-  }
-  document.getElementById('sell-out').textContent = '...';
-  // Update approve button visibility
-  updateSaviorBalance();
-  sellQuoteTimer = setTimeout(() => fetchSellQuote(val), 500);
-}
-
-async function fetchSellQuote(saviorAmount) {
-  if (!stakingAddr || !tokenAddr) { document.getElementById('sell-out').textContent = 'Deploy contracts first'; return; }
-  try {
-    const provider = WalletConnector.provider || new ethers.JsonRpcProvider('https://rpc.mainnet.arc.io');
-    const amountIn6 = ethers.parseUnits(saviorAmount.toString(), 6); // SAVIOR 6 dec
-    const { fee, ts, hook } = getPoolParams();
-
-    const [c0, c1] = BigInt(USDC_ADDRESS) < BigInt(tokenAddr)
-      ? [USDC_ADDRESS, tokenAddr]
-      : [tokenAddr, USDC_ADDRESS];
-    const zeroForOne = c0.toLowerCase() !== USDC_ADDRESS.toLowerCase(); // SAVIOR→USDC: if SAVIOR=c0 zeroForOne=true, else false
-
-    const quoter = new ethers.Contract(QUOTER, QUOTER_ABI, provider);
-    const result = await quoter.quoteExactInputSingle.staticCall(
-      { currency0: c0, currency1: c1, fee, tickSpacing: ts, hooks: hook },
-      { zeroForOne, exactAmount: amountIn6, sqrtPriceLimitX96: 0n, hookData: '0x' }
-    );
-    const deltaAmounts = result.deltaAmounts || result[0];
-    const outDelta = zeroForOne ? deltaAmounts[1] : deltaAmounts[0];
-    const amountOut = outDelta < 0n ? -outDelta : outDelta;
-    // amountOut = USDC 6 dec; kontrat 2% treasury fee alıyor
-    const amountAfterFee = Number(ethers.formatUnits(amountOut * 98n / 100n, 6));
-    document.getElementById('sell-out').textContent = amountAfterFee.toFixed(4) + ' USDC';
-  } catch(e) {
-    document.getElementById('sell-out').textContent = 'Quote unavailable';
-    console.warn('Sell quote error:', e);
-  }
-}
-
-async function approveSavior() {
-  if (!WalletConnector.signer || !tokenAddr || !stakingAddr) return;
-  const btn = document.getElementById('approve-btn');
-  btn.disabled = true;
-  document.getElementById('approve-btn-text').textContent = 'Approving...';
-  try {
-    const token = new ethers.Contract(tokenAddr, ERC20_ABI, WalletConnector.signer);
-    const tx = await token.approve(stakingAddr, ethers.MaxUint256);
-    await tx.wait();
-    document.getElementById('approve-btn').classList.add('hidden');
-    document.getElementById('approve-btn-text').textContent = 'Approve $SAVIOR';
-  } catch(e) {
-    alert('Approve error: ' + (e.reason || e.message));
-    document.getElementById('approve-btn-text').textContent = 'Approve $SAVIOR';
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function executeSell() {
-  const errEl = document.getElementById('sell-error');
-  errEl.classList.add('hidden');
-  if (!WalletConnector.signer) { connectWallet(); return; }
-  if (!stakingAddr || !tokenAddr) { errEl.textContent = 'Contracts not deployed.'; errEl.classList.remove('hidden'); return; }
-  const saviorAmt = parseFloat(document.getElementById('sell-in').value);
-  if (!saviorAmt || saviorAmt <= 0) { errEl.textContent = 'Enter an amount.'; errEl.classList.remove('hidden'); return; }
-
-  const btn = document.getElementById('sell-btn');
-  btn.disabled = true;
-  document.getElementById('sell-btn-text').textContent = 'Processing...';
-
-  try {
-    // Check allowance first
-    const token = new ethers.Contract(tokenAddr, ERC20_ABI, WalletConnector.signer);
-    const saviorAmtBig = ethers.parseUnits(saviorAmt.toString(), 6);
-    const allowance = await token.allowance(WalletConnector.address, stakingAddr);
-    if (allowance < saviorAmtBig) {
-      document.getElementById('sell-btn-text').textContent = 'Approving...';
-      const approveTx = await token.approve(stakingAddr, ethers.MaxUint256);
-      await approveTx.wait();
-    }
-
-    const staking   = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
-    // zeroForOne=false: SAVIOR(c1) in → USDC(c0) out
-    document.getElementById('sell-btn-text').textContent = 'Selling...';
-    // Calculate minOut from displayed quote with slippage
-    let sellMinOut = 0n;
-    try {
-      const rawQ = document.getElementById('sell-out').textContent.replace(/[^0-9.]/g,'');
-      if (rawQ && parseFloat(rawQ) > 0) {
-        const quotedBig = ethers.parseUnits(parseFloat(rawQ).toFixed(6), 6);
-        sellMinOut = quotedBig * BigInt(10000 - sellSlippageBps) / 10000n;
-      }
-    } catch(_) {}
-    const tx = await staking.swapExactIn(false, saviorAmtBig, sellMinOut);
-    document.getElementById('sell-btn-text').textContent = 'Confirming...';
-    await tx.wait();
-    document.getElementById('sell-btn-text').textContent = 'Sold ✓';
-    setTimeout(() => { document.getElementById('sell-btn-text').textContent = 'Sell $SAVIOR'; }, 3000);
-    updateUsdcBalance();
-    updateSaviorBalance();
-    document.getElementById('sell-in').value = '';
-    document.getElementById('sell-out').textContent = '–';
-  } catch(e) {
-    let msg = e.reason || e.shortMessage || e.message || 'Unknown error';
-    if (msg.includes('PoolKeyNotSet')) msg = 'Pool not initialized.';
-    if (msg.includes('AmountZero'))    msg = 'Amount must be greater than 0.';
-    errEl.textContent = 'Sell error: ' + msg;
-    errEl.classList.remove('hidden');
-    document.getElementById('sell-btn-text').textContent = 'Sell $SAVIOR';
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// ── Quote ──────────────────────────────────────────────────────────────
-function onSwapInput() {
+function onSwapInput(){
   clearTimeout(quoteTimer);
-  const val = parseFloat(document.getElementById('swap-in').value);
-  if (!val || val <= 0) {
-    document.getElementById('swap-out').textContent = '–';
-    document.getElementById('info-instant').textContent = '–';
-    document.getElementById('info-locked').textContent  = '–';
-    return;
-  }
-  document.getElementById('swap-out').textContent = '...';
-  quoteTimer = setTimeout(() => fetchQuote(val), 500);
+  quoteTimer=setTimeout(updateSwapQuote,400);
 }
 
-// Yardımcı: localStorage'dan pool parametrelerini yükle
-function getPoolParams() {
-  const fee  = Number(localStorage.getItem('pool_fee') || '10000');
-  const ts   = Number(localStorage.getItem('pool_tick_spacing') || '200');
-  const hook = localStorage.getItem('savior_hook') || ethers.ZeroAddress;
-  return { fee, ts, hook };
+function refreshContractsDisplay(){
+  const el = document.getElementById('contracts-display');
+  STAKING_ADDR = localStorage.getItem('savior_staking') || '';
+  TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
+  const entries = [
+    ['SaviorToken',   localStorage.getItem('savior_token')],
+    ['SaviorHook',    localStorage.getItem('savior_hook')],
+    ['SaviorStaking', localStorage.getItem('savior_staking')],
+    ['PoolManager',   localStorage.getItem('pool_manager')||POOL_MANAGER],
+  ];
+  el.innerHTML = entries.map(([label,addr])=> addr
+    ? `<div class="flex justify-between items-center gap-2">
+         <span class="text-white/35">${label}</span>
+         <a href="https://explorer.arc.io/address/${addr}" target="_blank"
+            class="font-mono text-blue-400 hover:text-blue-300 hover:underline text-xs">${addr.slice(0,8)}…${addr.slice(-6)}</a>
+       </div>`
+    : `<div class="flex justify-between items-center"><span class="text-white/25">${label}</span><span class="text-white/15 italic">not deployed</span></div>`
+  ).join('');
 }
 
-async function fetchQuote(usdcAmount) {
-  if (!stakingAddr || !tokenAddr) {
-    document.getElementById('swap-out').textContent = 'Deploy contracts first';
-    return;
-  }
-  try {
-    const provider = WalletConnector.provider || new ethers.JsonRpcProvider('https://rpc.mainnet.arc.io');
-    const amountIn6 = ethers.parseUnits(usdcAmount.toString(), 6); // USDC 6 dec
-    const { fee, ts, hook } = getPoolParams();
-
-    // currency0 < currency1 (address sıralaması)
-    const [c0, c1] = BigInt(USDC_ADDRESS) < BigInt(tokenAddr)
-      ? [USDC_ADDRESS, tokenAddr]
-      : [tokenAddr, USDC_ADDRESS];
-    const zeroForOne = c0.toLowerCase() === USDC_ADDRESS.toLowerCase(); // USDC(c0)→SAVIOR(c1) = true
-
-    const quoter = new ethers.Contract(QUOTER, QUOTER_ABI, provider);
-    const result = await quoter.quoteExactInputSingle.staticCall(
-      { currency0: c0, currency1: c1, fee, tickSpacing: ts, hooks: hook },
-      { zeroForOne, exactAmount: amountIn6, sqrtPriceLimitX96: 0n, hookData: '0x' }
-    );
-    // deltaAmounts[0] = currency0 delta, [1] = currency1 delta
-    // Çıktı: negatif delta = dışarı çıkan token miktarı (abs değer)
-    const deltaAmounts = result.deltaAmounts || result[0];
-    const outDelta = zeroForOne ? deltaAmounts[1] : deltaAmounts[0];
-    const amountOut = outDelta < 0n ? -outDelta : outDelta;
-    const savior = Number(ethers.formatUnits(amountOut, 6));
-    document.getElementById('swap-out').textContent    = savior.toLocaleString(undefined, {maximumFractionDigits:2});
-    document.getElementById('info-instant').textContent = (savior * 0.5).toLocaleString(undefined, {maximumFractionDigits:2}) + ' SAVIOR';
-    document.getElementById('info-locked').textContent  = (savior * 0.5).toLocaleString(undefined, {maximumFractionDigits:2}) + ' SAVIOR';
-  } catch(e) {
-    document.getElementById('swap-out').textContent = 'Quote unavailable';
-    document.getElementById('info-instant').textContent = '–';
-    document.getElementById('info-locked').textContent  = '–';
-    console.warn('Buy quote error:', e);
-  }
+async function updateUSDCBalance(){
+  if(!userAddress) return;
+  try{
+    const provider = WalletConnector?.provider || new ethers.BrowserProvider(window.ethereum);
+    const token = new ethers.Contract(USDC_ADDR,['function balanceOf(address) view returns (uint256)','function decimals() view returns (uint8)'],provider);
+    const [bal,dec] = await Promise.all([token.balanceOf(userAddress),token.decimals()]);
+    document.getElementById('usdc-balance').textContent=(Number(bal)/10**Number(dec)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4});
+  }catch(e){console.warn('Balance',e)}
 }
 
-// ── Swap ───────────────────────────────────────────────────────────────
-async function executeSwap() {
-  const errEl = document.getElementById('swap-error');
-  errEl.classList.add('hidden');
-  if (!WalletConnector.signer) { connectWallet(); return; }
-  if (!stakingAddr) { errEl.textContent = 'Contracts not deployed — visit admin panel first.'; errEl.classList.remove('hidden'); return; }
-  const usdcAmt = parseFloat(document.getElementById('swap-in').value);
-  if (!usdcAmt || usdcAmt <= 0) { errEl.textContent = 'Enter an amount.'; errEl.classList.remove('hidden'); return; }
+async function updateSwapQuote(){
+  const amt=parseFloat(document.getElementById('swap-amount').value);
+  const outEl=document.getElementById('savior-out-display');
+  const lockEl=document.getElementById('lock-preview');
+  const warnEl=document.getElementById('pool-key-warning');
+  if(!amt||amt<=0){outEl.textContent='—';lockEl.classList.add('hidden');return;}
 
-  const btn = document.getElementById('swap-btn');
-  btn.disabled = true;
-  document.getElementById('swap-btn-text').textContent = 'Processing...';
+  if(STAKING_ADDR&&ethers.isAddress(STAKING_ADDR)){
+    try{
+      const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
+      const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
+      const pks=await staking.poolKeySet();
+      warnEl.classList.toggle('hidden',pks);
+      if(!pks){outEl.textContent='—';lockEl.classList.add('hidden');return;}
+    }catch(e){}
+  }
 
-  try {
-    const staking  = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
-    const usdcToken = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns(bool)','function allowance(address,address) view returns(uint256)'], WalletConnector.signer);
+  try{
+    const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
+    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
+    const pk=await staking.poolKey();
+    const poolKey={currency0:pk[0],currency1:pk[1],fee:Number(pk[2]),tickSpacing:Number(pk[3]),hooks:pk[4]};
+    const usdcIn=BigInt(Math.round(amt*1e6));
+    const zeroForOne=poolKey.currency0.toLowerCase()===USDC_ADDR.toLowerCase();
+    const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,provider);
+    const result=await quoter.quoteExactInputSingle({
+      poolKey_currency0:poolKey.currency0,poolKey_currency1:poolKey.currency1,
+      poolKey_fee:poolKey.fee,poolKey_tickSpacing:poolKey.tickSpacing,poolKey_hooks:poolKey.hooks,
+      zeroForOne,exactAmount:usdcIn,sqrtPriceLimitX96:0,
+    });
+    const saviorOut=Number(result[0])/1e18;
+    outEl.textContent=saviorOut.toLocaleString(undefined,{maximumFractionDigits:3});
+    document.getElementById('immediate-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
+    document.getElementById('locked-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
+    lockEl.classList.remove('hidden');
+  }catch(e){outEl.textContent='—';lockEl.classList.add('hidden');}
+}
 
-    // zeroForOne=true: USDC(c0) in → SAVIOR(c1) out
-    const amountIn  = ethers.parseUnits(usdcAmt.toString(), 6);  // USDC 6 dec ERC-20
-    // Parse quoted output and apply slippage to get minOut
-    let minOut = 0n;
-    try {
-      const rawQuote = document.getElementById('swap-out').textContent.replace(/[^0-9.]/g,'');
-      if (rawQuote && parseFloat(rawQuote) > 0) {
-        const quotedBig = ethers.parseUnits(parseFloat(rawQuote).toFixed(6), 6);
-        minOut = quotedBig * BigInt(10000 - slippageBps) / 10000n;
-      }
-    } catch(_) {}
-
-    // Approve staking to spend USDC if needed
-    const allowance = await usdcToken.allowance(WalletConnector.address, stakingAddr);
-    if (allowance < amountIn) {
-      document.getElementById('swap-btn-text').textContent = 'Approving USDC...';
-      const approveTx = await usdcToken.approve(stakingAddr, ethers.MaxUint256);
-      await approveTx.wait();
-    }
-
-    document.getElementById('swap-btn-text').textContent = 'Swapping...';
-    const tx = await staking.swapExactIn(true, amountIn, minOut);
-    document.getElementById('swap-btn-text').textContent = 'Confirming...';
+async function executeSwap(){
+  if(!WalletConnector?.signer){alert('Connect wallet first');return;}
+  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured. Check admin panel.');return;}
+  const amt=parseFloat(document.getElementById('swap-amount').value);
+  if(!amt||amt<=0){alert('Enter a valid amount');return;}
+  const slippageBps=parseInt(document.getElementById('slippage-range').value);
+  const btn=document.getElementById('swap-btn');
+  btn.disabled=true;
+  btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
+  try{
+    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
+    const pks=await staking.poolKeySet();
+    if(!pks){alert('Pool not initialized yet. Admin must set up the V4 pool first.');return;}
+    const usdcNative=BigInt(Math.round(amt*1e6));
+    const tx=await staking.buy(0n,BigInt(slippageBps),{value:usdcNative});
+    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
     await tx.wait();
-    document.getElementById('swap-btn-text').textContent = 'Swap successful ✓';
-    setTimeout(() => { document.getElementById('swap-btn-text').textContent = 'Swap Now'; }, 3000);
-    updateUsdcBalance();
-    refreshStakes();
-  } catch(e) {
-    let msg = e.reason || e.shortMessage || e.message || 'Unknown error';
-    if (msg.includes('PoolKeyNotSet')) msg = 'Pool not initialized. Run "Initialize Pool" in admin.';
-    if (msg.includes('only SaviorStaking')) msg = 'Only SaviorStaking contract may call this pool.';
-    errEl.textContent = 'Swap error: ' + msg;
-    errEl.classList.remove('hidden');
-    document.getElementById('swap-btn-text').textContent = 'Swap Now';
-  } finally {
-    btn.disabled = false;
+    alert('Swap successful! Check My Stakes tab.');
+    await updateUSDCBalance();
+    await refreshStakes();
+  }catch(e){
+    const raw=e.reason||e.shortMessage||e.message||String(e);
+    const data=e.data||e.error?.data||'';
+    let msg=raw;
+    if(data==='0x486aa307'||raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
+    else if(raw.includes('InsufficientLiquidity'))msg='Pool has no liquidity. Contact admin.';
+    else if(raw.includes('PoolKeyNotSet'))msg='Pool key not set on staking contract.';
+    else if(raw.includes('execution reverted')&&!raw.includes(':'))msg='Swap reverted — pool may not be active yet.';
+    alert('Swap error: '+msg);
+  }finally{
+    btn.disabled=false;
+    btn.innerHTML='<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking';
   }
 }
 
-// ── Stakes ─────────────────────────────────────────────────────────────
-async function refreshStakes() {
-  if (!WalletConnector.address || !stakingAddr) return;
-  const list = document.getElementById('stakes-list');
-  list.innerHTML = '<div class="text-white/30 text-sm text-center py-4">Loading...</div>';
-  try {
-    const provider = WalletConnector.provider || new ethers.JsonRpcProvider('https://rpc.mainnet.arc.io');
-    const staking  = new ethers.Contract(stakingAddr, STAKING_ABI, provider);
-    const [locks, claimable, emergencyUnlocked] = await Promise.all([
-      staking.getLocks(WalletConnector.address),
-      staking.claimable(WalletConnector.address),
-      staking.globalUnlock(),
+async function refreshStakes(){
+  if(!userAddress){document.getElementById('stakes-loading').textContent='Connect wallet to see your positions';return;}
+  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){document.getElementById('stakes-loading').textContent='SaviorStaking not configured';return;}
+  document.getElementById('stakes-loading').textContent='Loading...';
+  document.getElementById('stakes-list').innerHTML='';
+  try{
+    const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
+    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
+    const [locks,claimable,globalUnlock]=await Promise.all([
+      staking.getUserLocks(userAddress),staking.getClaimable(userAddress),staking.globalUnlock()
     ]);
-
-    document.getElementById('global-unlock-banner').classList.toggle('hidden', !emergencyUnlocked);
-
-    const totalLocked = locks.reduce((s, l) => s + (l.amount || 0n), 0n);
-    document.getElementById('stakes-locked').textContent    = Number(ethers.formatUnits(totalLocked, 6)).toLocaleString(undefined,{maximumFractionDigits:2});
-    document.getElementById('stakes-claimable').textContent = Number(ethers.formatUnits(claimable, 6)).toLocaleString(undefined,{maximumFractionDigits:2});
-
-    if (!locks.length) { list.innerHTML = '<div class="text-white/30 text-sm text-center py-4">No stakes yet.</div>'; return; }
-
-    const now = Math.floor(Date.now()/1000);
-    list.innerHTML = locks.map((l, i) => {
-      if (!l.amount || l.amount === 0n) return '';
-      const unlockTs = Number(l.unlockAt);
-      const matured  = emergencyUnlocked || now >= unlockTs;
-      const pct      = emergencyUnlocked ? 100 : Math.min(100, Math.round((now - (unlockTs - 10*86400)) / (10*86400) * 100));
-      const daysLeft = matured ? 0 : Math.ceil((unlockTs - now) / 86400);
-      return `
-      <div class="lock-row">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm font-semibold">${Number(ethers.formatUnits(l.amount,6)).toLocaleString(undefined,{maximumFractionDigits:4})} SAVIOR</span>
-          <span class="text-xs ${matured ? 'text-emerald-400' : 'text-amber-400'}">${matured ? '✓ Ready' : daysLeft+'d left'}</span>
-        </div>
-        <div class="progress-bar mb-2"><div class="progress-fill" style="width:${pct}%"></div></div>
-        ${matured ? `<button onclick="claimStakes()" class="btn-primary text-xs px-3 py-1.5 w-full">Claim All</button>` : `<div class="text-xs text-white/30 text-center">Unlocks ${new Date(unlockTs*1000).toLocaleDateString()}</div>`}
-      </div>`;
-    }).join('');
-    if (!list.innerHTML.trim()) list.innerHTML = '<div class="text-white/30 text-sm text-center py-4">No active stakes.</div>';
-  } catch(e) {
-    list.innerHTML = `<div class="text-red-400 text-sm text-center py-4">Error: ${e.message}</div>`;
+    const now=Math.floor(Date.now()/1000);
+    const active=locks.filter(l=>!l.claimed);
+    if(active.length===0){
+      document.getElementById('stakes-loading').textContent='No active locks. Swap to start staking.';
+      document.getElementById('stakes-loading').classList.remove('hidden');
+      document.getElementById('stakes-summary').classList.add('hidden');
+      return;
+    }
+    document.getElementById('stakes-loading').classList.add('hidden');
+    const list=document.getElementById('stakes-list');
+    for(let i=0;i<locks.length;i++){
+      const lock=locks[i];if(lock.claimed)continue;
+      const unlockTs=Number(lock.unlockTime);
+      const matured=globalUnlock||now>=unlockTs;
+      const remaining=Math.max(0,unlockTs-now);
+      const days=Math.floor(remaining/86400);
+      const hours=Math.floor((remaining%86400)/3600);
+      const progress=matured?100:Math.min(100,Math.round((1-remaining/864000)*100));
+      const amt=(Number(lock.amount)/1e18).toLocaleString(undefined,{maximumFractionDigits:2});
+      list.innerHTML+=`
+        <div class="lock-row">
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="text-sm font-bold">${amt} <span class="text-white/50 font-normal">SAVIOR</span></div>
+              <div class="text-xs text-white/30 mt-0.5">Lock #${i} · ${matured?'<span class="text-emerald-400">Claimable now</span>':'~'+days+'d '+hours+'h remaining'}</div>
+            </div>
+            ${matured
+              ?`<button onclick="unstake(${i})" id="unstake-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
+                  <i class="fa-solid fa-unlock text-xs"></i>Unstake
+                </button>`
+              :`<span class="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">${days}d left</span>`
+            }
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+        </div>`;
+    }
+    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e18,0);
+    document.getElementById('total-locked-display').textContent=totalLocked.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
+    document.getElementById('claimable-display').textContent=(Number(claimable)/1e18).toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
+    document.getElementById('stakes-summary').classList.remove('hidden');
+  }catch(e){
+    document.getElementById('stakes-loading').textContent='Error: '+(e.reason||e.message);
+    document.getElementById('stakes-loading').classList.remove('hidden');
   }
 }
 
-async function claimStakes() {
-  if (!WalletConnector.signer || !stakingAddr) return;
-  try {
-    const staking = new ethers.Contract(stakingAddr, STAKING_ABI, WalletConnector.signer);
-    const tx = await staking.claimAll();
+async function unstake(lockIndex){
+  if(!WalletConnector?.signer){alert('Connect wallet');return;}
+  const btn=document.getElementById(`unstake-${lockIndex}`);
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner spin text-xs"></i>';}
+  try{
+    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
+    const tx=await staking.unstake(lockIndex);
     await tx.wait();
-    refreshStakes();
-    updateSaviorBalance();
-  } catch(e) {
-    alert('Claim error: ' + (e.reason || e.message));
+    alert('Unstaked successfully!');
+    await refreshStakes();
+  }catch(e){
+    alert('Unstake error: '+(e.reason||e.shortMessage||e.message));
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-unlock text-xs mr-1"></i>Unstake';}
   }
 }
 </script>
