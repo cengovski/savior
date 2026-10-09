@@ -121,7 +121,11 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
         Tick spacing seçilen fee tier'a göre ayarlanır. L değeri = likidite yoğunluğu.
       </div>
       <div class="grid2">
-        <div><label>Liquidity per band (L)</label><input id="liquidityPerBand" value="1000000000000000000"></div>
+        <div style="background:#1a2a1a;border:1px solid #2d4a2d;border-radius:8px;padding:12px;font-size:13px;color:#8bc48b">
+  <b>5 Band — 200M SAVIOR/band (toplam 1B)</b><br>
+  Band L değerleri: 45098009662873 → 45551229421047 → 46009003884643 → 46471378826914 → 46938400481114<br>
+  Tick aralığı: 121000–122000 (spacing=200)
+</div>
         <div><button style="margin-top:20px" onclick="seedLiquidity()">Likidite Ekle (5 band)</button></div>
       </div>
       <div id="bandPreview" class="result" style="font-size:11px">sqrtPriceX96 girdikten sonra band preview burada görünür.</div>
@@ -606,31 +610,26 @@ async function seedLiquidity() {
     // Verify contract exists onchain
     const code = await provider.getCode(stakingAddr);
     if (!code || code === '0x') throw new Error('Staking adresi onchain\'de boş: '+stakingAddr+' — kontrat deploy edilmemiş!');
-    const L = BigInt(document.getElementById('liquidityPerBand').value);
-    const ts = parseInt(document.getElementById('poolTickSpacing').value) || 200;
-    const sqrtStr = document.getElementById('poolSqrtPrice').value;
-    const currentTick = sqrtPriceToTick(sqrtStr);
-    const tickR = Math.floor(currentTick / ts) * ts;
-
-    // SAVIOR-only liquidity: tickUpper <= currentTick (token1-only = currency1-only = SAVIOR)
-    // Her band [tickR - (i+1)*ts, tickR - i*ts]
-    const bands = [];
-    for (let i = 0; i < 5; i++) {
-      const tu = tickR - i * ts;
-      const tl = tu - ts;
-      bands.push([tl, tu]);
-    }
-
+    // Fixed 5 bands: 200M SAVIOR each, total 1B
+    // L values calculated for exactly 200M SAVIOR per band at these tick ranges
+    const BANDS = [
+      { tl: 121800, tu: 122000, L: 45098009662873n },
+      { tl: 121600, tu: 121800, L: 45551229421047n },
+      { tl: 121400, tu: 121600, L: 46009003884643n },
+      { tl: 121200, tu: 121400, L: 46471378826914n },
+      { tl: 121000, tu: 121200, L: 46938400481114n },
+    ];
+    // SAVIOR-only liquidity: fixed 5 bands with exact L for 200M SAVIOR each
     setResult('liquidityResult',
-      'Bandlar: '+bands.map(b=>'['+b[0]+','+b[1]+']').join(', ')+'\nEkleniyor...', '');
+      'Bandlar: '+BANDS.map(b=>'['+b.tl+','+b.tu+']').join(', ')+'\nEkleniyor...', '');
 
     const stakingC = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
     const txs = [];
-    for (const [tl, tu] of bands) {
-      setResult('liquidityResult', 'Band ['+tl+','+tu+'] ekleniyor...', '');
-      const tx = await stakingC.addLiquidity(tl, tu, L, {value: 0, gasLimit: 600000});
+    for (const band of BANDS) {
+      setResult('liquidityResult', 'Band ['+band.tl+','+band.tu+'] L='+band.L+' ekleniyor...', '');
+      const tx = await stakingC.addLiquidity(band.tl, band.tu, band.L, {gasLimit: 600000});
       const rc = await tx.wait();
-      txs.push('['+tl+','+tu+']: '+tx.hash.slice(0,22)+'...');
+      txs.push('['+band.tl+','+band.tu+']: '+tx.hash.slice(0,22)+'...');
     }
     setResult('liquidityResult','✓ 5 band eklendi\nCurrent tick: '+currentTick+'\n'+txs.join('\n'),'ok');
   } catch(e){ setResult('liquidityResult', e.message + (e.data ? '\ndata: '+e.data : ''), 'err'); }
