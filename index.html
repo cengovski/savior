@@ -603,15 +603,15 @@ const ERC20_ABI = [
 ];
 
 const STAKING_ABI = [
-  // swap: zeroForOne=true → USDC in, SAVIOR out (buy); false → SAVIOR in, USDC out (sell)
-  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
-  'function claim(uint256 i) external',
-  'function claimAll() external',
-  'function getLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockAt)[])',
-  'function globalUnlock() external view returns (bool)',
-  'function keySet() external view returns (bool)',
-  'function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
-  'function treasury() external view returns (address)',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut)',
+  'function claim(uint256 i)',
+  'function claimAll()',
+  'function getLocks(address user) view returns (tuple(uint128 amount, uint64 unlockAt)[])',
+  'function claimable(address user) view returns (uint256)',
+  'function globalUnlock() view returns (bool)',
+  'function keySet() view returns (bool)',
+  'function key() view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
+  'function lastBuyBlock(address) view returns (uint64)',
 ];
 
 // V4 Quoter ABI — Arc mainnet quoter
