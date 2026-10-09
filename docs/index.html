@@ -5,8 +5,37 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>$SAVIOR • Arc Mainnet</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
 <script>
+/* ethers.js multi-CDN loader — tries 3 sources, no external race */
+(function(){
+  var CDNS = [
+    'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js',
+    'https://unpkg.com/ethers@6.11.1/dist/ethers.umd.min.js'
+  ];
+  var idx = 0;
+  function tryNext() {
+    if (idx >= CDNS.length) {
+      document.body.innerHTML = '<div style="color:#f00;padding:40px;font-family:monospace">ethers.js yüklenemedi. İnternet bağlantınızı kontrol edin ve sayfayı yenileyin.</div>';
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = CDNS[idx++];
+    s.onload = function(){ window.__ethersReady = true; };
+    s.onerror = function(){ tryNext(); };
+    document.head.appendChild(s);
+  }
+  tryNext();
+})();
+</script>
+<script>
+/* wallet.js — runs after ethers is confirmed loaded */
+function __initWallet() {
+  if (typeof ethers === 'undefined') {
+    setTimeout(__initWallet, 50);
+    return;
+  }
+
 /* wallet.js inline — guaranteed after ethers */
 /**
  * wallet.js — Shared wallet connector
@@ -255,7 +284,8 @@ const WalletConnector = (() => {
 })();
 
 window.WalletConnector = WalletConnector;
-
+}
+__initWallet();
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
