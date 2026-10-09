@@ -134,16 +134,28 @@
       <!-- ── Swap Tab ─────────────────────────────────────────── -->
       <div id="content-swap" class="tab-content active">
 
+        <!-- Buy / Sell toggle -->
+        <div class="flex gap-1 mb-4 p-1 bg-white/3 rounded-xl border border-white/5 w-fit">
+          <button id="mode-buy" onclick="setSwapMode('buy')"
+            class="px-5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            Buy
+          </button>
+          <button id="mode-sell" onclick="setSwapMode('sell')"
+            class="px-5 py-1.5 rounded-lg text-sm font-semibold transition-all text-white/40 hover:text-white/60">
+            Sell
+          </button>
+        </div>
+
         <!-- From -->
         <div class="input-wrap mb-2">
           <div class="flex justify-between text-xs text-white/35 mb-2">
             <span>You pay</span>
-            <span>Balance: <span id="usdc-balance" class="text-white/60">—</span> USDC</span>
+            <span id="pay-balance-label">Balance: <span id="usdc-balance" class="text-white/60">—</span> USDC</span>
           </div>
           <div class="flex items-center gap-3">
             <input id="swap-amount" class="input-f flex-1" type="number" min="0.000001" step="any"
               placeholder="0.0" oninput="onSwapInput()" value="0.1"/>
-            <div class="token-pill">
+            <div id="pay-token-pill" class="token-pill">
               <i class="fa-solid fa-circle-dollar-sign text-blue-400 text-base"></i>
               <span>USDC</span>
             </div>
@@ -161,11 +173,11 @@
         <div class="input-wrap mb-4">
           <div class="flex justify-between text-xs text-white/35 mb-2">
             <span>You receive <span class="text-white/25">(estimated)</span></span>
-            <span class="text-white/40">$SAVIOR</span>
+            <span id="receive-token-label" class="text-white/40">$SAVIOR</span>
           </div>
           <div class="flex items-center gap-3">
             <div class="input-f flex-1 text-white/50 text-lg" id="savior-out-display">—</div>
-            <div class="savior-pill">
+            <div id="receive-token-pill" class="savior-pill">
               <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>
               <span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>
             </div>
@@ -183,7 +195,7 @@
           <div class="flex justify-between text-xs text-white/20 mt-1"><span>0.1%</span><span>5%</span></div>
         </div>
 
-        <!-- Split preview -->
+        <!-- Split preview (buy only) -->
         <div id="lock-preview" class="hidden split-preview mb-4">
           <div class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-wide">Estimated split</div>
           <div class="flex justify-between text-sm mb-1">
@@ -200,10 +212,7 @@
           <i class="fa-solid fa-shield-halved text-sm"></i>Swap via Staking
         </button>
 
-        <div id="pool-key-warning" class="hidden mt-3 text-xs text-amber-400 bg-amber-400/8 border border-amber-400/20 rounded-xl p-3 flex items-start gap-2">
-          <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
-          <span>Pool not initialized yet. Admin must initialize the V4 pool first.</span>
-        </div>
+        <div id="swap-status" class="hidden mt-3 text-xs rounded-xl p-3 flex items-start gap-2"></div>
       </div>
 
       <!-- ── Stakes Tab ───────────────────────────────────────── -->
@@ -659,6 +668,60 @@ function switchTab(tab) {
   if (tab === "stakes" && userAddress) refreshStakes();
 }
 
+let swapMode = 'buy'; // 'buy' | 'sell'
+
+function setSwapMode(mode) {
+  swapMode = mode;
+  const buyBtn  = document.getElementById('mode-buy');
+  const sellBtn = document.getElementById('mode-sell');
+  if (mode === 'buy') {
+    buyBtn.className  = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-blue-500/20 text-blue-300 border border-blue-500/30';
+    sellBtn.className = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all text-white/40 hover:text-white/60';
+    document.getElementById('pay-balance-label').innerHTML =
+      'Balance: <span id="usdc-balance" class="text-white/60">— </span> USDC';
+    document.getElementById('pay-token-pill').innerHTML =
+      '<i class="fa-solid fa-circle-dollar-sign text-blue-400 text-base"></i><span>USDC</span>';
+    document.getElementById('receive-token-label').textContent = '$SAVIOR';
+    document.getElementById('receive-token-pill').innerHTML =
+      '<div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>' +
+      '<span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>';
+    document.getElementById('lock-preview').classList.remove('hidden');
+    document.getElementById('swap-btn').innerHTML =
+      '<i class="fa-solid fa-shield-halved text-sm"></i>Swap via Staking';
+    document.getElementById('swap-amount').value = '0.1';
+  } else {
+    buyBtn.className  = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all text-white/40 hover:text-white/60';
+    sellBtn.className = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-purple-500/20 text-purple-300 border border-purple-500/30';
+    document.getElementById('pay-balance-label').innerHTML =
+      'Balance: <span id="savior-wallet-balance" class="text-white/60">—</span> SAVIOR';
+    document.getElementById('pay-token-pill').innerHTML =
+      '<div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>' +
+      '<span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>';
+    document.getElementById('receive-token-label').textContent = 'USDC';
+    document.getElementById('receive-token-pill').innerHTML =
+      '<i class="fa-solid fa-circle-dollar-sign text-blue-400 text-base"></i><span>USDC</span>';
+    document.getElementById('lock-preview').classList.add('hidden');
+    document.getElementById('swap-btn').innerHTML =
+      '<i class="fa-solid fa-arrow-right-arrow-left text-sm"></i>Sell $SAVIOR';
+    document.getElementById('swap-amount').value = '';
+    // Load SAVIOR wallet balance
+    loadSaviorWalletBalance();
+  }
+  document.getElementById('savior-out-display').textContent = '—';
+  onSwapInput();
+}
+
+async function loadSaviorWalletBalance() {
+  if (!userAddress) return;
+  try {
+    const savior = new ethers.Contract(TOKEN_ADDR,
+      ["function balanceOf(address) view returns (uint256)"], provider);
+    const bal = await savior.balanceOf(userAddress);
+    const el = document.getElementById('savior-wallet-balance');
+    if (el) el.textContent = (Number(bal) / 1e6).toLocaleString(undefined, {maximumFractionDigits: 2});
+  } catch(e) { console.error('savior balance', e); }
+}
+
 function updateSlippage() {
   const v = parseInt(document.getElementById("slippage-range").value);
   document.getElementById("slip-label").textContent = (v/100).toFixed(2) + "%";
@@ -749,74 +812,93 @@ async function updateSwapQuote() {
 }
 
 // ── Execute Swap (Buy: USDC → SAVIOR) ─────────────────────────────────
+function showStatus(msg, type) {
+  const el = document.getElementById('swap-status');
+  if (!el) return;
+  el.classList.remove('hidden');
+  const styles = {
+    info: 'text-blue-300 bg-blue-400/8 border border-blue-400/20',
+    ok:   'text-emerald-400 bg-emerald-400/8 border border-emerald-400/20',
+    warn: 'text-amber-400 bg-amber-400/8 border border-amber-400/20',
+    err:  'text-red-400 bg-red-400/8 border border-red-400/20',
+  };
+  el.className = 'mt-3 text-xs rounded-xl p-3 flex items-start gap-2 ' + (styles[type] || styles.info);
+  el.innerHTML = msg;
+}
+
 async function executeSwap() {
-  if (!WalletConnector?.signer) { alert("Connect wallet first"); return; }
-  const amt = parseFloat(document.getElementById("swap-amount").value);
-  if (!amt || amt <= 0) { alert("Enter a valid amount"); return; }
-  const amountIn = BigInt(Math.round(amt * 1e6));
-  const slippageBps = parseInt(document.getElementById("slippage-range").value || "100");
-  const btn = document.getElementById("swap-btn");
+  if (!WalletConnector?.signer) { showStatus('Cüzdanı bağla.', 'warn'); return; }
+  const amt = parseFloat(document.getElementById('swap-amount').value);
+  if (!amt || amt <= 0) { showStatus('Geçerli bir miktar gir.', 'warn'); return; }
+  const slipBps = parseInt(document.getElementById('slippage-range').value);
+  const btn = document.getElementById('swap-btn');
   btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
 
   try {
-    // 1. Approve USDC → staking
-    const usdc = new ethers.Contract(USDC_ADDR,
-      ["function approve(address,uint256) returns (bool)",
-       "function allowance(address,address) view returns (uint256)"],
-      WalletConnector.signer);
-    const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
-    if (allowance < amountIn) {
-      btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
-      await (await usdc.approve(STAKING_ADDR, amountIn)).wait();
+    if (swapMode === 'buy') {
+      // USDC → SAVIOR
+      const amountIn = BigInt(Math.round(amt * 1e6));
+      const usdc = new ethers.Contract(USDC_ADDR,
+        ["function approve(address,uint256)", "function allowance(address,address) view returns (uint256)"],
+        WalletConnector.signer);
+      const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
+      if (allowance < amountIn) {
+        showStatus('USDC onaylıyor...', 'info');
+        await (await usdc.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
+      }
+      // Quote for minOut
+      let minOut = 1n;
+      try {
+        const quoted = await fetchQuote(true, amountIn);
+        if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
+      } catch(e) { console.warn('quote failed, using minOut=1', e); }
+
+      showStatus('Swap işlemi gönderiliyor...', 'info');
+      const staking = new ethers.Contract(STAKING_ADDR,
+        ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
+      const tx = await staking.swapExactIn(true, amountIn, minOut);
+      showStatus('Onay bekleniyor...', 'info');
+      await tx.wait();
+      showStatus('Swap başarılı! 50% cüzdanında, 50% kilitlendi.', 'ok');
+      loadBalances();
+
+    } else {
+      // SAVIOR → USDC (sell)
+      const amountIn = BigInt(Math.round(amt * 1e6));
+      const savior = new ethers.Contract(TOKEN_ADDR,
+        ["function approve(address,uint256)", "function allowance(address,address) view returns (uint256)"],
+        WalletConnector.signer);
+      const allowance = await savior.allowance(userAddress, STAKING_ADDR);
+      if (allowance < amountIn) {
+        showStatus('SAVIOR onaylıyor...', 'info');
+        await (await savior.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
+      }
+      // Quote for minOut
+      let minOut = 1n;
+      try {
+        const quoted = await fetchQuote(false, amountIn);
+        if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
+      } catch(e) { console.warn('quote failed, using minOut=1', e); }
+
+      showStatus('Satış işlemi gönderiliyor...', 'info');
+      const staking = new ethers.Contract(STAKING_ADDR,
+        ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
+      const tx = await staking.swapExactIn(false, amountIn, minOut);
+      showStatus('Onay bekleniyor...', 'info');
+      await tx.wait();
+      showStatus('Satış başarılı! USDC cüzdanında.', 'ok');
+      loadBalances();
+      loadSaviorWalletBalance();
     }
-
-    // 2. Get quote for minOut — quoter uses HOOK_ADDR, not staking
-    let minOut = 1n;
-    try {
-      const staking  = new ethers.Contract(STAKING_ADDR, STAKING_ABI, WalletConnector.provider);
-      const pk       = await staking.key();
-      const quoter   = new ethers.Contract(QUOTER_ADDR, QUOTER_ABI, WalletConnector.provider);
-      const q        = await quoter.quoteExactInputSingle.staticCall({
-        currency0:   pk.currency0,
-        currency1:   pk.currency1,
-        fee:         Number(pk.fee),
-        tickSpacing: Number(pk.tickSpacing),
-        hooks:       HOOK_ADDR,         // ← hook adresi
-        zeroForOne:  pk.currency0.toLowerCase() === USDC_ADDR.toLowerCase(),
-        exactAmount: amountIn,
-        sqrtPriceLimitX96: 0n
-      });
-      minOut = BigInt(q.amountOut) * BigInt(10000 - slippageBps) / 10000n;
-      if (minOut < 1n) minOut = 1n;
-    } catch(_) { minOut = 1n; }
-
-    // 3. swapExactIn(zeroForOne=true, amountIn, minOut)
-    btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
-    const staking = new ethers.Contract(STAKING_ADDR,
-      ["function swapExactIn(bool,uint256,uint256)"],
-      WalletConnector.signer);
-    const tx = await staking.swapExactIn(true, amountIn, minOut);
-    btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
-    await tx.wait();
-
-    alert("Swap ok. 50% cüzdan, 50% kilit (My Stakes).");
-    await updateUSDCBalance();
-    await refreshStakes();
   } catch(e) {
-    const raw = e.reason || e.shortMessage || e.message || String(e);
-    let msg = raw;
-    if (raw.includes("OnlyStaking"))     msg = "Hook: sadece staking kontratı swap yapabilir.";
-    else if (raw.includes("Slippage"))   msg = "Slippage aşıldı — toleransı artır.";
-    else if (raw.includes("SameBlock"))  msg = "Aynı blokta satış yapılamaz.";
-    else if (raw.includes("ZeroAmount")) msg = "Miktar 0 olamaz.";
-    else if (raw.includes("missing revert") || raw.includes("unknown custom error"))
-      msg = "Kontrat revert etti. Pool likidite yok veya impl eski. Admin upgrade gerekli.";
-    console.error("Swap error:", e);
-    alert("Swap error: " + msg);
+    let msg = e.shortMessage || e.reason || e.message || String(e);
+    if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage aşıldı — toleransı artır.';
+    else if (msg.includes('SameBlock')) msg = 'Aynı blokta satış yapılamaz — 1 blok bekle.';
+    else if (msg.includes('user rejected')) msg = 'İşlem iptal edildi.';
+    else if (msg.includes('insufficient')) msg = 'Yetersiz bakiye.';
+    showStatus(msg, 'err');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking';
   }
 }
 
