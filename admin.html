@@ -327,11 +327,14 @@ function sha256(str) {
 function login() {
   const pw = document.getElementById('pwInput').value;
   const hex = sha256(pw);
+  console.log('login attempt, hash:', hex, 'expected:', HASH, 'match:', hex===HASH);
   if (hex === HASH) {
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
   } else {
-    document.getElementById('loginErr').style.display = 'block';
+    const errEl = document.getElementById('loginErr');
+    errEl.style.display = 'block';
+    errEl.textContent = 'Hatalı şifre (hash: ' + hex.slice(0,8) + '...)';
   }
 }
 
