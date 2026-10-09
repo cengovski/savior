@@ -588,15 +588,16 @@ const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
 const QUOTER_ADDR  = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
 
 const STAKING_ABI = [
-  'function buy(uint256 minSaviorOut, uint256 slippageBps) external payable',
-  'function unstake(uint256 lockIndex) external',
-  'function getUserLocks(address user) external view returns (tuple(uint256 amount, uint256 unlockTime, bool claimed)[])',
-  'function getClaimable(address user) external view returns (uint256)',
-  'function getLockCount(address user) external view returns (uint256)',
-  'function totalStaked() view returns (uint256)',
-  'function globalUnlock() view returns (bool)',
-  'function poolKeySet() view returns (bool)',
-  'function poolKey() view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
+  'function claim(uint256 i) external',
+  'function emergencyUnlockAll() external',
+  'function getLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockAt)[])',
+  'function lastBuyBlock(address) external view returns (uint64)',
+  'function globalUnlock() external view returns (bool)',
+  'function keySet() external view returns (bool)',
+  'function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
+  'function treasury() external view returns (address)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
 ];
 
 const QUOTER_ABI = [
@@ -639,7 +640,33 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function connectWallet(){
-  await WalletConnector.connect();
+  try {
+    await WalletConnector.connect();
+    // switch to Arc Mainnet (5042)
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x13B2' }]
+      });
+    } catch(switchErr) {
+      if (switchErr.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x13B2',
+            chainName: 'Arc Mainnet',
+            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+            rpcUrls: ['https://rpc.mainnet.arc.io'],
+            blockExplorerUrls: ['https://explorer.arc.io']
+          }]
+        });
+      }
+    }
+  } catch(e) {
+    console.error('Connect error:', e);
+    const msg = e.code === 4001 ? 'Connection rejected' : (e.message || 'Unknown error');
+    document.getElementById('connect-btn').innerHTML = `<i class="fa-solid fa-exclamation-circle text-xs text-red-400"></i> ${msg.slice(0,30)}`;
+  }
 }
 
 function switchTab(tab){
@@ -702,7 +729,7 @@ async function updateSwapQuote(){
     try{
       const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
       const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-      const pks=await staking.poolKeySet();
+      const pks=await staking.keySet();
       warnEl.classList.toggle('hidden',pks);
       if(!pks){outEl.textContent='—';lockEl.classList.add('hidden');return;}
     }catch(e){}
@@ -734,29 +761,62 @@ async function executeSwap(){
   if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured. Check admin panel.');return;}
   const amt=parseFloat(document.getElementById('swap-amount').value);
   if(!amt||amt<=0){alert('Enter a valid amount');return;}
-  const slippageBps=parseInt(document.getElementById('slippage-range').value);
+  const slippagePct=parseFloat(document.getElementById('slippage-range').value||'100')/100;
   const btn=document.getElementById('swap-btn');
   btn.disabled=true;
   btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
   try{
     const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
-    const pks=await staking.poolKeySet();
+    const pks=await staking.keySet();
     if(!pks){alert('Pool not initialized yet. Admin must set up the V4 pool first.');return;}
-    const usdcNative=BigInt(Math.round(amt*1e6));
-    const tx=await staking.buy(0n,BigInt(slippageBps),{value:usdcNative});
+
+    // USDC is ERC-20 (6 decimals) on Arc — must approve staking to spend
+    const amountIn=BigInt(Math.round(amt*1e6));
+    const usdc=new ethers.Contract(USDC_ADDR,
+      ['function approve(address,uint256) returns(bool)',
+       'function allowance(address,address) view returns(uint256)'],
+      WalletConnector.signer);
+    const allowance=await usdc.allowance(userAddress,STAKING_ADDR);
+    if(allowance<amountIn){
+      btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
+      const approveTx=await usdc.approve(STAKING_ADDR, amountIn*2n);
+      await approveTx.wait();
+    }
+
+    // Get quote for minOut
+    let minOut=0n;
+    try{
+      const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,WalletConnector.provider||new ethers.BrowserProvider(window.ethereum));
+      const q=await quoter.quoteExactInputSingle.staticCall({
+        poolKey_currency0:USDC_ADDR,
+        poolKey_currency1:TOKEN_ADDR||'0x0000000000000000000000000000000000000001',
+        poolKey_fee:10000,
+        poolKey_tickSpacing:200,
+        poolKey_hooks:STAKING_ADDR,
+        zeroForOne:true,
+        exactAmount:amountIn,
+        sqrtPriceLimitX96:0n
+      });
+      minOut=BigInt(Math.floor(Number(q.amountOut)*(1-slippagePct/100)));
+    }catch(_){minOut=0n;}
+
+    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
+    // zeroForOne=true: USDC(currency0) → SAVIOR(currency1)
+    const tx=await staking.swapExactIn(true,amountIn,minOut);
     btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
     await tx.wait();
-    alert('Swap successful! Check My Stakes tab.');
+    alert('Swap successful! 50% instant, 50% in My Stakes tab.');
     await updateUSDCBalance();
     await refreshStakes();
   }catch(e){
     const raw=e.reason||e.shortMessage||e.message||String(e);
-    const data=e.data||e.error?.data||'';
     let msg=raw;
-    if(data==='0x486aa307'||raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
-    else if(raw.includes('InsufficientLiquidity'))msg='Pool has no liquidity. Contact admin.';
-    else if(raw.includes('PoolKeyNotSet'))msg='Pool key not set on staking contract.';
-    else if(raw.includes('execution reverted')&&!raw.includes(':'))msg='Swap reverted — pool may not be active yet.';
+    if(raw.includes('OnlyStaking'))msg='Hook: only staking contract can swap.';
+    else if(raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
+    else if(raw.includes('Slippage'))msg='Slippage too high — try higher slippage tolerance.';
+    else if(raw.includes('SameBlock'))msg='Cannot sell in same block as buy.';
+    else if(raw.includes('ZeroAmount'))msg='Amount must be greater than 0.';
+    console.error('Swap error full:',e);
     alert('Swap error: '+msg);
   }finally{
     btn.disabled=false;
@@ -772,11 +832,12 @@ async function refreshStakes(){
   try{
     const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
     const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-    const [locks,claimable,globalUnlock]=await Promise.all([
-      staking.getUserLocks(userAddress),staking.getClaimable(userAddress),staking.globalUnlock()
+    const [locks,globalUnlock]=await Promise.all([
+      staking.getLocks(userAddress), staking.globalUnlock()
     ]);
     const now=Math.floor(Date.now()/1000);
-    const active=locks.filter(l=>!l.claimed);
+    // New struct: {uint128 amount, uint64 unlockAt} — amount=0 means claimed
+    const active=locks.filter(l=>Number(l.amount)>0);
     if(active.length===0){
       document.getElementById('stakes-loading').textContent='No active locks. Swap to start staking.';
       document.getElementById('stakes-loading').classList.remove('hidden');
@@ -785,15 +846,19 @@ async function refreshStakes(){
     }
     document.getElementById('stakes-loading').classList.add('hidden');
     const list=document.getElementById('stakes-list');
+    let claimableTotal=0;
     for(let i=0;i<locks.length;i++){
-      const lock=locks[i];if(lock.claimed)continue;
-      const unlockTs=Number(lock.unlockTime);
+      const lock=locks[i];
+      if(Number(lock.amount)===0) continue; // claimed
+      const unlockTs=Number(lock.unlockAt);
       const matured=globalUnlock||now>=unlockTs;
       const remaining=Math.max(0,unlockTs-now);
       const days=Math.floor(remaining/86400);
       const hours=Math.floor((remaining%86400)/3600);
       const progress=matured?100:Math.min(100,Math.round((1-remaining/864000)*100));
-      const amt=(Number(lock.amount)/1e18).toLocaleString(undefined,{maximumFractionDigits:2});
+      // SAVIOR is 6 decimals
+      const amt=(Number(lock.amount)/1e6).toLocaleString(undefined,{maximumFractionDigits:2});
+      if(matured) claimableTotal+=Number(lock.amount)/1e6;
       list.innerHTML+=`
         <div class="lock-row">
           <div class="flex justify-between items-start">
@@ -802,8 +867,8 @@ async function refreshStakes(){
               <div class="text-xs text-white/30 mt-0.5">Lock #${i} · ${matured?'<span class="text-emerald-400">Claimable now</span>':'~'+days+'d '+hours+'h remaining'}</div>
             </div>
             ${matured
-              ?`<button onclick="unstake(${i})" id="unstake-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
-                  <i class="fa-solid fa-unlock text-xs"></i>Unstake
+              ?`<button onclick="claim(${i})" id="claim-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
+                  <i class="fa-solid fa-unlock text-xs"></i>Claim
                 </button>`
               :`<span class="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">${days}d left</span>`
             }
@@ -811,9 +876,9 @@ async function refreshStakes(){
           <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
         </div>`;
     }
-    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e18,0);
+    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e6,0);
     document.getElementById('total-locked-display').textContent=totalLocked.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
-    document.getElementById('claimable-display').textContent=(Number(claimable)/1e18).toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
+    document.getElementById('claimable-display').textContent=claimableTotal.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
     document.getElementById('stakes-summary').classList.remove('hidden');
   }catch(e){
     document.getElementById('stakes-loading').textContent='Error: '+(e.reason||e.message);
