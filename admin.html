@@ -682,30 +682,32 @@ async function upgradeHook() {
 }
 
 async function upgradeStaking() {
-  setResult('upgradeResult', 'Yeni staking deploy ediliyor...', '');
+  setResult('upgradeResult', 'Deploying new impl...', '');
   try {
     await ensureSigner();
-    const owner = await signer.getAddress();
+    const proxyAddr = document.getElementById('upgradeProxy').value.trim();
+    if (!ethers.isAddress(proxyAddr)) throw new Error('Invalid proxy address');
 
-    // 1. Deploy impl
-    const impl = await deployBytecode(STAKING_BC, 'SaviorStaking impl');
-    setResult('upgradeResult', 'Impl: ' + impl + '\nProxy...', '');
+    // 1. Deploy new impl only (no proxy)
+    const factory = new ethers.ContractFactory([], STAKING_BC, signer);
+    const implContract = await factory.deploy({ gasLimit: 5000000 });
+    await implContract.waitForDeployment();
+    const impl = await implContract.getAddress();
+    setResult('upgradeResult', 'Impl: ' + impl + '\nUpgrading proxy...', '');
 
-    // 2. Deploy proxy using the PROXY_BC constant already in this file
-    const iface = new ethers.Interface(['function initialize(address)']);
-    const initData = iface.encodeFunctionData('initialize', [owner]);
-    const proxy = await deployBytecodeWithArgs(PROXY_BC, [impl, initData], 'SaviorStaking proxy');
-    setResult('upgradeResult', 'Proxy: ' + proxy + '\nsetPoolKey...', '');
+    // 2. upgradeToAndCall on existing proxy
+    const proxy = new ethers.Contract(proxyAddr, [
+      'function upgradeToAndCall(address newImpl, bytes calldata data) payable'
+    ], signer);
+    const tx = await proxy.upgradeToAndCall(impl, '0x', { gasLimit: 500000 });
+    await tx.wait();
 
-    // 3. Save & update UI
-    // setPoolKey gerekmez — _key() pure fonksiyon, pool key bytecode'da hardcoded
-    stakingAddr = proxy;
-    localStorage.setItem('savior_staking', proxy);
+    localStorage.setItem('savior_staking', proxyAddr);
     setResult('upgradeResult',
-      '✓ Yeni staking proxy: ' + proxy +
-      '\nImpl: ' + impl +
-      '\n\nPool key hardcode (fee=10000, ts=200, USDC/SAVIOR/HOOK).\nindex.html bu adresi otomatik kullanacak.', 'ok');
-  } catch(e) { setResult('upgradeResult', e.message, 'err'); }
+      '✓ Upgraded proxy: ' + proxyAddr + '\nNew impl: ' + impl + '\nTx: ' + tx.hash, 'ok');
+  } catch(e) {
+    setResult('upgradeResult', e.reason || e.shortMessage || e.message, 'err');
+  }
 }
 
 
