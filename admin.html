@@ -642,6 +642,39 @@ function loadFromDeploy() {
   if (stakingAddr) document.getElementById('mgmtStaking').value = stakingAddr;
 }
 
+async function upgradeHook() {
+  setResult('hookUpgradeResult', 'Hook impl deploy ediliyor...', '');
+  try {
+    await ensureSigner();
+    // 1. Deploy new hook impl
+    const impl = await deployBytecode(HOOK_BC, 'SaviorHook impl');
+    setResult('hookUpgradeResult', 'Impl: ' + impl + '\nupgradeToAndCall...', '');
+
+    // 2. Upgrade hook proxy
+    const HOOK_PROXY = '0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0';
+    const hookAbi = [
+      'function upgradeToAndCall(address,bytes)',
+      'function setStakingContract(address)'
+    ];
+    const hook = new ethers.Contract(HOOK_PROXY, hookAbi, signer);
+    const upgTx = await hook.upgradeToAndCall(impl, '0x', { gasLimit: 500000 });
+    await upgTx.wait();
+    setResult('hookUpgradeResult', 'Upgraded! setStakingContract...', '');
+
+    // 3. Set new staking address
+    const newStaking = stakingAddr || localStorage.getItem('savior_staking') || '';
+    if (!newStaking) throw new Error('Staking adresi yok. Önce Upgrade Staking çalıştır.');
+    const tx = await hook.setStakingContract(newStaking, { gasLimit: 200000 });
+    await tx.wait();
+
+    setResult('hookUpgradeResult',
+      '✓ Hook upgraded\nImpl: ' + impl +
+      '\nupgrade tx: ' + upgTx.hash +
+      '\nsetStaking tx: ' + tx.hash +
+      '\nStaking: ' + newStaking, 'ok');
+  } catch(e) { setResult('hookUpgradeResult', e.message, 'err'); }
+}
+
 async function upgradeStaking() {
   setResult('upgradeResult', 'Yeni staking deploy ediliyor...', '');
   try {
