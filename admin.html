@@ -658,27 +658,14 @@ async function upgradeStaking() {
     const proxy = await deployBytecodeWithArgs(PROXY_BC, [impl, initData], 'SaviorStaking proxy');
     setResult('upgradeResult', 'Proxy: ' + proxy + '\nsetPoolKey...', '');
 
-    // 3. setPoolKey
-    const fee = parseInt(document.getElementById('poolFee')?.value || '10000');
-    const ts  = parseInt(document.getElementById('poolTickSpacing')?.value || '200');
-    const tok = tokenAddr || localStorage.getItem('savior_token') || '';
-    const hk  = hookAddr  || localStorage.getItem('savior_hook')  || '';
-    if (!tok || !hk) throw new Error('Token veya Hook adresi eksik. Önce Step 2-4 çalıştır.');
-    const sc  = new ethers.Contract(proxy, STAKING_ABI, signer);
-    const tx  = await sc.setPoolKey(
-      '0x3600000000000000000000000000000000000000', tok, fee, ts, hk,
-      { gasLimit: 300000 }
-    );
-    await tx.wait();
-
-    // 4. Save & update UI
+    // 3. Save & update UI
+    // setPoolKey gerekmez — _key() pure fonksiyon, pool key bytecode'da hardcoded
     stakingAddr = proxy;
     localStorage.setItem('savior_staking', proxy);
     setResult('upgradeResult',
       '✓ Yeni staking proxy: ' + proxy +
       '\nImpl: ' + impl +
-      '\nsetPoolKey: ' + tx.hash +
-      '\n\nBu adres index.html tarafından otomatik kullanılacak.', 'ok');
+      '\n\nPool key hardcode (fee=10000, ts=200, USDC/SAVIOR/HOOK).\nindex.html bu adresi otomatik kullanacak.', 'ok');
   } catch(e) { setResult('upgradeResult', e.message, 'err'); }
 }
 
