@@ -68,6 +68,19 @@
   .arrow-circle{width:40px;height:40px;border-radius:50%;background:rgba(59,91,219,.15);
                 border:1px solid rgba(59,91,219,.3);display:flex;align-items:center;
                 justify-content:center;cursor:default}
+
+  .slip-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;
+            background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+            color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s}
+  .slip-btn:hover,.slip-active{background:rgba(59,91,219,.2);border-color:rgba(59,91,219,.5);color:#74c0fc}
+  .slip-custom-input{width:80px;padding:5px 8px;border-radius:8px;font-size:12px;
+                     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                     color:#fff;outline:none;text-align:center}
+  .slip-custom-input:focus{border-color:rgba(59,91,219,.5)}
+  .pct-btn{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;
+           background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+           color:rgba(255,255,255,.35);cursor:pointer;transition:all .15s}
+  .pct-btn:hover{background:rgba(59,91,219,.15);border-color:rgba(59,91,219,.3);color:#74c0fc}
   .savior-pill{display:flex;align-items:center;gap:8px;padding:8px 14px;
                background:linear-gradient(135deg,rgba(59,91,219,.2),rgba(156,54,181,.2));
                border:1px solid rgba(59,91,219,.3);border-radius:100px;
@@ -98,9 +111,10 @@
   <div class="flex flex-wrap gap-2 mb-6">
     <span class="badge bg-purple-500/15 text-purple-300 border border-purple-500/20"><i class="fa-solid fa-bolt text-xs mr-1.5"></i>Sub-second Finality</span>
     <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20"><i class="fa-solid fa-dollar-sign text-xs mr-1.5"></i>USDC Gas Token</span>
-    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>50% Auto-Lock</span>
-    <span class="badge bg-amber-500/15 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-clock text-xs mr-1.5"></i>5–10 Day Staking</span>
+    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>50% Auto-Lock · 5–10 Day Stake</span>
+    <span class="badge bg-amber-500/15 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-clock text-xs mr-1.5"></i>5–10 Day Stake</span>
     <span class="badge bg-pink-500/15 text-pink-300 border border-pink-500/20"><i class="fa-brands fa-uniswap text-xs mr-1.5"></i>Uniswap V4 Hook</span>
+    <span class="badge bg-green-500/15 text-green-300 border border-green-500/20"><i class="fa-solid fa-piggy-bank text-xs mr-1.5"></i>0.3% Treasury Fee</span>
     <div class="ml-auto flex items-center gap-1.5 text-xs text-white/25 self-center hidden sm:flex">
       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
       Arc Mainnet · Chain 5042
@@ -119,7 +133,7 @@
       <div class="flex items-start justify-between mb-5">
         <div>
           <h1 class="text-2xl font-black tracking-tight">USDC <span class="text-white/30">↔</span> <span class="hero-gradient">$SAVIOR</span></h1>
-          <div class="text-xs text-white/35 mt-1">Via SaviorStaking · 50% instantly yours, 50% locked 5–10 days</div>
+          <div class="text-xs text-white/35 mt-1">Via SaviorStaking · 50% instant, 50% locked 5–10 days</div>
         </div>
         <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20 mt-1">V4 Hook</span>
       </div>
@@ -150,7 +164,10 @@
         <div class="input-wrap mb-2">
           <div class="flex justify-between text-xs text-white/35 mb-2">
             <span>You pay</span>
-            <span id="pay-balance-label">Balance: <span id="usdc-balance" class="text-white/60">—</span> USDC</span>
+            <span id="pay-balance-label" class="cursor-pointer" onclick="setMaxAmount()">
+              Balance: <span id="usdc-balance" class="text-white/60">—</span>
+              <span id="pay-balance-ticker" class="text-white/40">USDC</span>
+            </span>
           </div>
           <div class="flex items-center gap-3">
             <input id="swap-amount" class="input-f flex-1" type="number" min="0.000001" step="any"
@@ -160,6 +177,14 @@
               <span>USDC</span>
             </div>
           </div>
+        </div>
+
+        <!-- Pct quick-select -->
+        <div class="flex gap-1.5 mt-2 mb-1">
+          <button onclick="setPct(25)"  class="pct-btn">25%</button>
+          <button onclick="setPct(50)"  class="pct-btn">50%</button>
+          <button onclick="setPct(75)"  class="pct-btn">75%</button>
+          <button onclick="setPct(100)" class="pct-btn">Max</button>
         </div>
 
         <!-- Arrow -->
@@ -187,12 +212,18 @@
         <!-- Slippage -->
         <div class="mb-4">
           <div class="flex justify-between text-xs text-white/35 mb-2">
-            <span>Slippage tolerance</span>
+            <span>Slippage Tolerance</span>
             <span class="text-white/60 font-semibold" id="slip-label">1.00%</span>
           </div>
-          <input id="slippage-range" type="range" min="10" max="500" value="100" step="10"
-            class="w-full accent-blue-500 h-1" oninput="updateSlippage()"/>
-          <div class="flex justify-between text-xs text-white/20 mt-1"><span>0.1%</span><span>5%</span></div>
+          <div class="flex gap-1.5 flex-wrap">
+            <button onclick="setSlippage(10)"  class="slip-btn" data-bps="10">0.1%</button>
+            <button onclick="setSlippage(50)"  class="slip-btn" data-bps="50">0.5%</button>
+            <button onclick="setSlippage(100)" class="slip-btn slip-active" id="slip-active" data-bps="100">1%</button>
+            <button onclick="setSlippage(300)" class="slip-btn" data-bps="300">3%</button>
+            <button onclick="setSlippage(500)" class="slip-btn" data-bps="500">5%</button>
+            <input id="slip-custom" type="number" min="0.01" max="50" step="0.01" placeholder="Custom %"
+              class="slip-custom-input" oninput="onSlipCustom()"/>
+          </div>
         </div>
 
         <!-- Split preview (buy only) -->
@@ -331,7 +362,7 @@
         </div>
         <div class="flex justify-between">
           <span class="text-white/40">Hook fee</span>
-          <span class="text-white/70">2% per swap</span>
+          <span class="text-white/70">0.3% treasury fee</span>
         </div>
       </div>
     </div>
@@ -722,11 +753,47 @@ async function loadSaviorWalletBalance() {
   } catch(e) { console.error('savior balance', e); }
 }
 
-function updateSlippage() {
-  const v = parseInt(document.getElementById("slippage-range").value);
-  document.getElementById("slip-label").textContent = (v/100).toFixed(2) + "%";
+let currentSlipBps = 100;
+
+function setSlippage(bps) {
+  currentSlipBps = bps;
+  document.getElementById('slip-label').textContent = (bps/100).toFixed(2) + '%';
+  document.querySelectorAll('.slip-btn').forEach(b => {
+    b.classList.toggle('slip-active', parseInt(b.dataset.bps) === bps);
+  });
+  document.getElementById('slip-custom').value = '';
   updateSwapQuote();
 }
+
+function onSlipCustom() {
+  const v = parseFloat(document.getElementById('slip-custom').value);
+  if (!v || v <= 0 || v > 50) return;
+  currentSlipBps = Math.round(v * 100);
+  document.getElementById('slip-label').textContent = v.toFixed(2) + '%';
+  document.querySelectorAll('.slip-btn').forEach(b => b.classList.remove('slip-active'));
+  updateSwapQuote();
+}
+
+function updateSlippage() { setSlippage(currentSlipBps); }
+
+async function setPct(pct) {
+  if (!userAddress) return;
+  const provider = getProvider();
+  let bal = 0n;
+  if (swapMode === 'buy') {
+    const usdc = new ethers.Contract(USDC_ADDR, ERC20_ABI, provider);
+    bal = await usdc.balanceOf(userAddress);
+  } else {
+    const savior = new ethers.Contract(TOKEN_ADDR, ERC20_ABI, provider);
+    bal = await savior.balanceOf(userAddress);
+  }
+  const amt = Number(bal) * pct / 100 / 1e6;
+  document.getElementById('swap-amount').value = amt > 0 ? amt.toFixed(6).replace(/\.?0+$/, '') : '';
+  onSwapInput();
+}
+
+function setMaxAmount() { setPct(100); }
+
 
 function onSwapInput() {
   clearTimeout(quoteTimer);
@@ -827,10 +894,10 @@ function showStatus(msg, type) {
 }
 
 async function executeSwap() {
-  if (!WalletConnector?.signer) { showStatus('Cüzdanı bağla.', 'warn'); return; }
+  if (!WalletConnector?.signer) { showStatus('Connect your wallet first.', 'warn'); return; }
   const amt = parseFloat(document.getElementById('swap-amount').value);
-  if (!amt || amt <= 0) { showStatus('Geçerli bir miktar gir.', 'warn'); return; }
-  const slipBps = parseInt(document.getElementById('slippage-range').value);
+  if (!amt || amt <= 0) { showStatus('Enter a valid amount.', 'warn'); return; }
+  const slipBps = currentSlipBps;
   const btn = document.getElementById('swap-btn');
   btn.disabled = true;
 
@@ -843,7 +910,7 @@ async function executeSwap() {
         WalletConnector.signer);
       const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
       if (allowance < amountIn) {
-        showStatus('USDC onaylıyor...', 'info');
+        showStatus('Approving USDC...', 'info');
         await (await usdc.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
       }
       // Quote for minOut
@@ -853,14 +920,14 @@ async function executeSwap() {
         if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
       } catch(e) { console.warn('quote failed, using minOut=1', e); }
 
-      showStatus('Swap işlemi gönderiliyor...', 'info');
+      showStatus('Sending swap...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
         ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
       const tx = await staking.swapExactIn(true, amountIn, minOut);
-      showStatus('Onay bekleniyor...', 'info');
+      showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
-      showStatus('Swap başarılı! 50% cüzdanında, 50% kilitlendi.', 'ok');
-      loadBalances();
+      showStatus('Swap successful! 50% in your wallet, 50% locked.', 'ok');
+      await updateUSDCBalance(); if(swapMode==="sell") await loadSaviorWalletBalance();
 
     } else {
       // SAVIOR → USDC (sell)
@@ -870,7 +937,7 @@ async function executeSwap() {
         WalletConnector.signer);
       const allowance = await savior.allowance(userAddress, STAKING_ADDR);
       if (allowance < amountIn) {
-        showStatus('SAVIOR onaylıyor...', 'info');
+        showStatus('Approving SAVIOR...', 'info');
         await (await savior.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
       }
       // Quote for minOut
@@ -880,22 +947,22 @@ async function executeSwap() {
         if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
       } catch(e) { console.warn('quote failed, using minOut=1', e); }
 
-      showStatus('Satış işlemi gönderiliyor...', 'info');
+      showStatus('Sending sell...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
         ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
       const tx = await staking.swapExactIn(false, amountIn, minOut);
-      showStatus('Onay bekleniyor...', 'info');
+      showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
-      showStatus('Satış başarılı! USDC cüzdanında.', 'ok');
-      loadBalances();
+      showStatus('Sell successful! USDC in your wallet.', 'ok');
+      await updateUSDCBalance(); if(swapMode==="sell") await loadSaviorWalletBalance();
       loadSaviorWalletBalance();
     }
   } catch(e) {
     let msg = e.shortMessage || e.reason || e.message || String(e);
-    if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage aşıldı — toleransı artır.';
-    else if (msg.includes('SameBlock')) msg = 'Aynı blokta satış yapılamaz — 1 blok bekle.';
-    else if (msg.includes('user rejected')) msg = 'İşlem iptal edildi.';
-    else if (msg.includes('insufficient')) msg = 'Yetersiz bakiye.';
+    if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded — increase tolerance.';
+    else if (msg.includes('SameBlock')) msg = 'Same-block sell not allowed — wait 1 block.';
+    else if (msg.includes('user rejected')) msg = 'Transaction cancelled.';
+    else if (msg.includes('insufficient')) msg = 'Insufficient balance.';
     showStatus(msg, 'err');
   } finally {
     btn.disabled = false;
