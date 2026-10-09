@@ -557,7 +557,13 @@ async function seedLiquidity() {
   setResult('liquidityResult','5 band hesaplanıyor...','');
   try {
     await ensureSigner();
-    if (!stakingAddr) throw new Error('Staking eksik');
+    // Allow manual override from liqStaking input
+    const manualAddr = document.getElementById('liqStaking')?.value?.trim();
+    if (manualAddr && ethers.isAddress(manualAddr)) stakingAddr = manualAddr;
+    if (!stakingAddr) throw new Error('Staking adresi eksik — önce Step 4'ü çalıştır veya liqStaking inputuna yapıştır');
+    // Verify contract exists onchain
+    const code = await provider.getCode(stakingAddr);
+    if (!code || code === '0x') throw new Error('Staking adresi onchain'de boş: '+stakingAddr+' — kontrat deploy edilmemiş!');
     const L = BigInt(document.getElementById('liquidityPerBand').value);
     const ts = parseInt(document.getElementById('poolTickSpacing').value) || 200;
     const sqrtStr = document.getElementById('poolSqrtPrice').value;
