@@ -327,16 +327,27 @@ function sha256(str) {
 function login() {
   const pw = document.getElementById('pwInput').value;
   const hex = sha256(pw);
-  console.log('login attempt, hash:', hex, 'expected:', HASH, 'match:', hex===HASH);
   if (hex === HASH) {
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
+    localStorage.setItem('adminAuth', HASH);
   } else {
     const errEl = document.getElementById('loginErr');
     errEl.style.display = 'block';
-    errEl.textContent = 'Hatalı şifre (hash: ' + hex.slice(0,8) + '...)';
+    errEl.textContent = 'Hatalı şifre';
   }
 }
+
+// Auto-login if already authenticated this session
+(function() {
+  if (localStorage.getItem('adminAuth') === HASH) {
+    document.addEventListener('DOMContentLoaded', function() {
+      var lb = document.getElementById('loginBox');
+      var mc = document.getElementById('mainContent');
+      if (lb && mc) { lb.style.display='none'; mc.style.display='block'; }
+    });
+  }
+})();
 
 function showTab(t) {
   document.querySelectorAll('.tab').forEach(el => {
