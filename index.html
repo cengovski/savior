@@ -583,37 +583,49 @@ window.WalletConnector = WalletConnector;
 </script>
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
+const STAKING_ADDR = '0x61096C5850d492530524c14c0602757f1d9d3c95';
 const USDC_ADDR    = '0x3600000000000000000000000000000000000000';
+const TOKEN_ADDR   = '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3';
 const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
 const QUOTER_ADDR  = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
+const RPC          = 'https://rpc.mainnet.arc.io';
+
+// Persist to localStorage so admin.html can read them
+localStorage.setItem('savior_staking', STAKING_ADDR);
+localStorage.setItem('savior_token',   TOKEN_ADDR);
+localStorage.setItem('pool_manager',   POOL_MANAGER);
+
+const ERC20_ABI = [
+  'function approve(address,uint256) returns (bool)',
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address,address) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+];
 
 const STAKING_ABI = [
+  // swap: zeroForOne=true → USDC in, SAVIOR out (buy); false → SAVIOR in, USDC out (sell)
   'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
   'function claim(uint256 i) external',
-  'function emergencyUnlockAll() external',
+  'function claimAll() external',
   'function getLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockAt)[])',
-  'function lastBuyBlock(address) external view returns (uint64)',
   'function globalUnlock() external view returns (bool)',
   'function keySet() external view returns (bool)',
   'function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
   'function treasury() external view returns (address)',
-  'function approve(address spender, uint256 amount) external returns (bool)',
 ];
 
+// V4 Quoter ABI — Arc mainnet quoter
 const QUOTER_ABI = [
-  'function quoteExactInputSingle(tuple(address poolKey_currency0, address poolKey_currency1, uint24 poolKey_fee, int24 poolKey_tickSpacing, address poolKey_hooks, bool zeroForOne, uint128 exactAmount, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
+  'function quoteExactInputSingle((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks, bool zeroForOne, uint128 exactAmount, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
 ];
 
-let STAKING_ADDR = localStorage.getItem('savior_staking') || '';
-let TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
-let userAddress  = '';
-let quoteTimer   = null;
+let userAddress = null;
+let quoteTimer  = null;
 
 // ── Init ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  STAKING_ADDR = localStorage.getItem('savior_staking') || '';
-  TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
   refreshContractsDisplay();
+  updateSwapQuote();
 
   WalletConnector.on('connect', async addr => {
     userAddress = addr;
@@ -624,281 +636,287 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   WalletConnector.on('disconnect', () => {
     userAddress = null;
-    const btn = document.getElementById('connect-btn');
-    btn.innerHTML = '<i class="fa-regular fa-wallet"></i> Connect Wallet';
+    document.getElementById('connect-btn').innerHTML = '<i class="fa-solid fa-wallet text-xs"></i><span>Connect Wallet</span>';
   });
   WalletConnector.on('accountsChanged', async addr => {
-    if (addr) {
-      userAddress = addr;
-      await updateUSDCBalance();
-      await refreshStakes();
-    } else {
-      userAddress = null;
-    }
+    userAddress = addr;
+    if (addr) { await updateUSDCBalance(); await refreshStakes(); }
   });
-  updateSwapQuote();
 });
 
-async function connectWallet(){
+async function connectWallet() {
   try {
     await WalletConnector.connect();
-    // switch to Arc Mainnet (5042)
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x13B2' }]
-      });
-    } catch(switchErr) {
-      if (switchErr.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: '0x13B2',
-            chainName: 'Arc Mainnet',
-            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-            rpcUrls: ['https://rpc.mainnet.arc.io'],
-            blockExplorerUrls: ['https://explorer.arc.io']
-          }]
-        });
-      }
-    }
   } catch(e) {
-    console.error('Connect error:', e);
-    const msg = e.code === 4001 ? 'Connection rejected' : (e.message || 'Unknown error');
-    document.getElementById('connect-btn').innerHTML = `<i class="fa-solid fa-exclamation-circle text-xs text-red-400"></i> ${msg.slice(0,30)}`;
+    if (e.message !== 'User cancelled') {
+      document.getElementById('connect-btn').innerHTML =
+        `<i class="fa-solid fa-exclamation-circle text-xs text-red-400"></i> ${(e.message||'Error').slice(0,30)}`;
+    }
   }
 }
 
-function switchTab(tab){
-  ['swap','stakes','arc'].forEach(t=>{
-    document.getElementById(`tab-${t}`).classList.toggle('active',t===tab);
-    document.getElementById(`content-${t}`).classList.toggle('active',t===tab);
+function switchTab(tab) {
+  ['swap','stakes','arc'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+    document.getElementById(`content-${t}`).classList.toggle('active', t === tab);
   });
-  if(tab==='stakes'&&userAddress) refreshStakes();
+  if (tab === 'stakes' && userAddress) refreshStakes();
 }
 
-function updateSlippage(){
+function updateSlippage() {
   const v = parseInt(document.getElementById('slippage-range').value);
-  document.getElementById('slip-label').textContent=(v/100).toFixed(2)+'%';
+  document.getElementById('slip-label').textContent = (v/100).toFixed(2) + '%';
   updateSwapQuote();
 }
 
-function onSwapInput(){
+function onSwapInput() {
   clearTimeout(quoteTimer);
-  quoteTimer=setTimeout(updateSwapQuote,400);
+  quoteTimer = setTimeout(updateSwapQuote, 400);
 }
 
-function refreshContractsDisplay(){
-  const el = document.getElementById('contracts-display');
-  STAKING_ADDR = localStorage.getItem('savior_staking') || '';
-  TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
+function refreshContractsDisplay() {
   const entries = [
-    ['SaviorToken',   localStorage.getItem('savior_token')],
+    ['SaviorToken',   TOKEN_ADDR],
     ['SaviorHook',    localStorage.getItem('savior_hook')],
-    ['SaviorStaking', localStorage.getItem('savior_staking')],
-    ['PoolManager',   localStorage.getItem('pool_manager')||POOL_MANAGER],
+    ['SaviorStaking', STAKING_ADDR],
+    ['PoolManager',   POOL_MANAGER],
   ];
-  el.innerHTML = entries.map(([label,addr])=> addr
-    ? `<div class="flex justify-between items-center gap-2">
-         <span class="text-white/35">${label}</span>
-         <a href="https://explorer.arc.io/address/${addr}" target="_blank"
-            class="font-mono text-blue-400 hover:text-blue-300 hover:underline text-xs">${addr.slice(0,8)}…${addr.slice(-6)}</a>
-       </div>`
-    : `<div class="flex justify-between items-center"><span class="text-white/25">${label}</span><span class="text-white/15 italic">not deployed</span></div>`
+  document.getElementById('contracts-display').innerHTML = entries.map(([label, addr]) =>
+    addr && ethers.isAddress(addr)
+      ? `<div class="flex justify-between items-center gap-2">
+           <span class="text-white/35">${label}</span>
+           <a href="https://explorer.arc.io/address/${addr}" target="_blank"
+              class="font-mono text-blue-400 hover:text-blue-300 hover:underline text-xs">${addr.slice(0,8)}…${addr.slice(-6)}</a>
+         </div>`
+      : `<div class="flex justify-between items-center"><span class="text-white/25">${label}</span><span class="text-white/15 italic">not deployed</span></div>`
   ).join('');
 }
 
-async function updateUSDCBalance(){
-  if(!userAddress) return;
-  try{
-    const provider = WalletConnector?.provider || new ethers.BrowserProvider(window.ethereum);
-    const token = new ethers.Contract(USDC_ADDR,['function balanceOf(address) view returns (uint256)','function decimals() view returns (uint8)'],provider);
-    const [bal,dec] = await Promise.all([token.balanceOf(userAddress),token.decimals()]);
-    document.getElementById('usdc-balance').textContent=(Number(bal)/10**Number(dec)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4});
-  }catch(e){console.warn('Balance',e)}
+function getProvider() {
+  if (WalletConnector?.provider) return WalletConnector.provider;
+  return new ethers.JsonRpcProvider(RPC);
 }
 
-async function updateSwapQuote(){
-  const amt=parseFloat(document.getElementById('swap-amount').value);
-  const outEl=document.getElementById('savior-out-display');
-  const lockEl=document.getElementById('lock-preview');
-  const warnEl=document.getElementById('pool-key-warning');
-  if(!amt||amt<=0){outEl.textContent='—';lockEl.classList.add('hidden');return;}
+async function updateUSDCBalance() {
+  if (!userAddress) return;
+  try {
+    const usdc = new ethers.Contract(USDC_ADDR, ERC20_ABI, getProvider());
+    const bal  = await usdc.balanceOf(userAddress);
+    // USDC on Arc: ERC-20 view is 6 decimals
+    document.getElementById('usdc-balance').textContent =
+      (Number(bal) / 1e6).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:4});
+  } catch(e) { console.warn('Balance error', e); }
+}
 
-  if(STAKING_ADDR&&ethers.isAddress(STAKING_ADDR)){
-    try{
-      const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
-      const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-      const pks=await staking.keySet();
-      warnEl.classList.toggle('hidden',pks);
-      if(!pks){outEl.textContent='—';lockEl.classList.add('hidden');return;}
-    }catch(e){}
-  }
+async function updateSwapQuote() {
+  const amt    = parseFloat(document.getElementById('swap-amount').value);
+  const outEl  = document.getElementById('savior-out-display');
+  const lockEl = document.getElementById('lock-preview');
+  const warnEl = document.getElementById('pool-key-warning');
+  if (!amt || amt <= 0) { outEl.textContent = '—'; lockEl.classList.add('hidden'); return; }
 
-  try{
-    const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
-    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-    const pk=await staking.poolKey();
-    const poolKey={currency0:pk[0],currency1:pk[1],fee:Number(pk[2]),tickSpacing:Number(pk[3]),hooks:pk[4]};
-    const usdcIn=BigInt(Math.round(amt*1e6));
-    const zeroForOne=poolKey.currency0.toLowerCase()===USDC_ADDR.toLowerCase();
-    const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,provider);
-    const result=await quoter.quoteExactInputSingle({
-      poolKey_currency0:poolKey.currency0,poolKey_currency1:poolKey.currency1,
-      poolKey_fee:poolKey.fee,poolKey_tickSpacing:poolKey.tickSpacing,poolKey_hooks:poolKey.hooks,
-      zeroForOne,exactAmount:usdcIn,sqrtPriceLimitX96:0,
+  try {
+    const provider = getProvider();
+    const staking  = new ethers.Contract(STAKING_ADDR, STAKING_ABI, provider);
+    const pks      = await staking.keySet();
+    warnEl.classList.toggle('hidden', pks);
+    if (!pks) { outEl.textContent = '—'; lockEl.classList.add('hidden'); return; }
+
+    // Get pool key from staking
+    const pk       = await staking.key();
+    const fee      = Number(pk.fee);
+    const ts       = Number(pk.tickSpacing);
+    const hooks    = pk.hooks;
+    // USDC currency0=0x3600..., SAVIOR currency1, zeroForOne=true for buy
+    const currency0 = pk.currency0;
+    const currency1 = pk.currency1;
+    const zeroForOne = currency0.toLowerCase() === USDC_ADDR.toLowerCase();
+
+    const amountIn = BigInt(Math.round(amt * 1e6)); // USDC 6 dec
+
+    const quoter = new ethers.Contract(QUOTER_ADDR, QUOTER_ABI, provider);
+    const result = await quoter.quoteExactInputSingle.staticCall({
+      currency0, currency1, fee, tickSpacing: ts, hooks,
+      zeroForOne, exactAmount: amountIn, sqrtPriceLimitX96: 0n
     });
-    const saviorOut=Number(result[0])/1e18;
-    outEl.textContent=saviorOut.toLocaleString(undefined,{maximumFractionDigits:3});
-    document.getElementById('immediate-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
-    document.getElementById('locked-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
+
+    // SAVIOR is 6 decimals
+    const saviorOut = Number(result.amountOut) / 1e6;
+    outEl.textContent = saviorOut.toLocaleString(undefined, {maximumFractionDigits: 2});
+    document.getElementById('immediate-preview').textContent =
+      (saviorOut * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' SAVIOR';
+    document.getElementById('locked-preview').textContent =
+      (saviorOut * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' SAVIOR';
     lockEl.classList.remove('hidden');
-  }catch(e){outEl.textContent='—';lockEl.classList.add('hidden');}
+  } catch(e) {
+    outEl.textContent = '—';
+    lockEl.classList.add('hidden');
+    console.warn('Quote error:', e.reason || e.message);
+  }
 }
 
-async function executeSwap(){
-  if(!WalletConnector?.signer){alert('Connect wallet first');return;}
-  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured. Check admin panel.');return;}
-  const amt=parseFloat(document.getElementById('swap-amount').value);
-  if(!amt||amt<=0){alert('Enter a valid amount');return;}
-  const slippagePct=parseFloat(document.getElementById('slippage-range').value||'100')/100;
-  const btn=document.getElementById('swap-btn');
-  btn.disabled=true;
-  btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
-  try{
-    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
-    const pks=await staking.keySet();
-    if(!pks){alert('Pool not initialized yet. Admin must set up the V4 pool first.');return;}
+async function executeSwap() {
+  if (!WalletConnector?.signer) { alert('Connect wallet first'); return; }
+  const amt = parseFloat(document.getElementById('swap-amount').value);
+  if (!amt || amt <= 0) { alert('Enter a valid amount'); return; }
 
-    // USDC is ERC-20 (6 decimals) on Arc — must approve staking to spend
-    const amountIn=BigInt(Math.round(amt*1e6));
-    const usdc=new ethers.Contract(USDC_ADDR,
-      ['function approve(address,uint256) returns(bool)',
-       'function allowance(address,address) view returns(uint256)'],
-      WalletConnector.signer);
-    const allowance=await usdc.allowance(userAddress,STAKING_ADDR);
-    if(allowance<amountIn){
-      btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
-      const approveTx=await usdc.approve(STAKING_ADDR, amountIn*2n);
-      await approveTx.wait();
+  const slippageBps = parseInt(document.getElementById('slippage-range').value || '100'); // e.g. 100 = 1%
+  const btn = document.getElementById('swap-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
+
+  try {
+    const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, WalletConnector.signer);
+    const pks     = await staking.keySet();
+    if (!pks) { alert('Pool not initialized. Admin must set up the V4 pool first.'); return; }
+
+    // USDC ERC-20 (6 dec) — must approve staking
+    const amountIn = BigInt(Math.round(amt * 1e6));
+    const usdc     = new ethers.Contract(USDC_ADDR, ERC20_ABI, WalletConnector.signer);
+    const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
+    if (allowance < amountIn) {
+      btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
+      const appTx = await usdc.approve(STAKING_ADDR, ethers.MaxUint256);
+      await appTx.wait();
     }
 
     // Get quote for minOut
-    let minOut=0n;
-    try{
-      const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,WalletConnector.provider||new ethers.BrowserProvider(window.ethereum));
-      const q=await quoter.quoteExactInputSingle.staticCall({
-        poolKey_currency0:USDC_ADDR,
-        poolKey_currency1:TOKEN_ADDR||'0x0000000000000000000000000000000000000001',
-        poolKey_fee:10000,
-        poolKey_tickSpacing:200,
-        poolKey_hooks:STAKING_ADDR,
-        zeroForOne:true,
-        exactAmount:amountIn,
-        sqrtPriceLimitX96:0n
+    let minOut = 1n;
+    try {
+      const pk   = await staking.key();
+      const quoter = new ethers.Contract(QUOTER_ADDR, QUOTER_ABI, WalletConnector.provider);
+      const q = await quoter.quoteExactInputSingle.staticCall({
+        currency0: pk.currency0, currency1: pk.currency1,
+        fee: Number(pk.fee), tickSpacing: Number(pk.tickSpacing), hooks: pk.hooks,
+        zeroForOne: pk.currency0.toLowerCase() === USDC_ADDR.toLowerCase(),
+        exactAmount: amountIn, sqrtPriceLimitX96: 0n
       });
-      minOut=BigInt(Math.floor(Number(q.amountOut)*(1-slippagePct/100)));
-    }catch(_){minOut=0n;}
+      // apply slippage: minOut = quote * (10000 - bps) / 10000
+      minOut = BigInt(q.amountOut) * BigInt(10000 - slippageBps) / 10000n;
+      if (minOut < 1n) minOut = 1n;
+    } catch(_) { minOut = 1n; }
 
-    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
-    // zeroForOne=true: USDC(currency0) → SAVIOR(currency1)
-    const tx=await staking.swapExactIn(true,amountIn,minOut);
-    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
+    // zeroForOne=true: USDC → SAVIOR (buy)
+    const tx = await staking.swapExactIn(true, amountIn, minOut);
+    btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
     await tx.wait();
-    alert('Swap successful! 50% instant, 50% in My Stakes tab.');
+
+    alert('Swap successful! 50% in your wallet, 50% in My Stakes tab (locked 5-10 days).');
     await updateUSDCBalance();
     await refreshStakes();
-  }catch(e){
-    const raw=e.reason||e.shortMessage||e.message||String(e);
-    let msg=raw;
-    if(raw.includes('OnlyStaking'))msg='Hook: only staking contract can swap.';
-    else if(raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
-    else if(raw.includes('Slippage'))msg='Slippage too high — try higher slippage tolerance.';
-    else if(raw.includes('SameBlock'))msg='Cannot sell in same block as buy.';
-    else if(raw.includes('ZeroAmount'))msg='Amount must be greater than 0.';
-    console.error('Swap error full:',e);
-    alert('Swap error: '+msg);
-  }finally{
-    btn.disabled=false;
-    btn.innerHTML='<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking';
+  } catch(e) {
+    const raw = e.reason || e.shortMessage || e.message || String(e);
+    let msg = raw;
+    if (raw.includes('OnlyStaking'))     msg = 'Hook: only staking contract can swap.';
+    else if (raw.includes('NotSet'))     msg = 'Pool not initialized. Contact admin.';
+    else if (raw.includes('Slippage'))   msg = 'Slippage too high — increase tolerance.';
+    else if (raw.includes('SameBlock'))  msg = 'Cannot sell in same block as buy.';
+    else if (raw.includes('ZeroAmount')) msg = 'Amount must be > 0.';
+    else if (raw.includes('missing revert')) msg = 'Contract reverted (no reason). Pool may lack liquidity.';
+    console.error('Swap error:', e);
+    alert('Swap error: ' + msg);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking';
   }
 }
 
-async function refreshStakes(){
-  if(!userAddress){document.getElementById('stakes-loading').textContent='Connect wallet to see your positions';return;}
-  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){document.getElementById('stakes-loading').textContent='SaviorStaking not configured';return;}
-  document.getElementById('stakes-loading').textContent='Loading...';
-  document.getElementById('stakes-list').innerHTML='';
-  try{
-    const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
-    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-    const [locks,globalUnlock]=await Promise.all([
-      staking.getLocks(userAddress), staking.globalUnlock()
+// ── My Stakes ─────────────────────────────────────────────────────────
+async function refreshStakes() {
+  if (!userAddress) {
+    document.getElementById('stakes-loading').textContent = 'Connect wallet to see your positions';
+    document.getElementById('stakes-loading').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('stakes-loading').textContent = 'Loading...';
+  document.getElementById('stakes-loading').classList.remove('hidden');
+  document.getElementById('stakes-list').innerHTML = '';
+
+  try {
+    const provider = getProvider();
+    const staking  = new ethers.Contract(STAKING_ADDR, STAKING_ABI, provider);
+    const [locks, globalUnlock] = await Promise.all([
+      staking.getLocks(userAddress),
+      staking.globalUnlock()
     ]);
-    const now=Math.floor(Date.now()/1000);
-    // New struct: {uint128 amount, uint64 unlockAt} — amount=0 means claimed
-    const active=locks.filter(l=>Number(l.amount)>0);
-    if(active.length===0){
-      document.getElementById('stakes-loading').textContent='No active locks. Swap to start staking.';
-      document.getElementById('stakes-loading').classList.remove('hidden');
+    const now = Math.floor(Date.now() / 1000);
+    const active = locks.filter(l => Number(l.amount) > 0);
+
+    if (active.length === 0) {
+      document.getElementById('stakes-loading').textContent = 'No active locks. Swap to start staking.';
       document.getElementById('stakes-summary').classList.add('hidden');
       return;
     }
     document.getElementById('stakes-loading').classList.add('hidden');
-    const list=document.getElementById('stakes-list');
-    let claimableTotal=0;
-    for(let i=0;i<locks.length;i++){
-      const lock=locks[i];
-      if(Number(lock.amount)===0) continue; // claimed
-      const unlockTs=Number(lock.unlockAt);
-      const matured=globalUnlock||now>=unlockTs;
-      const remaining=Math.max(0,unlockTs-now);
-      const days=Math.floor(remaining/86400);
-      const hours=Math.floor((remaining%86400)/3600);
-      const progress=matured?100:Math.min(100,Math.round((1-remaining/864000)*100));
-      // SAVIOR is 6 decimals
-      const amt=(Number(lock.amount)/1e6).toLocaleString(undefined,{maximumFractionDigits:2});
-      if(matured) claimableTotal+=Number(lock.amount)/1e6;
-      list.innerHTML+=`
+
+    const list = document.getElementById('stakes-list');
+    let claimableTotal = 0;
+    let lockedTotal    = 0;
+
+    for (let i = 0; i < locks.length; i++) {
+      const lock = locks[i];
+      if (Number(lock.amount) === 0) continue;
+
+      const unlockTs = Number(lock.unlockAt);
+      const matured  = globalUnlock || now >= unlockTs;
+      const remaining = Math.max(0, unlockTs - now);
+      const days  = Math.floor(remaining / 86400);
+      const hours = Math.floor((remaining % 86400) / 3600);
+      // 10-day lock max for progress
+      const progress = matured ? 100 : Math.min(100, Math.round((1 - remaining / 864000) * 100));
+      const amt = (Number(lock.amount) / 1e6).toLocaleString(undefined, {maximumFractionDigits: 2});
+
+      lockedTotal += Number(lock.amount) / 1e6;
+      if (matured) claimableTotal += Number(lock.amount) / 1e6;
+
+      list.innerHTML += `
         <div class="lock-row">
           <div class="flex justify-between items-start">
             <div>
               <div class="text-sm font-bold">${amt} <span class="text-white/50 font-normal">SAVIOR</span></div>
-              <div class="text-xs text-white/30 mt-0.5">Lock #${i} · ${matured?'<span class="text-emerald-400">Claimable now</span>':'~'+days+'d '+hours+'h remaining'}</div>
+              <div class="text-xs text-white/30 mt-0.5">Lock #${i} · ${
+                matured
+                  ? '<span class="text-emerald-400">Claimable now</span>'
+                  : '~' + days + 'd ' + hours + 'h remaining'
+              }</div>
             </div>
             ${matured
-              ?`<button onclick="claim(${i})" id="claim-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
-                  <i class="fa-solid fa-unlock text-xs"></i>Claim
-                </button>`
-              :`<span class="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">${days}d left</span>`
+              ? `<button onclick="claimLock(${i})" id="claim-${i}"
+                   class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
+                   <i class="fa-solid fa-unlock text-xs"></i>Claim
+                 </button>`
+              : `<span class="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">${days}d left</span>`
             }
           </div>
           <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
         </div>`;
     }
-    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e6,0);
-    document.getElementById('total-locked-display').textContent=totalLocked.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
-    document.getElementById('claimable-display').textContent=claimableTotal.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
+
+    document.getElementById('total-locked-display').textContent =
+      lockedTotal.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' SAVIOR';
+    document.getElementById('claimable-display').textContent =
+      claimableTotal.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' SAVIOR';
     document.getElementById('stakes-summary').classList.remove('hidden');
-  }catch(e){
-    document.getElementById('stakes-loading').textContent='Error: '+(e.reason||e.message);
+  } catch(e) {
+    document.getElementById('stakes-loading').textContent = 'Error: ' + (e.reason || e.message);
     document.getElementById('stakes-loading').classList.remove('hidden');
   }
 }
 
-async function unstake(lockIndex){
-  if(!WalletConnector?.signer){alert('Connect wallet');return;}
-  const btn=document.getElementById(`unstake-${lockIndex}`);
-  if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner spin text-xs"></i>';}
-  try{
-    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
-    const tx=await staking.unstake(lockIndex);
+async function claimLock(i) {
+  if (!WalletConnector?.signer) { alert('Connect wallet'); return; }
+  const btn = document.getElementById(`claim-${i}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner spin text-xs"></i>'; }
+  try {
+    const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, WalletConnector.signer);
+    const tx = await staking.claim(i);
     await tx.wait();
-    alert('Unstaked successfully!');
+    alert('Claimed successfully!');
     await refreshStakes();
-  }catch(e){
-    alert('Unstake error: '+(e.reason||e.shortMessage||e.message));
-    if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-unlock text-xs mr-1"></i>Unstake';}
+  } catch(e) {
+    alert('Claim error: ' + (e.reason || e.shortMessage || e.message));
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-unlock text-xs mr-1"></i>Claim'; }
   }
 }
 </script>
