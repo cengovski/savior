@@ -111,8 +111,7 @@
   <div class="flex flex-wrap gap-2 mb-6">
     <span class="badge bg-purple-500/15 text-purple-300 border border-purple-500/20"><i class="fa-solid fa-bolt text-xs mr-1.5"></i>Sub-second Finality</span>
     <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20"><i class="fa-solid fa-dollar-sign text-xs mr-1.5"></i>USDC Gas Token</span>
-    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>50% Auto-Lock · 5–10 Day Stake</span>
-    <span class="badge bg-amber-500/15 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-clock text-xs mr-1.5"></i>5–10 Day Stake</span>
+    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>50% Auto-Lock</span>
     <span class="badge bg-pink-500/15 text-pink-300 border border-pink-500/20"><i class="fa-brands fa-uniswap text-xs mr-1.5"></i>Uniswap V4 Hook</span>
     <span class="badge bg-green-500/15 text-green-300 border border-green-500/20"><i class="fa-solid fa-piggy-bank text-xs mr-1.5"></i>0.3% Treasury Fee</span>
     <div class="ml-auto flex items-center gap-1.5 text-xs text-white/25 self-center hidden sm:flex">
@@ -135,7 +134,29 @@
           <h1 class="text-2xl font-black tracking-tight">USDC <span class="text-white/30">↔</span> <span class="hero-gradient">$SAVIOR</span></h1>
           <div class="text-xs text-white/35 mt-1">Via SaviorStaking · 50% instant, 50% locked 5–10 days</div>
         </div>
-        <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20 mt-1">V4 Hook</span>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20">V4 Hook</span>
+          <div class="relative">
+            <button onclick="toggleSlipPanel()" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-white/50 hover:text-white/80 hover:border-white/25 transition-all">
+              <i class="fa-solid fa-sliders text-xs"></i>
+              <span>Slippage</span>
+              <span id="slip-badge" class="text-blue-300 font-semibold">1%</span>
+            </button>
+            <div id="slip-panel" class="hidden absolute right-0 top-8 z-50 w-56 glass p-3 shadow-xl">
+              <div class="text-xs text-white/40 mb-2 font-semibold">Slippage Tolerance</div>
+              <div class="flex gap-1.5 flex-wrap mb-2">
+                <button onclick="setSlippage(10)"  class="slip-btn" data-bps="10">0.1%</button>
+                <button onclick="setSlippage(50)"  class="slip-btn" data-bps="50">0.5%</button>
+                <button onclick="setSlippage(100)" class="slip-btn slip-active" data-bps="100">1%</button>
+                <button onclick="setSlippage(300)" class="slip-btn" data-bps="300">3%</button>
+                <button onclick="setSlippage(500)" class="slip-btn" data-bps="500">5%</button>
+              </div>
+              <input id="slip-custom" type="number" min="0.01" max="50" step="0.01" placeholder="Custom %"
+                class="slip-custom-input w-full" oninput="onSlipCustom()"/>
+              <div class="mt-2 text-xs text-white/30">Current: <span id="slip-label" class="text-white/60 font-semibold">1.00%</span></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Tabs -->
@@ -164,9 +185,10 @@
         <div class="input-wrap mb-2">
           <div class="flex justify-between text-xs text-white/35 mb-2">
             <span>You pay</span>
-            <span id="pay-balance-label" class="cursor-pointer" onclick="setMaxAmount()">
-              Balance: <span id="usdc-balance" class="text-white/60">—</span>
-              <span id="pay-balance-ticker" class="text-white/40">USDC</span>
+            <span class="cursor-pointer" onclick="setMaxAmount()">
+              Balance:
+              <span id="usdc-balance" class="text-white/60">—</span><span id="usdc-bal-ticker" class="text-white/40"> USDC</span>
+              <span id="savior-wallet-balance" class="text-white/60 hidden">—</span><span id="savior-bal-ticker" class="text-white/40 hidden"> SAVIOR</span>
             </span>
           </div>
           <div class="flex items-center gap-3">
@@ -209,22 +231,7 @@
           </div>
         </div>
 
-        <!-- Slippage -->
-        <div class="mb-4">
-          <div class="flex justify-between text-xs text-white/35 mb-2">
-            <span>Slippage Tolerance</span>
-            <span class="text-white/60 font-semibold" id="slip-label">1.00%</span>
-          </div>
-          <div class="flex gap-1.5 flex-wrap">
-            <button onclick="setSlippage(10)"  class="slip-btn" data-bps="10">0.1%</button>
-            <button onclick="setSlippage(50)"  class="slip-btn" data-bps="50">0.5%</button>
-            <button onclick="setSlippage(100)" class="slip-btn slip-active" id="slip-active" data-bps="100">1%</button>
-            <button onclick="setSlippage(300)" class="slip-btn" data-bps="300">3%</button>
-            <button onclick="setSlippage(500)" class="slip-btn" data-bps="500">5%</button>
-            <input id="slip-custom" type="number" min="0.01" max="50" step="0.01" placeholder="Custom %"
-              class="slip-custom-input" oninput="onSlipCustom()"/>
-          </div>
-        </div>
+
 
         <!-- Split preview (buy only) -->
         <div id="lock-preview" class="hidden split-preview mb-4">
@@ -708,8 +715,10 @@ function setSwapMode(mode) {
   if (mode === 'buy') {
     buyBtn.className  = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-blue-500/20 text-blue-300 border border-blue-500/30';
     sellBtn.className = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all text-white/40 hover:text-white/60';
-    document.getElementById('pay-balance-label').innerHTML =
-      'Balance: <span id="usdc-balance" class="text-white/60">— </span> USDC';
+    document.getElementById('usdc-balance').classList.remove('hidden');
+    document.getElementById('usdc-bal-ticker').classList.remove('hidden');
+    document.getElementById('savior-wallet-balance').classList.add('hidden');
+    document.getElementById('savior-bal-ticker').classList.add('hidden');
     document.getElementById('pay-token-pill').innerHTML =
       '<i class="fa-solid fa-circle-dollar-sign text-blue-400 text-base"></i><span>USDC</span>';
     document.getElementById('receive-token-label').textContent = '$SAVIOR';
@@ -723,8 +732,10 @@ function setSwapMode(mode) {
   } else {
     buyBtn.className  = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all text-white/40 hover:text-white/60';
     sellBtn.className = 'px-5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-purple-500/20 text-purple-300 border border-purple-500/30';
-    document.getElementById('pay-balance-label').innerHTML =
-      'Balance: <span id="savior-wallet-balance" class="text-white/60">—</span> SAVIOR';
+    document.getElementById('usdc-balance').classList.add('hidden');
+    document.getElementById('usdc-bal-ticker').classList.add('hidden');
+    document.getElementById('savior-wallet-balance').classList.remove('hidden');
+    document.getElementById('savior-bal-ticker').classList.remove('hidden');
     document.getElementById('pay-token-pill').innerHTML =
       '<div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>' +
       '<span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>';
@@ -753,11 +764,28 @@ async function loadSaviorWalletBalance() {
   } catch(e) { console.error('savior balance', e); }
 }
 
+function toggleSlipPanel() {
+  const p = document.getElementById('slip-panel');
+  p.classList.toggle('hidden');
+  // close on outside click
+  setTimeout(() => {
+    const close = (e) => {
+      if (!document.getElementById('slip-panel')?.contains(e.target) &&
+          !e.target.closest('button[onclick="toggleSlipPanel()"]')) {
+        document.getElementById('slip-panel')?.classList.add('hidden');
+        document.removeEventListener('click', close);
+      }
+    };
+    document.addEventListener('click', close);
+  }, 10);
+}
+
 let currentSlipBps = 100;
 
 function setSlippage(bps) {
   currentSlipBps = bps;
   document.getElementById('slip-label').textContent = (bps/100).toFixed(2) + '%';
+  const sb = document.getElementById('slip-badge'); if(sb) sb.textContent = (bps/100).toFixed(bps%100===0?0:2)+'%';
   document.querySelectorAll('.slip-btn').forEach(b => {
     b.classList.toggle('slip-active', parseInt(b.dataset.bps) === bps);
   });
@@ -833,47 +861,59 @@ async function updateUSDCBalance() {
   } catch(e) { console.warn("Balance error", e); }
 }
 
+// Hardcoded pool key — _key() is pure in contract, no onchain read needed
+const POOL_KEY = {
+  currency0:   USDC_ADDR,   // 0x3600...
+  currency1:   TOKEN_ADDR,  // 0xe406...  SAVIOR
+  fee:         10000,
+  tickSpacing: 200,
+  hooks:       HOOK_ADDR,
+};
+
+async function fetchQuote(zeroForOne, amountIn) {
+  const provider = getProvider();
+  const quoter = new ethers.Contract(QUOTER_ADDR, QUOTER_ABI, provider);
+  const result = await quoter.quoteExactInputSingle.staticCall({
+    currency0:         POOL_KEY.currency0,
+    currency1:         POOL_KEY.currency1,
+    fee:               POOL_KEY.fee,
+    tickSpacing:       POOL_KEY.tickSpacing,
+    hooks:             POOL_KEY.hooks,
+    zeroForOne,
+    exactAmount:       amountIn,
+    sqrtPriceLimitX96: 0n
+  });
+  return result.amountOut;
+}
+
 async function updateSwapQuote() {
   const amt    = parseFloat(document.getElementById("swap-amount").value);
   const outEl  = document.getElementById("savior-out-display");
   const lockEl = document.getElementById("lock-preview");
-  const warnEl = document.getElementById("pool-key-warning");
   if (!amt || amt <= 0) { outEl.textContent = "—"; lockEl.classList.add("hidden"); return; }
 
   try {
-    const provider = getProvider();
-    const staking  = new ethers.Contract(STAKING_ADDR, STAKING_ABI, provider);
-    const pks = true;
+    const amountIn   = BigInt(Math.round(amt * 1e6));
+    // buy = USDC→SAVIOR = zeroForOne=true (currency0=USDC)
+    // sell = SAVIOR→USDC = zeroForOne=false
+    const zeroForOne = swapMode === 'buy';
+    const amountOut  = await fetchQuote(zeroForOne, amountIn);
+    const out        = Number(amountOut) / 1e6;
 
-    const pk = await staking.key();
-    const amountIn = BigInt(Math.round(amt * 1e6));
-
-    // USDC(0x3600) is currency0 → zeroForOne=true for buy
-    const zeroForOne = pk.currency0.toLowerCase() === USDC_ADDR.toLowerCase();
-
-    const quoter = new ethers.Contract(QUOTER_ADDR, QUOTER_ABI, provider);
-    const result = await quoter.quoteExactInputSingle.staticCall({
-      currency0:    pk.currency0,
-      currency1:    pk.currency1,
-      fee:          Number(pk.fee),
-      tickSpacing:  Number(pk.tickSpacing),
-      hooks:        HOOK_ADDR,          // ← hook adresi, staking değil
-      zeroForOne,
-      exactAmount:  amountIn,
-      sqrtPriceLimitX96: 0n
-    });
-
-    // SAVIOR is 6 decimals
-    const saviorOut = Number(result.amountOut) / 1e6;
-    outEl.textContent = saviorOut.toLocaleString(undefined, {maximumFractionDigits: 2});
-    document.getElementById("immediate-preview").textContent =
-      (saviorOut * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
-    document.getElementById("locked-preview").textContent =
-      (saviorOut * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
-    lockEl.classList.remove("hidden");
+    if (swapMode === 'buy') {
+      outEl.textContent = out.toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
+      document.getElementById("immediate-preview").textContent =
+        (out * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
+      document.getElementById("locked-preview").textContent =
+        (out * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
+      lockEl.classList.remove("hidden");
+    } else {
+      outEl.textContent = out.toLocaleString(undefined, {maximumFractionDigits: 6}) + " USDC";
+      lockEl.classList.add("hidden");
+    }
   } catch(e) {
     outEl.textContent = "—";
-    lockEl.classList.add("hidden");
+    document.getElementById("lock-preview").classList.add("hidden");
     console.warn("Quote:", e.shortMessage || e.message);
   }
 }
@@ -913,13 +953,11 @@ async function executeSwap() {
         showStatus('Approving USDC...', 'info');
         await (await usdc.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
       }
-      // Quote for minOut
       let minOut = 1n;
       try {
         const quoted = await fetchQuote(true, amountIn);
         if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
-      } catch(e) { console.warn('quote failed, using minOut=1', e); }
-
+      } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending swap...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
         ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
@@ -940,13 +978,11 @@ async function executeSwap() {
         showStatus('Approving SAVIOR...', 'info');
         await (await savior.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
       }
-      // Quote for minOut
       let minOut = 1n;
       try {
         const quoted = await fetchQuote(false, amountIn);
         if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
-      } catch(e) { console.warn('quote failed, using minOut=1', e); }
-
+      } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending sell...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
         ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
