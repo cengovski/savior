@@ -633,7 +633,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   WalletConnector.on("disconnect", () => {
     userAddress = null;
-    document.getElementById("connect-btn").innerHTML = "<i class="fa-solid fa-wallet text-xs"></i><span>Connect Wallet</span>";
+    document.getElementById('connect-btn').innerHTML = '<i class="fa-solid fa-wallet text-xs"></i><span>Connect Wallet</span>';
   });
   WalletConnector.on("accountsChanged", async addr => {
     userAddress = addr;
@@ -760,7 +760,7 @@ async function executeSwap() {
   const slippageBps = parseInt(document.getElementById("slippage-range").value || "100");
   const btn = document.getElementById("swap-btn");
   btn.disabled = true;
-  btn.innerHTML = "<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...";
+  btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
 
   try {
     // 1. Approve USDC → staking
@@ -770,7 +770,7 @@ async function executeSwap() {
       WalletConnector.signer);
     const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
     if (allowance < amountIn) {
-      btn.innerHTML = "<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...";
+      btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
       await (await usdc.approve(STAKING_ADDR, amountIn)).wait();
     }
 
@@ -795,12 +795,12 @@ async function executeSwap() {
     } catch(_) { minOut = 1n; }
 
     // 3. swapExactIn(zeroForOne=true, amountIn, minOut)
-    btn.innerHTML = "<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...";
+    btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
     const staking = new ethers.Contract(STAKING_ADDR,
       ["function swapExactIn(bool,uint256,uint256)"],
       WalletConnector.signer);
     const tx = await staking.swapExactIn(true, amountIn, minOut);
-    btn.innerHTML = "<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...";
+    btn.innerHTML = '<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
     await tx.wait();
 
     alert("Swap ok. 50% cüzdan, 50% kilit (My Stakes).");
@@ -819,7 +819,7 @@ async function executeSwap() {
     alert("Swap error: " + msg);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = "<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking";
+    btn.innerHTML = '<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking';
   }
 }
 
