@@ -297,6 +297,14 @@ const PM_ABI = [
 
 let provider, signer, deployer;
 let tokenAddr, hookImplAddr, hookAddr, stakingAddr;
+// Restore from localStorage on page load
+document.addEventListener('DOMContentLoaded', () => {
+  tokenAddr   = localStorage.getItem('savior_token')   || '';
+  hookAddr    = localStorage.getItem('savior_hook')    || '';
+  stakingAddr = localStorage.getItem('savior_staking') || '';
+  if (tokenAddr)   { ['mgmtToken','mintToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; }); }
+  if (stakingAddr) { const el=document.getElementById('upgradeProxy'); if(el) el.value=stakingAddr; }
+});
 
 // Pure-JS SHA-256 (no crypto.subtle dependency)
 function sha256(str) {
@@ -413,6 +421,7 @@ async function deployToken() {
     const implAddr = await deployBytecode(TOKEN_BC,'SaviorToken impl');
     tokenAddr = await deployProxy(implAddr, initData,'SaviorToken proxy');
     setResult('tokenResult','✓ Token: '+tokenAddr,'ok');
+    localStorage.setItem('savior_token', tokenAddr);
     ['mgmtToken','mintToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; });
   } catch(e){ setResult('tokenResult',e.message,'err'); }
 }
@@ -471,7 +480,8 @@ async function deployStaking() {
     // initialize(saviorToken, usdcToken, poolManager, treasury, owner)
     const USDC = '0x3600000000000000000000000000000000000000';
     const TREASURY = document.getElementById('stakingTreasury')?.value?.trim() || '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
-    if (!tokenAddr) throw new Error('Önce Token deploy edin (Step 1)');
+    tokenAddr = tokenAddr || localStorage.getItem('savior_token') || '';
+    if (!tokenAddr) throw new Error('Deploy Token first (Step 1) or refresh page');
     const iface = new ethers.Interface(['function initialize(address,address,address,address,address)']);
     const initData = iface.encodeFunctionData('initialize',[tokenAddr, USDC, POOL_MANAGER, TREASURY, deployer]);
     const implAddr = await deployBytecode(STAKING_BC,'SaviorStaking impl');
