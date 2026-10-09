@@ -243,3 +243,5 @@ const WalletConnector = (() => {
 
     return { connect, disconnect, on, get address() { return _address; }, get provider() { return _provider; }, get signer() { return _signer; } };
 })();
+
+window.WalletConnector = WalletConnector;

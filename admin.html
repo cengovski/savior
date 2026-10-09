@@ -1,763 +1,788 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="tr">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>$SAVIOR Admin Panel</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={darkMode:'class'}</script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAVIOR Admin Panel</title>
 <style>
-  body{background:#0a0a0f;color:#e2e8f0;font-family:'Inter',sans-serif}
-  .card{background:#13131f;border:1px solid #1e2030;border-radius:16px}
-  .btn-p{background:linear-gradient(135deg,#3b5bdb,#1971c2);color:#fff;border-radius:10px;font-weight:600;cursor:pointer;transition:.2s}
-  .btn-p:hover{filter:brightness(1.15)}
-  .btn-p:disabled{opacity:.5;cursor:not-allowed}
-  .btn-g{background:linear-gradient(135deg,#2f9e44,#1e7e34);color:#fff;border-radius:10px;font-weight:600;cursor:pointer;transition:.2s}
-  .btn-g:hover{filter:brightness(1.15)}
-  .btn-g:disabled{opacity:.5;cursor:not-allowed}
-  .input-f{background:#0d0d1a;border:1px solid #2a2d4a;border-radius:8px;color:#e2e8f0;padding:8px 12px;width:100%;font-size:13px}
-  .input-f:focus{outline:none;border-color:#3b5bdb}
-  .log-box{background:#05050d;border:1px solid #1a1a2e;border-radius:10px;font-family:monospace;font-size:12px;height:320px;overflow-y:auto;padding:12px}
-  .log-ok{color:#51cf66}.log-err{color:#ff6b6b}.log-info{color:#74c0fc}
-  .step-badge{width:28px;height:28px;border-radius:50%;background:#1e3a5f;color:#74c0fc;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
-  .spin{animation:spin 1s linear infinite}
-  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  #login-screen{position:fixed;inset:0;background:#0a0a0f;z-index:100;display:flex;align-items:center;justify-content:center}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0a0a0f; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; padding: 24px; }
+h1 { color: #f8fafc; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.subtitle { color: #64748b; font-size: 13px; margin-bottom: 28px; }
+.card { background: #111827; border: 1px solid #1e293b; border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+.card h2 { font-size: 15px; font-weight: 600; color: #94a3b8; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.step-badge { background: #1e293b; color: #60a5fa; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+label { display: block; color: #94a3b8; font-size: 12px; margin-bottom: 4px; font-weight: 500; }
+input, select { width: 100%; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; color: #e2e8f0; font-size: 13px; padding: 10px 12px; margin-bottom: 12px; outline: none; font-family: monospace; }
+input:focus, select:focus { border-color: #3b82f6; }
+button { background: #2563eb; color: #fff; border: none; border-radius: 10px; padding: 11px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
+button:hover { background: #1d4ed8; }
+button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
+.btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
+.btn-red { background: #dc2626; } .btn-red:hover { background: #b91c1c; }
+.btn-green { background: #16a34a; } .btn-green:hover { background: #15803d; }
+.result { margin-top: 12px; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #94a3b8; word-break: break-all; min-height: 40px; white-space: pre-wrap; }
+.result.ok  { border-color: #166534; color: #4ade80; }
+.result.err { border-color: #7f1d1d; color: #f87171; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.warning { background: #451a03; border: 1px solid #92400e; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #fbbf24; margin-bottom: 16px; }
+#loginBox { max-width: 380px; margin: 80px auto; }
+#mainContent { display: none; }
+.tab-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.tab { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #94a3b8; cursor: pointer; }
+.tab.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+.section { display: none; }
+.section.active { display: block; }
 </style>
 </head>
 <body>
+<div id="loginBox">
+  <div class="card">
+    <h1>SAVIOR Admin</h1>
+    <p class="subtitle" style="margin-bottom:20px">Yönetici girişi</p>
+    <label>Şifre</label>
+    <input id="pwInput" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()" style="width:100%">Giriş</button>
+    <div id="loginErr" class="result err" style="display:none;margin-top:10px">Hatalı şifre</div>
+  </div>
+</div>
+<div id="mainContent">
+  <h1>⚙️ SAVIOR Admin Panel</h1>
+  <p class="subtitle">Arc Mainnet — Kontrat Deploy &amp; Yönetim</p>
+  <div class="tab-bar">
+    <div class="tab active" onclick="showTab('deploy')">Deploy</div>
+    <div class="tab" onclick="showTab('manage')">Yönetim</div>
+    <div class="tab" onclick="showTab('liquidity')">Likidite</div>
+    <div class="tab" onclick="showTab('info')">Bilgi</div>
+  </div>
 
-<!-- Login -->
-<div id="login-screen">
-  <div class="card p-8 w-full max-w-sm text-center">
-    <div class="text-2xl font-bold mb-2">🛡️ Admin Panel</div>
-    <div class="text-sm text-white/40 mb-6">$SAVIOR · Arc Mainnet</div>
-    <input id="pw-input" type="password" placeholder="Password" class="input-f mb-4 text-center text-lg tracking-widest" onkeydown="if(event.key==='Enter')checkPw()"/>
-    <button onclick="checkPw()" class="btn-p w-full py-3">Unlock</button>
-    <div id="pw-err" class="text-red-400 text-sm mt-3 hidden">Wrong password</div>
+  <!-- DEPLOY -->
+  <div class="section active" id="tab-deploy">
+    <div class="card"><h2><span class="step-badge">1</span> Cüzdan Bağla</h2>
+      <button onclick="connectWallet()">Cüzdanı Bağla</button>
+      <div class="result" id="walletInfo">Bağlı değil</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">2</span> SaviorToken Deploy</h2>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px">UUPS ERC-20, 6 decimal, $SAVIOR</div>
+      <button onclick="deployToken()">Token Deploy Et</button>
+      <div class="result" id="tokenResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">3</span> SaviorHook Impl Deploy</h2>
+      <button onclick="deployHookImpl()">Hook Impl Deploy Et</button>
+      <div class="result" id="hookImplResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">4</span> Hook Proxy CREATE2</h2>
+      <div class="warning">Flags: 0x8C3 (beforeInit+afterInit+beforeSwap+afterSwap+afterSwapReturnDelta). Salt bulma ~10-60sn sürer.</div>
+      <button onclick="mineAndDeployHook()" id="btnMineHook">Salt Bul ve Deploy Et</button>
+      <div class="result" id="hookResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">5</span> SaviorStaking Deploy</h2>
+      <div class="grid2">
+        <div><label>Treasury</label><input id="stakingTreasury" value="0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787"></div>
+        <div><label>USDC</label><input id="stakingUsdc" value="0x3600000000000000000000000000000000000000"></div>
+      </div>
+      <button onclick="deployStaking()">Staking Deploy Et</button>
+      <div class="result" id="stakingResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">6</span> Wire + Mint 1B SAVIOR</h2>
+      <button onclick="wireAndMint()">Wire &amp; Mint</button>
+      <div class="result" id="wireResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">7</span> Pool Initialize</h2>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px">
+        200,000 SAVIOR/USDC başlangıç fiyatı. <strong style="color:#fbbf24">Fee ve Tick Spacing birlikte değişmeli:</strong> 500→10, 3000→60, 10000→200.
+      </div>
+      <div class="grid3">
+        <div>
+          <label>Fee tier</label>
+          <select id="poolFee" onchange="syncTickSpacing()">
+            <option value="500">500 (0.05%) — ts=10</option>
+            <option value="3000">3000 (0.3%) — ts=60</option>
+            <option value="10000" selected>10000 (1%) — ts=200</option>
+          </select>
+        </div>
+        <div><label>Tick Spacing (auto)</label><input id="poolTickSpacing" value="200" readonly style="opacity:0.7"></div>
+        <div><label>sqrtPriceX96 (200K SAVIOR/USDC)</label><input id="poolSqrtPrice" value="35431911422859141528926554161152" oninput="previewBands()"></div>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">
+        sqrtPriceX96 = √(price) × 2⁹⁶. Fiyat = N SAVIOR per 1 USDC (her ikisi 6 decimal). Varsayılan 200,000 doğru.
+      </div>
+      <button onclick="initPool()">Pool Initialize Et</button>
+      <div class="result" id="poolResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">8</span> Staking Pool Key + SAVIOR Approve</h2>
+      <button onclick="setPoolKeyAndApprove()">Set Pool Key &amp; Approve</button>
+      <div class="result" id="poolKeyResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2><span class="step-badge">9</span> Likidite Ekle (5 Band)</h2>
+      <div class="warning">
+        SAVIOR-only likidite. Tick aralığı sqrtPriceX96'dan otomatik hesaplanır (current tick'in hemen altındaki 5 band).
+        Tick spacing seçilen fee tier'a göre ayarlanır. L değeri = likidite yoğunluğu.
+      </div>
+      <div class="grid2">
+        <div><label>Liquidity per band (L)</label><input id="liquidityPerBand" value="1000000000000000000"></div>
+        <div><button style="margin-top:20px" onclick="seedLiquidity()">Likidite Ekle (5 band)</button></div>
+      </div>
+      <div id="bandPreview" class="result" style="font-size:11px">sqrtPriceX96 girdikten sonra band preview burada görünür.</div>
+      <div class="result" id="liquidityResult">Bekleniyor...</div>
+    </div>
+  </div>
+
+  <!-- MANAGE -->
+  <div class="section" id="tab-manage">
+    <div class="card"><h2>Adres Yükle</h2>
+      <div class="grid3">
+        <div><label>Token</label><input id="mgmtToken" placeholder="0x..."></div>
+        <div><label>Hook</label><input id="mgmtHook" placeholder="0x..."></div>
+        <div><label>Staking</label><input id="mgmtStaking" placeholder="0x..."></div>
+      </div>
+      <button class="btn-sm" onclick="loadFromDeploy()">Deploy'dan Yükle</button>
+    </div>
+    <div class="card"><h2>Staking Upgrade</h2>
+      <label>Staking Proxy</label><input id="upgradeProxy" placeholder="0x...">
+      <button onclick="upgradeStaking()">Upgrade Et</button>
+      <div class="result" id="upgradeResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Emergency Unlock All</h2>
+      <div class="warning">⚠️ GERİ ALINAMAZ — tüm kilitler açılır</div>
+      <label>Staking Proxy</label><input id="emergencyProxy" placeholder="0x...">
+      <button class="btn-red" onclick="emergencyUnlock()">Emergency Unlock</button>
+      <div class="result" id="emergencyResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Treasury Güncelle</h2>
+      <div class="grid2">
+        <div><label>Kontrat tipi</label>
+          <select id="treasuryContractType"><option value="staking">Staking</option><option value="hook">Hook</option></select>
+        </div>
+        <div><label>Proxy</label><input id="treasuryProxy" placeholder="0x..."></div>
+      </div>
+      <label>Yeni Treasury</label><input id="newTreasury" placeholder="0x...">
+      <button onclick="updateTreasury()">Güncelle</button>
+      <div class="result" id="treasuryResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Token Mint</h2>
+      <label>Token Proxy</label><input id="mintToken" placeholder="0x...">
+      <div class="grid2">
+        <div><label>Alıcı</label><input id="mintTo" placeholder="0x..."></div>
+        <div><label>Miktar (6-dec ham)</label><input id="mintAmount" value="1000000000000000"></div>
+      </div>
+      <button onclick="mintTokens()">Mint</button>
+      <div class="result" id="mintResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Rescue</h2>
+      <label>Kontrat</label><input id="rescueContract" placeholder="0x...">
+      <div class="grid2">
+        <button onclick="rescueNative()">Rescue Native USDC</button>
+        <div>
+          <label>ERC-20 token + miktar</label>
+          <input id="rescueToken" placeholder="0x token adresi">
+          <input id="rescueAmount" placeholder="ham miktar">
+          <button onclick="rescueERC20()">Rescue ERC-20</button>
+        </div>
+      </div>
+      <div class="result" id="rescueResult">Bekleniyor...</div>
+    </div>
+  </div>
+
+  <!-- LİKİDİTE -->
+  <div class="section" id="tab-liquidity">
+    <div class="card"><h2>Tick Hesapla</h2>
+      <div class="grid2">
+        <div><label>Fiyat (SAVIOR/USDC)</label><input id="calcPrice" value="200000"></div>
+        <div><label>Tick Spacing</label><input id="calcTickSpacing" value="200"></div>
+      </div>
+      <button onclick="calcTick()">Hesapla</button>
+      <div class="result" id="calcResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Likidite Ekle</h2>
+      <label>Staking Proxy</label><input id="liqStaking" placeholder="0x...">
+      <div class="grid3">
+        <div><label>Tick Lower</label><input id="liqTickLower" value="119200"></div>
+        <div><label>Tick Upper</label><input id="liqTickUpper" value="120200"></div>
+        <div><label>Liquidity (L)</label><input id="liqLiquidity" value="1000000000000000"></div>
+      </div>
+      <div class="grid2">
+        <button onclick="addLiquidityAdmin()">Admin: addLiquidityDirect</button>
+        <button class="btn-green" onclick="addLiquidityUser()">User: addLiquidity</button>
+      </div>
+      <div class="result" id="liqAddResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Likidite Çıkar</h2>
+      <label>Staking Proxy</label><input id="remLiqStaking" placeholder="0x...">
+      <div class="grid3">
+        <div><label>Tick Lower</label><input id="remTickLower" value="119200"></div>
+        <div><label>Tick Upper</label><input id="remTickUpper" value="120200"></div>
+        <div><label>Liquidity (L)</label><input id="remLiquidity" value="1000000000000000"></div>
+      </div>
+      <button class="btn-red" onclick="removeLiquidityUser()">removeLiquidity</button>
+      <div class="result" id="liqRemResult">Bekleniyor...</div>
+    </div>
+  </div>
+
+  <!-- BİLGİ -->
+  <div class="section" id="tab-info">
+    <div class="card"><h2>Kontrat Durumu</h2>
+      <div class="grid2">
+        <div><label>Staking Proxy</label><input id="infoStaking" placeholder="0x..."></div>
+        <div><label>Token Proxy</label><input id="infoToken" placeholder="0x..."></div>
+      </div>
+      <button onclick="readContracts()">Yükle</button>
+      <div class="result" id="infoResult">Bekleniyor...</div>
+    </div>
   </div>
 </div>
 
-<!-- Main -->
-<div id="main-panel" class="hidden max-w-5xl mx-auto px-4 py-8 gap-6 grid grid-cols-1 lg:grid-cols-3">
-
-  <!-- Left: steps -->
-  <div class="lg:col-span-2 flex flex-col gap-4">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <div class="text-xl font-bold">$SAVIOR Admin</div>
-        <div class="text-xs text-white/40">Arc Mainnet · Chain 5042</div>
-      </div>
-      <button id="connect-btn" onclick="connectWallet()" class="btn-p px-4 py-2 text-sm">Connect Wallet</button>
-    </div>
-
-    <!-- Step 1: SaviorToken -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">1</div>
-        <div><div class="font-semibold text-sm">Deploy SaviorToken</div><div class="text-xs text-white/40">ERC-20 · UUPS upgradeable · 18 dec</div></div>
-      </div>
-      <button onclick="deployToken()" id="s1-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-coins text-xs"></i> Deploy Token</button>
-      <div id="s1-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 2: SaviorHook -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">2</div>
-        <div><div class="font-semibold text-sm">Deploy SaviorHook</div><div class="text-xs text-white/40">V4 Hook · HookMiner CREATE2 · flags 0xC0</div></div>
-      </div>
-      <div class="text-xs text-amber-400 bg-amber-400/10 rounded p-2 mb-3">Hook address must encode beforeSwap+afterSwap permission bits. HookMiner finds the right CREATE2 salt automatically.</div>
-      <div class="grid grid-cols-2 gap-3 mb-3">
-        <div><label class="text-xs text-white/50 mb-1 block">Treasury address (receives 2% fee)</label>
-          <input class="input-f" id="s2-treasury" placeholder="0xb676...b787" value="0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de"/></div>
-        <div><label class="text-xs text-white/50 mb-1 block">SaviorToken proxy (from Step 1)</label>
-          <input class="input-f" id="s2-token" placeholder="auto-filled from Step 1"/></div>
-      </div>
-      <button onclick="deployHook()" id="s2-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-hook text-xs"></i> Deploy Hook (HookMiner)</button>
-      <div id="s2-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 3: SaviorStaking -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">3</div>
-        <div><div class="font-semibold text-sm">Deploy SaviorStaking</div><div class="text-xs text-white/40">Global swap+staking contract · UUPS</div></div>
-      </div>
-      <div class="grid grid-cols-2 gap-3 mb-3">
-        <div><label class="text-xs text-white/50 mb-1 block">SaviorToken proxy</label><input class="input-f" id="s3-token" placeholder="auto-filled"/></div>
-        <div><label class="text-xs text-white/50 mb-1 block">Treasury address</label><input class="input-f" id="s3-treasury" value="0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de"/></div>
-      </div>
-      <button onclick="deployStaking()" id="s3-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-vault text-xs"></i> Deploy Staking</button>
-      <div id="s3-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 4: Wire Hook -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">4</div>
-        <div><div class="font-semibold text-sm">Wire Hook → Staking</div><div class="text-xs text-white/40">setStakingContract() — only staking may swap</div></div>
-      </div>
-      <div class="text-xs text-white/50 mb-3">Tells the hook that only the SaviorStaking contract address is allowed to call swap on the V4 pool.</div>
-      <button onclick="wireHook()" id="s4-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-link text-xs"></i> Wire Hook</button>
-      <div id="s4-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 5: Mint -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">5</div>
-        <div><div class="font-semibold text-sm">Mint SAVIOR</div><div class="text-xs text-white/40">Mint to your wallet for liquidity seeding</div></div>
-      </div>
-      <div class="grid grid-cols-2 gap-3 mb-3">
-        <div><label class="text-xs text-white/50 mb-1 block">Amount (tokens, e.g. 1000000000)</label><input class="input-f" id="s5-amount" value="1000000000" type="number"/></div>
-        <div><label class="text-xs text-white/50 mb-1 block">Recipient (blank = connected wallet)</label><input class="input-f" id="s5-recipient" placeholder="leave blank for self"/></div>
-      </div>
-      <button onclick="mintTokens()" id="s5-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-hammer text-xs"></i> Mint</button>
-      <div id="s5-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 6: Initialize Pool -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">6</div>
-        <div><div class="font-semibold text-sm">Initialize V4 Pool</div><div class="text-xs text-white/40">Create USDC/SAVIOR pool on PoolManager + set pool key</div></div>
-      </div>
-      <div class="grid grid-cols-2 gap-3 mb-3">
-        <div><label class="text-xs text-white/50 mb-1 block">Initial price: 1 USDC = N SAVIOR</label><input class="input-f" id="s6-price" value="1000" type="number" min="1"/></div>
-        <div><label class="text-xs text-white/50 mb-1 block">Fee tier (3000=0.3%, 10000=1%)</label><input class="input-f" id="s6-fee" value="3000" type="number"/></div>
-        <div><label class="text-xs text-white/50 mb-1 block">Tick spacing (60 for 0.3%)</label><input class="input-f" id="s6-tickspacing" value="60" type="number"/></div>
-      </div>
-      <button onclick="initializePool()" id="s6-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-water text-xs"></i> Initialize Pool</button>
-      <div id="s6-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 7: Add Liquidity Bands -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">7</div>
-        <div><div class="font-semibold text-sm">Add Liquidity Bands</div><div class="text-xs text-white/40">5 × 200M SAVIOR bands (1→1.5→2→2.5→3 USDC)</div></div>
-      </div>
-      <div class="text-xs text-white/50 bg-white/5 rounded p-3 mb-3">
-        Adds 5 concentrated SAVIOR-only liquidity bands via SaviorStaking.addLiquidity().<br/>
-        Band 1: 200M @ 1 USDC, Band 2: 200M @ 1.5, Band 3: 200M @ 2, Band 4: 200M @ 2.5, Band 5: 200M @ 3.<br/>
-        You must have SAVIOR approved for SaviorStaking before clicking.
-      </div>
-      <div class="grid grid-cols-2 gap-3 mb-3">
-        <div><label class="text-xs text-white/50 mb-1 block">SAVIOR per band (tokens, e.g. 200000000)</label><input class="input-f" id="s7-savior-per-band" value="200000000" type="number"/></div>
-      </div>
-      <div class="flex gap-2 flex-wrap">
-        <button onclick="approveSaviorForStaking()" id="s7-approve-btn" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-check text-xs"></i> Approve SAVIOR</button>
-        <button onclick="addLiquidityBands()" id="s7-btn" class="btn-g px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-droplet text-xs"></i> Add 5 Bands</button>
-      </div>
-      <div id="s7-status" class="text-xs mt-2"></div>
-    </div>
-
-    <!-- Step 8: Save -->
-    <div class="card p-5">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="step-badge">8</div>
-        <div><div class="font-semibold text-sm">Save Contract Addresses</div><div class="text-xs text-white/40">Persist to localStorage for main site</div></div>
-      </div>
-      <div class="grid grid-cols-1 gap-2 mb-3">
-        <div class="flex gap-2"><span class="text-xs text-white/40 w-28">Token:</span><input class="input-f text-xs" id="save-token" placeholder="SaviorToken proxy"/></div>
-        <div class="flex gap-2"><span class="text-xs text-white/40 w-28">Hook:</span><input class="input-f text-xs" id="save-hook" placeholder="SaviorHook proxy"/></div>
-        <div class="flex gap-2"><span class="text-xs text-white/40 w-28">Staking:</span><input class="input-f text-xs" id="save-staking" placeholder="SaviorStaking proxy"/></div>
-        <div class="flex gap-2"><span class="text-xs text-white/40 w-28">PoolManager:</span><input class="input-f text-xs" id="save-poolmanager" value="0x8366a39CC670B4001A1121B8F6A443A643e40951"/></div>
-      </div>
-      <button onclick="saveAddresses()" class="btn-p px-5 py-2 text-sm flex items-center gap-2"><i class="fa-solid fa-floppy-disk text-xs"></i> Save Addresses</button>
-      <div id="save-status" class="text-xs mt-2"></div>
-    </div>
-
-  </div><!-- /left -->
-
-  <!-- Right: log + saved -->
-  <div class="flex flex-col gap-4">
-
-    <div class="card p-4">
-      <div class="flex items-center justify-between mb-2">
-        <div class="text-sm font-semibold">Deploy Log</div>
-        <button onclick="clearLog()" class="text-xs text-white/30 hover:text-white/60">Clear</button>
-      </div>
-      <div id="log" class="log-box"></div>
-    </div>
-
-    <div class="card p-4" id="saved-card">
-      <div class="text-sm font-semibold mb-3">Saved Contracts</div>
-      <div id="saved-list" class="text-xs text-white/40">No contracts saved yet.</div>
-    </div>
-
-    <div class="card p-4">
-      <div class="text-sm font-semibold mb-2">Upgrade / Rescue</div>
-      <div class="text-xs text-white/40 space-y-1">
-        <div><b class="text-white/70">Upgrade any contract:</b></div>
-        <div>1. Deploy new implementation</div>
-        <div>2. Call <code class="text-blue-400">upgradeToAndCall(newImpl, "")</code></div>
-        <div class="mt-2"><b class="text-white/70">Rescue stuck funds:</b></div>
-        <div><code class="text-blue-400">rescueERC20(token, 0)</code> — all</div>
-        <div><code class="text-blue-400">rescueNative()</code> — native USDC</div>
-        <div class="mt-2"><b class="text-white/70">Emergency unlock:</b></div>
-        <div><code class="text-blue-400">emergencyUnlockAll()</code> on Staking</div>
-        <div class="text-amber-400 text-xs mt-1">Sets globalUnlock=true — all user locks become instantly claimable. Cannot be reversed.</div>
-      </div>
-    </div>
-
-  </div><!-- /right -->
-
-</div>
-
 <script>
-// ── Password ──────────────────────────────────────────────────────────
-const PASS_HASH = '2d6cec0595a7698b91d8e4e554bc442a734d2926a006855cecb917b4ebeeb6d8';
-async function sha256(msg){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-async function checkPw(){
-  const h = await sha256(document.getElementById('pw-input').value);
-  if(h===PASS_HASH){
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('main-panel').classList.remove('hidden');
-    prefillFromStorage();
-  } else {
-    document.getElementById('pw-err').classList.remove('hidden');
-  }
-}
-
-// ── Constants ─────────────────────────────────────────────────────────
 const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
 const USDC         = '0x3600000000000000000000000000000000000000';
-const CREATE2_FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
-const HOOK_FLAGS   = 0xC0n; // beforeSwap + afterSwap
+const TREASURY     = '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
+const C2_FACTORY   = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+const ARC_CHAIN_ID = 5042;
+const HOOK_FLAGS   = 0x8C3n;
+const HASH         = '2d6cec0595a7698b91d8e4e554bc442a734d2926a006855cecb917b4ebeeb6d8';
 
-// ── ABI fragments ─────────────────────────────────────────────────────
-const PROXY_ABI = ['constructor(address implementation, bytes data)'];
+const TOKEN_BC   = '0x60a080604052346100e857306080527ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005460ff8160401c166100d9576002600160401b03196001600160401b03821601610073575b60405161143890816100ed8239608051818181610a280152610af40152f35b6001600160401b0319166001600160401b039081177ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005581527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d290602090a15f80610054565b63f92ee8a960e01b5f5260045ffd5b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c806306fdde0314610f15578063095ea7b314610e9657806318160ddd14610e5a57806323b872dd14610d82578063313ce56714610d6757806340c10f1914610c705780634f1ef28614610a7c57806352d1902d14610a1657806370a08231146109d2578063715018a61461096b5780638cd4426d146108265780638da5cb5b146107f257806395d89b4114610704578063a9059cbb146106d3578063ad3cb1cc14610690578063c4d66de81461020d578063dd62ed3e146101c6578063f2fde38b1461019b5763fc82f084146100ea575f80fd5b34610197575f36600319011261019757610102611258565b5f808080476101128115156110d6565b5f805160206113a3833981519152546001600160a01b03165af13d15610192573d61013c8161104a565b9061014a6040519283611028565b81525f60203d92013e5b1561015b57005b60405162461bcd60e51b815260206004820152600f60248201526e151c985b9cd9995c8819985a5b1959608a1b6044820152606490fd5b610154565b5f80fd5b34610197576020366003190112610197576101c46101b7610ffc565b6101bf611258565b611116565b005b34610197576040366003190112610197576101df610ffc565b6101f06101ea611012565b9161109e565b9060018060a01b03165f52602052602060405f2054604051908152f35b3461019757602036600319011261019757610226610ffc565b5f805160206113e38339815191525460ff8160401c16159067ffffffffffffffff811680159081610688575b600114908161067e575b159081610675575b506106665767ffffffffffffffff1981166001175f805160206113e3833981519152558161063a575b5060409081519261029e8385611028565b60078452661229a0ab24a7a960c91b60208501528251936102bf8486611028565b600685526529a0ab24a7a960d11b60208601526102da61128b565b6102e261128b565b80519067ffffffffffffffff821161052357819061030d5f8051602061134383398151915254611066565b601f81116105c0575b50602090601f8311600114610542575f92610537575b50508160011b915f199060031b1c1916175f80516020611343833981519152555b835167ffffffffffffffff8111610523576103755f8051602061138383398151915254611066565b601f81116104b4575b506020601f82116001146104335781906103cc9495965f92610428575b50508160011b915f199060031b1c1916175f80516020611383833981519152555b6103c461128b565b6101bf61128b565b6103d257005b60207fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29168ff0000000000000000195f805160206113e383398151915254165f805160206113e3833981519152555160018152a1005b01519050868061039b565b601f198216955f805160206113838339815191525f52815f20965f5b81811061049c5750916103cc95969791846001959410610484575b505050811b015f80516020611383833981519152556103bc565b01515f1960f88460031b161c1916905586808061046a565b8383015189556001909801976020938401930161044f565b5f805160206113838339815191525f527f46a2803e59a4de4e7a4c574b1243f25977ac4c77d5a1a4a609b5394cebb4a2aa601f830160051c81019160208410610519575b601f0160051c01905b81811061050e575061037e565b5f8155600101610501565b90915081906104f8565b634e487b7160e01b5f52604160045260245ffd5b01519050868061032c565b5f805160206113438339815191525f9081528281209350601f198516905b8181106105a85750908460019594939210610590575b505050811b015f805160206113438339815191525561034d565b01515f1960f88460031b161c19169055868080610576565b92936020600181928786015181550195019301610560565b5f805160206113438339815191525f529091507f2ae08a8e29253f69ac5d979a101956ab8f8d9d7ded63fa7a83b16fc47648eab0601f840160051c81019160208510610630575b90601f859493920160051c01905b8181106106225750610316565b5f8155849350600101610615565b9091508190610607565b68ffffffffffffffffff191668010000000000000001175f805160206113e3833981519152558261028d565b63f92ee8a960e01b5f5260045ffd5b90501584610264565b303b15915061025c565b839150610252565b34610197575f366003190112610197576106cf6040516106b1604082611028565b60058152640352e302e360dc1b602082015260405191829182610fd2565b0390f35b34610197576040366003190112610197576106f96106ef610ffc565b6024359033611187565b602060405160018152f35b34610197575f366003190112610197576040515f5f805160206113838339815191525461073081611066565b80845290600181169081156107ce5750600114610764575b6106cf8361075881850382611028565b60405191829182610fd2565b5f805160206113838339815191525f9081527f46a2803e59a4de4e7a4c574b1243f25977ac4c77d5a1a4a609b5394cebb4a2aa939250905b8082106107b457509091508101602001610758610748565b91926001816020925483858801015201910190929161079c565b60ff191660208086019190915291151560051b840190910191506107589050610748565b34610197575f366003190112610197575f805160206113a3833981519152546040516001600160a01b039091168152602090f35b346101975760403660031901126101975761083f610ffc565b6024359061084b611258565b6040516370a0823160e01b81523060048201526001600160a01b039190911691602082602481865afa918215610960575f9261092c575b5080158015610923575b1561091c57505b61089e8115156110d6565b60018060a01b035f805160206113a38339815191525416906040519163a9059cbb60e01b5f5260045260245260205f60448180865af19060015f51148216156108fc575b50156108ea57005b635274afe760e01b5f5260045260245ffd5b60018215166109145750813b15153d151616826108e2565b3d5f823e3d90fd5b9050610893565b5081811161088c565b9091506020813d602011610958575b8161094860209383611028565b8101031261019757519083610882565b3d915061093b565b6040513d5f823e3d90fd5b34610197575f36600319011261019757610983611258565b5f805160206113a383398151915280546001600160a01b031981169091555f906001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e08280a3005b34610197576020366003190112610197576001600160a01b036109f3610ffc565b165f525f80516020611363833981519152602052602060405f2054604051908152f35b34610197575f366003190112610197577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03163003610a6d5760206040515f805160206113c38339815191528152f35b63703e46dd60e11b5f5260045ffd5b604036600319011261019757610a90610ffc565b6024359067ffffffffffffffff82116101975736602383011215610197578160040135610abc8161104a565b92610aca6040519485611028565b818452366024838301011161019757815f9260246020930183870137840101526001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016308114908115610c4e575b50610a6d57610b2c611258565b6040516352d1902d60e01b81526001600160a01b0382169290602081600481875afa5f9181610c1a575b50610b6e5783634c9c8ce360e01b5f5260045260245ffd5b805f805160206113c3833981519152859203610c085750823b15610bf6575f805160206113c383398151915280546001600160a01b031916821790557fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a2805115610bde576101c4916112b6565b505034610be757005b63b398979f60e01b5f5260045ffd5b634c9c8ce360e01b5f5260045260245ffd5b632a87526960e21b5f5260045260245ffd5b9091506020813d602011610c46575b81610c3660209383611028565b8101031261019757519085610b56565b3d9150610c29565b5f805160206113c3833981519152546001600160a01b03161415905083610b1f565b3461019757604036600319011261019757610c89610ffc565b60243590610c95611258565b6001600160a01b0316908115610d54577f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace025490808201809211610d405760207fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef915f937f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace02558484525f80516020611363833981519152825260408420818154019055604051908152a3005b634e487b7160e01b5f52601160045260245ffd5b63ec442f0560e01b5f525f60045260245ffd5b34610197575f36600319011261019757602060405160068152f35b3461019757606036600319011261019757610d9b610ffc565b610da3611012565b60443590610db08361109e565b335f90815260209190915260409020549260018401610dd4575b6106f99350611187565b828410610e3f576001600160a01b03811615610e2c573315610e19576106f993610dfd8261109e565b60018060a01b0333165f526020528360405f2091039055610dca565b634a1406b160e11b5f525f60045260245ffd5b63e602df0560e01b5f525f60045260245ffd5b8284637dc7a0d960e11b5f523360045260245260445260645ffd5b34610197575f3660031901126101975760207f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace0254604051908152f35b3461019757604036600319011261019757610eaf610ffc565b602435903315610e2c576001600160a01b0316908115610e1957610ed23361109e565b825f526020528060405f20556040519081527f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b92560203392a3602060405160018152f35b34610197575f366003190112610197576040515f5f8051602061134383398151915254610f4181611066565b80845290600181169081156107ce5750600114610f68576106cf8361075881850382611028565b5f805160206113438339815191525f9081527f2ae08a8e29253f69ac5d979a101956ab8f8d9d7ded63fa7a83b16fc47648eab0939250905b808210610fb857509091508101602001610758610748565b919260018160209254838588010152019101909291610fa0565b602060409281835280519182918282860152018484015e5f828201840152601f01601f1916010190565b600435906001600160a01b038216820361019757565b602435906001600160a01b038216820361019757565b90601f8019910116810190811067ffffffffffffffff82111761052357604052565b67ffffffffffffffff811161052357601f01601f191660200190565b90600182811c92168015611094575b602083101461108057565b634e487b7160e01b5f52602260045260245ffd5b91607f1691611075565b6001600160a01b03165f9081527f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace016020526040902090565b156110dd57565b60405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b6044820152606490fd5b6001600160a01b03168015611174575f805160206113a383398151915280546001600160a01b0319811683179091556001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e05f80a3565b631e4fbdf760e01b5f525f60045260245ffd5b6001600160a01b0316908115611245576001600160a01b0316918215610d5457815f525f8051602061136383398151915260205260405f205481811061122c57817fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef92602092855f525f8051602061136383398151915284520360405f2055845f525f80516020611363833981519152825260405f20818154019055604051908152a3565b8263391434e360e21b5f5260045260245260445260645ffd5b634b637e8f60e11b5f525f60045260245ffd5b5f805160206113a3833981519152546001600160a01b0316330361127857565b63118cdaa760e01b5f523360045260245ffd5b60ff5f805160206113e38339815191525460401c16156112a757565b631afcd79f60e31b5f5260045ffd5b905f8091602081519101845af4808061132f575b156112ea5750506040513d81523d5f602083013e60203d82010160405290565b1561130f57639996b31560e01b5f9081526001600160a01b0391909116600452602490fd5b3d15611320576040513d5f823e3d90fd5b63d6bda27560e01b5f5260045ffd5b503d1515806112ca5750813b15156112ca56fe52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace0352c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace0052c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace049016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbcf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00a2646970667358221220bb5ed2023694537b5d48f53254b5269cc174d83bb6cd9bf01218764a71e444d564736f6c634300081a0033';
+const HOOK_BC    = '0x60a080604052346100e857306080527ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005460ff8160401c166100d9576002600160401b03196001600160401b03821601610073575b60405161140c90816100ed8239608051818181610c670152610d330152f35b6001600160401b0319166001600160401b039081177ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005581527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d290602090a15f80610054565b63f92ee8a960e01b5f5260045ffd5b5f80fdfe608080604052600436101561001c575b50361561001a575f80fd5b005b5f3560e01c90816321d0ee7014610ed357508063259982e514610eaf5780634f1ef28614610cbb57806352d1902d14610c55578063575e24b414610bbd5780636c2bbe7e14610b925780636fe7e6eb14610b20578063715018a614610ab95780638cd4426d146109f95780638da5cb5b146109c55780639dd373b9146109205780639f063efc146108f5578063ad3cb1cc14610897578063b2004c9d14610872578063b47b2fb1146107d2578063b6a8b0fa146107ad578063c4e833ce146106df578063dc4c90d3146106b8578063dc98354e14610611578063e1b4af69146105ec578063ee99205c146105c4578063f2fde38b146105a0578063fc82f084146104e75763fecf973414610130575f61000f565b346104e35760803660031901126104e357610149610ef5565b6024356001600160a01b038116908190036104e357604435906001600160a01b03821682036104e3576064359182151583036104e3575f805160206113b7833981519152549360ff8560401c16159467ffffffffffffffff8116801590816104db575b60011490816104d1575b1590816104c8575b506104b95767ffffffffffffffff1981166001175f805160206113b7833981519152558561048d575b506001600160a01b031690811561045e57610211906102046112bf565b61020c6112bf565b61121b565b6102196112bf565b6001600160601b0360a01b5f5416175f556001600160601b0360a01b600154161760015561029f575b61024857005b68ff0000000000000000195f805160206113b783398151915254165f805160206113b7833981519152557fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2602060405160018152a1005b6102a761114f565b80511515612000301615151490811591610446575b811561042e575b8115610416575b81156103fe575b81156103e6575b81156103cf575b81156103b8575b81156103a0575b8115610388575b8115610370575b8115610358575b8115610340575b8115610329575b501561024257630732d7b560e51b5f523060045260245ffd5b6101a091500151151560013016151514155f610310565b90506101808101511515600230161515141590610309565b90506101608101511515600430161515141590610302565b905061014081015115156008301615151415906102fb565b905061012081015115156010301615151415906102f4565b905061010081015115156020301615151415906102ed565b905060e081015115156040301615151415906102e6565b905060c081015115156080301615151415906102df565b905060a08101511515610100301615151415906102d8565b905060808101511515610200301615151415906102d1565b905060608101511515610400301615151415906102ca565b905060408101511515610800301615151415906102c3565b905060208101511515611000301615151415906102bc565b60405162461bcd60e51b81526020600482015260076024820152665a65726f20504d60c81b6044820152606490fd5b68ffffffffffffffffff191668010000000000000001175f805160206113b7833981519152555f6101e7565b63f92ee8a960e01b5f5260045ffd5b9050155f6101be565b303b1591506101b6565b8791506101ac565b5f80fd5b346104e3575f3660031901126104e3576104ff61128c565b478015610567576040816105595f8080807f8aec0ce3dadffacf4b7a963e0fed1ff2e6151b4c95d4a65acafa9d12996304029760018060a01b035f8051602061137783398151915254165af16105536110e4565b50611113565b8151905f82526020820152a1005b60405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b6044820152606490fd5b346104e35760203660031901126104e35761001a6105bc610ef5565b61020c61128c565b346104e3575f3660031901126104e3576001546040516001600160a01b039091168152602090f35b346104e3576105fa3661108c565b505050505050602060405163e1b4af6960e01b8152f35b346104e35760e03660031901126104e35761062a610ef5565b5060a03660231901126104e35761063f611076565b505f546001600160a01b031633036106a95760ff60015460a01c1661069a5760a4356001600160a01b038116908190036104e357300361068b57604051636e4c1aa760e11b8152602090f35b63b07a570360e01b5f5260045ffd5b638756d2ad60e01b5f5260045ffd5b63f655705d60e01b5f5260045ffd5b346104e3575f3660031901126104e3575f546040516001600160a01b039091168152602090f35b346104e3575f3660031901126104e3576101c06106fa61114f565b6101a06040519180511515835260208101511515602084015260408101511515604084015260608101511515606084015260808101511515608084015260a0810151151560a084015260c0810151151560c084015260e0810151151560e084015261010081015115156101008401526101208101511515610120840152610140810151151561014084015261016081015115156101608401526101808101511515610180840152015115156101a0820152f35b346104e3576107bb3661108c565b5050505050506020604051635b54587d60e11b8152f35b346104e3576101603660031901126104e3576107ec610ef5565b60a03660231901126104e35760603660c31901126104e3576101443567ffffffffffffffff81116104e357610825903690600401610f0b565b50505f546001600160a01b031633036106a9576001546001600160a01b03908116911603610863576040805163b47b2fb160e01b81525f6020820152f35b631eb823b160e11b5f5260045ffd5b346104e3575f3660031901126104e357602060ff60015460a01c166040519015158152f35b346104e3575f3660031901126104e35760408051906108b68183610fce565b600582526020820191640352e302e360dc1b83528151928391602083525180918160208501528484015e5f828201840152601f01601f19168101030190f35b346104e3576109033661100c565b50505050505050604080516327c18fbf60e21b81525f6020820152f35b346104e35760203660031901126104e357610939610ef5565b61094161128c565b6001600160a01b03168015610991576020817ff520447191196b125f76f7110397fdf32b1b9cefb7dec323bd3b998022ac2338926001600160601b0360a01b6001541617600155604051908152a1005b60405162461bcd60e51b815260206004820152600c60248201526b5a65726f207374616b696e6760a01b6044820152606490fd5b346104e3575f3660031901126104e3575f80516020611377833981519152546040516001600160a01b039091168152602090f35b346104e35760403660031901126104e3577f8aec0ce3dadffacf4b7a963e0fed1ff2e6151b4c95d4a65acafa9d1299630402610a33610ef5565b60243590610a3f61128c565b5f805160206113778339815191525460405163a9059cbb60e01b602082019081526001600160a01b03909216602482015260448082018590528152610a9c915f91829190610a8e606482610fce565b519082865af16105536110e4565b604080516001600160a01b039290921682526020820192909252a1005b346104e3575f3660031901126104e357610ad161128c565b5f8051602061137783398151915280546001600160a01b031981169091555f906001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e08280a3005b346104e3576101003660031901126104e357610b3a610ef5565b5060a03660231901126104e357610b4f611076565b5060e4358060020b036104e3575f546001600160a01b031633036106a9576001805460ff60a01b1916600160a01b179055604051636fe7e6eb60e01b8152602090f35b346104e357610ba03661100c565b5050505050505060408051633615df3f60e11b81525f6020820152f35b346104e3576101403660031901126104e357610bd7610ef5565b60a03660231901126104e35760603660c31901126104e3576101243567ffffffffffffffff81116104e357610c10903690600401610f0b565b50505f546001600160a01b031633036106a9576001546001600160a01b039081169116036108635760606040516315d7892d60e21b81525f60208201525f6040820152f35b346104e3575f3660031901126104e3577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03163003610cac5760206040515f805160206113978339815191528152f35b63703e46dd60e11b5f5260045ffd5b60403660031901126104e357610ccf610ef5565b6024359067ffffffffffffffff82116104e357366023830112156104e3578160040135610cfb81610ff0565b92610d096040519485610fce565b81845236602483830101116104e357815f9260246020930183870137840101526001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016308114908115610e8d575b50610cac57610d6b61128c565b6040516352d1902d60e01b81526001600160a01b0382169290602081600481875afa5f9181610e59575b50610dad5783634c9c8ce360e01b5f5260045260245ffd5b805f80516020611397833981519152859203610e475750823b15610e35575f8051602061139783398151915280546001600160a01b031916821790557fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a2805115610e1d5761001a916112ea565b505034610e2657005b63b398979f60e01b5f5260045ffd5b634c9c8ce360e01b5f5260045260245ffd5b632a87526960e21b5f5260045260245ffd5b9091506020813d602011610e85575b81610e7560209383610fce565b810103126104e357519085610d95565b3d9150610e68565b5f80516020611397833981519152546001600160a01b03161415905083610d5e565b346104e357610ebd36610f39565b5050505050602060405163259982e560e01b8152f35b346104e357602090610ee436610f39565b505063021d0ee760e41b8452505050f35b600435906001600160a01b03821682036104e357565b9181601f840112156104e35782359167ffffffffffffffff83116104e357602083818601950101116104e357565b906101606003198301126104e3576004356001600160a01b03811681036104e3579160a06023198201126104e357602491608060c3198301126104e35760c491610144359067ffffffffffffffff82116104e357610f9991600401610f0b565b9091565b6101c0810190811067ffffffffffffffff821117610fba57604052565b634e487b7160e01b5f52604160045260245ffd5b90601f8019910116810190811067ffffffffffffffff821117610fba57604052565b67ffffffffffffffff8111610fba57601f01601f191660200190565b906101a06003198301126104e3576004356001600160a01b03811681036104e3579160a06023198201126104e357602491608060c3198301126104e35760c49161014435916101643591610184359067ffffffffffffffff82116104e357610f9991600401610f0b565b60c435906001600160a01b03821682036104e357565b6101206003198201126104e3576004356001600160a01b03811681036104e3579160a06023198301126104e35760249160c4359160e43591610104359067ffffffffffffffff82116104e357610f9991600401610f0b565b3d1561110e573d906110f582610ff0565b916111036040519384610fce565b82523d5f602084013e565b606090565b1561111a57565b60405162461bcd60e51b815260206004820152600d60248201526c14995cd8dd594819985a5b1959609a1b6044820152606490fd5b5f6101a060405161115f81610f9d565b8281528260208201528260408201528260608201528260808201528260a08201528260c08201528260e0820152826101008201528261012082015282610140820152826101608201528261018082015201526040516111bd81610f9d565b60018152600160208201525f60408201525f60608201525f60808201525f60a0820152600160c0820152600160e08201525f6101008201525f6101208201525f6101408201525f6101608201525f6101808201525f6101a082015290565b6001600160a01b03168015611279575f8051602061137783398151915280546001600160a01b0319811683179091556001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e05f80a3565b631e4fbdf760e01b5f525f60045260245ffd5b5f80516020611377833981519152546001600160a01b031633036112ac57565b63118cdaa760e01b5f523360045260245ffd5b60ff5f805160206113b78339815191525460401c16156112db57565b631afcd79f60e31b5f5260045ffd5b905f8091602081519101845af48080611363575b1561131e5750506040513d81523d5f602083013e60203d82010160405290565b1561134357639996b31560e01b5f9081526001600160a01b0391909116600452602490fd5b3d15611354576040513d5f823e3d90fd5b63d6bda27560e01b5f5260045ffd5b503d1515806112fe5750813b15156112fe56fe9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbcf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00a2646970667358221220fc817d3588e202a4cb3bb8cbff0915a21eef5524da0dc2d5b2efdedb99f72df364736f6c634300081a0033';
+const STAKING_BC = '0x60a080604052346100e857306080527ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005460ff8160401c166100d9576002600160401b03196001600160401b03821601610073575b604051612a6f90816100ed823960805181818161192b01526119f60152f35b6001600160401b0319166001600160401b039081177ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005581527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d290602090a15f80610054565b63f92ee8a960e01b5f5260045ffd5b5f80fdfe608080604052600436101561001c575b50361561001a575f80fd5b005b5f905f3560e01c90816306aec0ef1461222c5750806311eac855146122045780631459457a14611f49578063379607f514611e2d57806337b28bfd14611dec5780633943380c14611d92578063402914f514611cc857806348bfe57814611b725780634f1ef2861461197f57806352d1902d1461191957806361d027b3146118f1578063715018a61461188a578063719f30891461176b578063788499c01461174957806389697969146116445780638cd4426d146115c65780638da5cb5b1461159257806391dd7346146108e05780639a32752f146108b9578063ad3cb1cc1461086c578063b425f80214610800578063d1058e59146106ba578063d6febde814610612578063d79875eb146104cc578063dc4c90d3146104a3578063e20cc07914610439578063e3f9aa47146102fa578063f0f44260146102ae578063f2fde38b146102815763fc82f0840361000f573461027e578060031936011261027e576101866125a7565b47801561024557818080808460018060a01b035f805160206129ba83398151915254165af13d15610240573d6101bb81612302565b906101c960405192836122e1565b81528360203d92013e5b1561020b5760407f8aec0ce3dadffacf4b7a963e0fed1ff2e6151b4c95d4a65acafa9d1299630402918151908482526020820152a180f35b60405162461bcd60e51b815260206004820152600d60248201526c14995cd8dd594819985a5b1959609a1b6044820152606490fd5b6101d3565b60405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b6044820152606490fd5b80fd5b503461027e57602036600319011261027e576102ab61029e61224e565b6102a66125a7565b61247d565b80f35b503461027e57602036600319011261027e576102c861224e565b6102d06125a7565b6001600160a01b03166102e48115156123be565b6001600160601b0360a01b600354161760035580f35b503461027e576103093661231d565b6103116124ee565b60ff600754161561042a576001600160801b0381161561041b57336001600160601b0360a01b600b541617600b5562ffffff6601000000000000600160b01b03600e549260301b1693169069ffffffffffffffffffff60b01b16179060181b65ffffff000000161717600e5580806103ca60018060a01b036002541660405160046020820152602081526103a66040826122e1565b6040519485809481936348c8949160e01b835260206004840152602483019061235b565b03925af18015610410576103ee575b5060015f805160206129fa8339815191525580f35b610409903d8084833e61040181836122e1565b81019061241b565b505f6103d9565b6040513d84823e3d90fd5b631f2a200560e01b8452600484fd5b63220efdeb60e11b8452600484fd5b503461027e578060031936011261027e576104526125a7565b60075460ff8160081c166104945761ff00191661010017600755337f3bb353c9b7326d69a2c9aa36d2779f45dbba59be5a9a1bf5376d8f77adbc48ce8280a280f35b6328486b6360e11b8252600482fd5b503461027e578060031936011261027e576002546040516001600160a01b039091168152602090f35b503461027e576104db366123a8565b906104e46124ee565b60ff60075416156106035780156105f45733835260096020526001600160401b036040842054166001600160401b034316146105e5578254610534908290309033906001600160a01b0316612717565b336001600160601b0360a01b600b541617600b55600c55600d55600a54610100600160a81b033360081b1690610100600160a81b03191617600a55808061059860018060a01b036002541660405160026020820152602081526103a66040826122e1565b03925af18015610410576105cd575b50600a8054610100600160a81b031916905560015f805160206129fa8339815191525580f35b6105e0903d8084833e61040181836122e1565b6105a7565b630dbbc8b160e31b8352600483fd5b631f2a200560e01b8352600483fd5b63220efdeb60e11b8352600483fd5b503461027e57610621366123a8565b9061062a6124ee565b60ff60075416156106035780156105f457600154610656908290309033906001600160a01b0316612717565b336001600160601b0360a01b600b541617600b55600c55600d55600a54610100600160a81b033360081b1690610100600160a81b03191617600a55808061059860018060a01b036002541660405160016020820152602081526103a66040826122e1565b503461027e578060031936011261027e576106d36124ee565b3381526008602052604081209080805b83548210156107be576106f6828561237f565b50918254926001600160801b03841693841515908161078e575b50610721575b5060010191506106e3565b8360019361073c926001600160801b031981541690556123fa565b927f987d620f307ff6b94d58743cb7a7509f24071586a77759b77c2d4e29f75a2f9a60405180610784339486839092916001600160801b036020916040840195845216910152565b0390a28291610716565b60075460081c60ff16915081156107a7575b505f610710565b6001600160401b03915060801c164210155f6107a0565b905080156107f15781546107dd919033906001600160a01b0316612526565b60015f805160206129fa8339815191525580f35b6312d37ee560e31b8252600482fd5b503461027e57604036600319011261027e5761081a61224e565b6001600160a01b031681526008602052604081208054602435929083101561027e576040610848848461237f565b50546001600160401b038251916001600160801b038116835260801c166020820152f35b503461027e578060031936011261027e57506108b560405161088f6040826122e1565b60058152640352e302e360dc1b602082015260405191829160208352602083019061235b565b0390f35b503461027e578060031936011261027e57546040516001600160a01b039091168152602090f35b5034610cb7576020366003190112610cb7576004356001600160401b038111610cb75736602382011215610cb75780600401356001600160401b038111610cb757810190366024830111610cb7576002546001600160a01b0316913383900361158357600a549060ff82166115745760ff19909116600117600a5560209082900312610cb7576024013560ff8116809103610cb75760018103610cce575050600b54600c54600d546002549193926001600160a01b039081169284916020916109e991166109ad886125da565b604051906109ba826122c6565b60018252848201526401000276a46040820152604051948580948193633cf3645360e21b8352600483016126c2565b03925af18015610cc3578490610c8b575b600454610a2d9250610a1a90608083901d906001600160a01b03166127ab565b600f0b60018060a01b03600554166128ac565b908110610c7c578060011c610a42818361270a565b9182610c5f575b8115610c17575f19430190438211610c0357906206978191604051906020820192408352866040830152606082015243608082015260808152610a8d60a0826122e1565b51902006620697804201804211610c03576001600160401b0391610ab0916123fa565b169183855260086020526040852060405190610acb82612290565b6001600160801b0384168252602082019085825280549068010000000000000000821015610bef5790610b039160018201815561237f565b929092610bdb5751825491516001600160c01b03199092166001600160801b039190911617608091821b67ffffffffffffffff60801b16179091556040805197885260208801929092529086019190915260608501919091526108b59382917fb7d4f3494f94213521347923699955ad1fd31b45200aebdaf7b5a16550fdb2dc91a25b8152600960205260408120805467ffffffffffffffff1916436001600160401b03161790555b60ff19600a5416600a5560405190610bc56020836122e1565b815260405191829160208352602083019061235b565b634e487b7160e01b88526004889052602488fd5b634e487b7160e01b89526041600452602489fd5b634e487b7160e01b86526011600452602486fd5b50507fb7d4f3494f94213521347923699955ad1fd31b45200aebdaf7b5a16550fdb2dc60806108b59584936040519182526020820152856040820152856060820152a2610b86565b8454610c7790849086906001600160a01b0316612526565b610a49565b63428637bb60e11b8352600483fd5b506020813d602011610cbb575b81610ca5602093836122e1565b81010312610cb757610a2d90516109fa565b5f80fd5b3d9150610c98565b6040513d86823e3d90fd5b60028103610ea0575050600b54600c54600d546002549193926001600160a01b03908116928491602091610d509116610d06886125da565b60405190610d13826122c6565b8582528482015273fffd8963efd1fc6a506488495d951d5263988d256040820152604051948580948193633cf3645360e21b8352600483016126c2565b03925af18015610cc3578490610e6c575b600554610d949250610d8190600f83900b906001600160a01b03166127ab565b60801d60018060a01b03600454166128ac565b9060c8820282810460c81483151715610e5857612710610db69104809361270a565b908110610e49576108b594826060927fe029f26dbcf8c42dd2f352c10214a7fc26773dc62482c6241334a0402ac09a8094610e26575b80610e08575b60405192835260208301526040820152a2610bac565b600154610e2190829088906001600160a01b0316612526565b610df2565b600154600354610e449184916001600160a01b039081169116612526565b610dec565b63428637bb60e11b8452600484fd5b634e487b7160e01b85526011600452602485fd5b506020813d602011610e98575b81610e86602093836122e1565b81010312610cb757610d949051610d61565b3d9150610e79565b6003810361131357505060018060a01b03600b5416600e54908160020b90836001600160801b038460181c60020b9460301c16916040610f1e60018060a01b03600254168251610eef816122ab565b87815288602082015286848201528560608201528351958680948193632d35e7ed60e11b835260048301612645565b03925af19182156111e05786926112e1575b50858260801d83600f0b908281600f0b8181126111ef575b8184126110df575b13611047575b5013610fb0575b505060408051600293840b81529390920b60208401526001600160801b0316908201526108b591907f8fe8d33043c492b98fd8032e34a822924390702c03002c63aac884513c40480290606090a1610bac565b6002546005546001600160a01b039081169388939290911690813b1561103857604051630b0d9c0960e01b81526001600160a01b0395861660048201529290941660248301526001600160801b039093166044820152918290606490829084905af1801561103c57611023575b80610f5d565b61102e8580926122e1565b611038575f61101d565b8380fd5b6040513d87823e3d90fd5b6002546004546001600160a01b0390811692911690813b156110db57604051630b0d9c0960e01b81526001600160a01b03938416600482015292861660248401526001600160801b0316604483015283908290606490829084905af19081156110d05783916110b7575b50610f56565b816110c1916122e1565b6110cc57815f6110b1565b5080fd5b6040513d85823e3d90fd5b8480fd5b90506001600160801b036110f284612693565b6002546005546001600160a01b0391821694939092169116833b156111eb578693602485926040519687938492632961046560e21b845260048401525af19283156111e05786936111c7575b50825460025461115d92916001600160a01b03918216918a9116612717565b600254604051630476982d60e21b81529260209184916004918391906001600160a01b03165af191821561103c578592611198575b50610f50565b6111b99060203d6020116111c0575b6111b181836122e1565b8101906126b3565b505f611192565b503d6111a7565b836111d4919492946122e1565b6110db5784915f61113e565b6040513d88823e3d90fd5b8680fd5b90506001600160801b0361120283612693565b6002546004546001600160a01b0391821694939092169116833b156111eb578693602485926040519687938492632961046560e21b845260048401525af19283156111e05786936112c8575b5060015460025461126e92916001600160a01b03918216918a9116612717565b600254604051630476982d60e21b81529260209184916004918391906001600160a01b03165af191821561103c5785926112a9575b50610f48565b6112c19060203d6020116111c0576111b181836122e1565b505f6112a3565b836112d5919492946122e1565b6110db5784915f61124e565b61130491925060403d60401161130c575b6112fc81836122e1565b8101906125ea565b50905f610f30565b503d6112f2565b60040361153e5760018060a01b03600b5416600e54915f8360020b92604061138c6001600160801b038760181c60020b9760301c1694611352866125da565b83519061135e826122ab565b888252896020830152848201528560608201528351958680948193632d35e7ed60e11b835260048301612645565b03925af1918215611511575f9261151c575b508160801d5f81600f0b13611495575b508582600f0b1361140d575b505060408051600293840b81529390920b60208401526001600160801b0316908201526108b591907f1a56111eaed0acbc02e8dbfbfbdee2ae4f7c224842086ebe4102d539cea5e0c390606090a1610bac565b6002546005546001600160a01b039081169388939290911690813b1561103857604051630b0d9c0960e01b81526001600160a01b0395861660048201529290941660248301526001600160801b039093166044820152918290606490829084905af1801561103c57611480575b806113ba565b61148b8580926122e1565b611038575f61147a565b6002546004546001600160a01b0390811692911690813b15610cb757604051630b0d9c0960e01b81526001600160a01b03938416600482015292841660248401526001600160801b031660448301525f908290606490829084905af1801561151157156113ae576115099196505f906122e1565b5f945f6113ae565b6040513d5f823e3d90fd5b61153691925060403d60401161130c576112fc81836122e1565b50905f61139e565b60405162461bcd60e51b815260206004820152600e60248201526d2ab735b737bbb71030b1ba34b7b760911b6044820152606490fd5b6374af1f8560e01b5f5260045ffd5b63f655705d60e01b5f5260045ffd5b34610cb7575f366003190112610cb7575f805160206129ba833981519152546040516001600160a01b039091168152602090f35b34610cb7576040366003190112610cb7577f8aec0ce3dadffacf4b7a963e0fed1ff2e6151b4c95d4a65acafa9d1299630402604061160261224e565b6024359061160e6125a7565b5f805160206129ba833981519152546001600160a01b0391821692916116379183911684612526565b82519182526020820152a1005b34610cb7576116523661231d565b61165a6124ee565b60ff600754161561173a576001600160801b0381161561172b57336001600160601b0360a01b600b541617600b5562ffffff6601000000000000600160b01b03600e549260301b1693169069ffffffffffffffffffff60b01b16179060181b65ffffff000000161717600e555f806116ef60018060a01b036002541660405160036020820152602081526103a66040826122e1565b03925af1801561151157611711575b60015f805160206129fa83398151915255005b611724903d805f833e61040181836122e1565b50806116fe565b631f2a200560e01b5f5260045ffd5b63220efdeb60e11b5f5260045ffd5b34610cb7575f366003190112610cb757602060ff600754166040519015158152f35b34610cb7576020366003190112610cb7576001600160a01b0361178c61224e565b165f52600860205260405f208054906001600160401b03821161187657604051916117bd60208260051b01846122e1565b8083526020830180925f5260205f205f915b838310611838578486604051918291602083019060208452518091526040830191905f5b818110611801575050500390f35b825180516001600160801b031685526020908101516001600160401b031681860152869550604090940193909201916001016117f3565b60016020819260405161184a81612290565b6001600160401b0386546001600160801b038116835260801c16838201528152019201920191906117cf565b634e487b7160e01b5f52604160045260245ffd5b34610cb7575f366003190112610cb7576118a26125a7565b5f805160206129ba83398151915280546001600160a01b031981169091555f906001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e08280a3005b34610cb7575f366003190112610cb7576003546040516001600160a01b039091168152602090f35b34610cb7575f366003190112610cb7577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031630036119705760206040515f805160206129da8339815191528152f35b63703e46dd60e11b5f5260045ffd5b6040366003190112610cb75761199361224e565b602435906001600160401b038211610cb75736602383011215610cb75781600401356119be81612302565b926119cc60405194856122e1565b8184523660248383010111610cb757815f9260246020930183870137840101526001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016308114908115611b50575b5061197057611a2e6125a7565b6040516352d1902d60e01b81526001600160a01b0382169290602081600481875afa5f9181611b1c575b50611a705783634c9c8ce360e01b5f5260045260245ffd5b805f805160206129da833981519152859203611b0a5750823b15611af8575f805160206129da83398151915280546001600160a01b031916821790557fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a2805115611ae05761001a9161292d565b505034611ae957005b63b398979f60e01b5f5260045ffd5b634c9c8ce360e01b5f5260045260245ffd5b632a87526960e21b5f5260045260245ffd5b9091506020813d602011611b48575b81611b38602093836122e1565b81010312610cb757519085611a58565b3d9150611b2b565b5f805160206129da833981519152546001600160a01b03161415905083611a21565b34610cb75760a0366003190112610cb757611b8b61224e565b611b93612264565b6044359062ffffff821692838303610cb757606435918260020b94858403610cb757611bbd61227a565b92611bc66125a7565b60ff60075416611c95576040516001600160a01b039485169793851694919091169260a0820191906001600160401b038311828410176118765788936080936040528583528660208401526040830152606082015201526001600160601b0360a01b60045416176004556001600160601b0360a01b60055416176005556005549060b81b62ffffff60b81b169162ffffff60a01b9060a01b169065ffffffffffff60a01b191617176005556001600160601b0360a01b6006541617600655600160ff1960075416176007555f80f35b60405162461bcd60e51b815260206004820152600b60248201526a105b1c9958591e481cd95d60aa1b6044820152606490fd5b34610cb7576020366003190112610cb757611ce161224e565b6001600160a01b03165f908152600860205260408120805490825b828110611d0e57602084604051908152f35b6001600160801b03611d20828461237f565b505416151580611d62575b611d38575b600101611cfc565b92611d5a6001916001600160801b03611d51878661237f565b505416906123fa565b939050611d30565b5060ff60075460081c1680611d2b57506001600160401b03611d84828461237f565b505460801c16421015611d2b565b34610cb7575f366003190112610cb757600454600554600654604080516001600160a01b039485168152838516602082015260a084811c62ffffff169282019290925260b89390931c60020b606084015292166080820152f35b34610cb7576020366003190112610cb7576001600160a01b03611e0d61224e565b165f52600960205260206001600160401b0360405f205416604051908152f35b34610cb7576020366003190112610cb757600435611e496124ee565b335f526008602052611e5e8160405f2061237f565b508054906001600160801b038216918215611f3a5760ff60075460081c16159081611f24575b50611f155780546fffffffffffffffffffffffffffffffff191690555f547f987d620f307ff6b94d58743cb7a7509f24071586a77759b77c2d4e29f75a2f9a91611eff91611ede90829033906001600160a01b0316612526565b604080519485526001600160801b0390911660208501523393918291820190565b0390a260015f805160206129fa83398151915255005b636100d92960e11b5f5260045ffd5b6001600160401b03915060801c16421084611e84565b630c8d9eab60e31b5f5260045ffd5b34610cb75760a0366003190112610cb757611f6261224e565b611f6a612264565b6044356001600160a01b03811690819003610cb7576064356001600160a01b0381169290839003610cb757611f9d61227a565b905f80516020612a1a833981519152549460ff8660401c1615956001600160401b038116801590816121fc575b60011490816121f2575b1590816121e9575b506121da5767ffffffffffffffff1981166001175f80516020612a1a83398151915255866121ae575b506001600160a01b031690811561217b576001600160a01b031691821561214a57831561211b5761204b9061203b8615156123be565b612043612780565b6102a6612780565b612053612780565b61205b612780565b612063612780565b60015f805160206129fa833981519152556001600160601b0360a01b5f5416175f556001600160601b0360a01b60015416176001556001600160601b0360a01b60025416176002556001600160601b0360a01b60035416176003556120c457005b68ff0000000000000000195f80516020612a1a83398151915254165f80516020612a1a833981519152557fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2602060405160018152a1005b60405162461bcd60e51b81526020600482015260076024820152665a65726f20504d60c81b6044820152606490fd5b60405162461bcd60e51b81526020600482015260096024820152685a65726f205553444360b81b6044820152606490fd5b60405162461bcd60e51b815260206004820152600b60248201526a2d32b9379039b0bb34b7b960a91b6044820152606490fd5b68ffffffffffffffffff191668010000000000000001175f80516020612a1a8339815191525586612005565b63f92ee8a960e01b5f5260045ffd5b90501588611fdc565b303b159150611fd4565b889150611fca565b34610cb7575f366003190112610cb7576001546040516001600160a01b039091168152602090f35b34610cb7575f366003190112610cb75760209060ff60075460081c1615158152f35b600435906001600160a01b0382168203610cb757565b602435906001600160a01b0382168203610cb757565b608435906001600160a01b0382168203610cb757565b604081019081106001600160401b0382111761187657604052565b608081019081106001600160401b0382111761187657604052565b606081019081106001600160401b0382111761187657604052565b90601f801991011681019081106001600160401b0382111761187657604052565b6001600160401b03811161187657601f01601f191660200190565b6060906003190112610cb7576004358060020b8103610cb757906024358060020b8103610cb757906044356001600160801b0381168103610cb75790565b805180835260209291819084018484015e5f828201840152601f01601f1916010190565b8054821015612394575f5260205f2001905f90565b634e487b7160e01b5f52603260045260245ffd5b6040906003190112610cb7576004359060243590565b156123c557565b60405162461bcd60e51b815260206004820152600d60248201526c5a65726f20747265617375727960981b6044820152606490fd5b9190820180921161240757565b634e487b7160e01b5f52601160045260245ffd5b602081830312610cb7578051906001600160401b038211610cb7570181601f82011215610cb75780519061244e82612302565b9261245c60405194856122e1565b82845260208383010111610cb757815f9260208093018386015e8301015290565b6001600160a01b031680156124db575f805160206129ba83398151915280546001600160a01b0319811683179091556001600160a01b03167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e05f80a3565b631e4fbdf760e01b5f525f60045260245ffd5b60025f805160206129fa83398151915254146125175760025f805160206129fa83398151915255565b633ee5aeb560e01b5f5260045ffd5b916040519163a9059cbb60e01b5f5260018060a01b031660045260245260205f60448180865af19060015f5114821615612586575b604052156125665750565b635274afe760e01b5f9081526001600160a01b0391909116600452602490fd5b90600181151661259e57823b15153d1516169061255b565b503d5f823e3d90fd5b5f805160206129ba833981519152546001600160a01b031633036125c757565b63118cdaa760e01b5f523360045260245ffd5b600160ff1b8114612407575f0390565b9190826040910312610cb7576020825192015190565b80546001600160a01b0390811683526001820154808216602085015262ffffff60a082901c16604085015260b81c600290810b60608501529091015416608090910152565b606061016092612656836004612600565b805160020b60a0840152602081015160020b60c0840152604081015160e084015201516101008201526101406101208201525f6101408201520190565b600f0b6f7fffffffffffffffffffffffffffffff198114612407575f0390565b90816020910312610cb7575190565b610140916126d1826004612600565b8051151560a0830152602081015160c0830152604001516001600160a01b031660e082015261012061010082018190525f908201520190565b9190820391821161240757565b6040516323b872dd60e01b5f9081526001600160a01b039384166004529290931660245260449390935260209060648180865af19060015f5114821615612768575b6040525f606052156125665750565b90600181151661259e57823b15153d15161690612759565b60ff5f80516020612a1a8339815191525460401c161561279c57565b631afcd79f60e31b5f5260045ffd5b905f905f81600f0b12156128a7576127ca6001600160801b0391612693565b6002546001600160a01b031693911690833b15610cb757604051632961046560e21b81526001600160a01b0390911660048201819052935f908290602490829084905af1801561151157612891575b506002549192612832926001600160a01b031690612526565b600254604051630476982d60e21b815291906020908390600490829085906001600160a01b03165af1908115612885575061286a5750565b6128829060203d6020116111c0576111b181836122e1565b50565b604051903d90823e3d90fd5b61283292505f6128a0916122e1565b5f91612819565b505050565b905f81600f0b1315612927576001600160801b03169060018060a01b0360025416803b15610cb757604051630b0d9c0960e01b81526001600160a01b03929092166004830152306024830152604482018390525f908290606490829084905af180156115115761291a575090565b5f612924916122e1565b90565b50505f90565b905f8091602081519101845af480806129a6575b156129615750506040513d81523d5f602083013e60203d82010160405290565b1561298657639996b31560e01b5f9081526001600160a01b0391909116600452602490fd5b3d15612997576040513d5f823e3d90fd5b63d6bda27560e01b5f5260045ffd5b503d1515806129415750813b151561294156fe9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f00f0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00a264697066735822122073ebfdb4be6db1ffe72bf3a13765fd20395d6cd4eb2b2a4b9bbe789d38c4db5064736f6c634300081a0033';
+const PROXY_BC   = '0x60806040526040516103b63803806103b683398101604081905261002291610238565b8051610041576040516330a289cf60e21b815260040160405180910390fd5b61004b8282610052565b5050610307565b61005b826100b0565b6040516001600160a01b038316907fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a28051156100a45761009f828261012b565b505050565b6100ac6101cc565b5050565b806001600160a01b03163b5f036100ea57604051634c9c8ce360e01b81526001600160a01b03821660048201526024015b60405180910390fd5b7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc80546001600160a01b0319166001600160a01b0392909216919091179055565b60605f61013884846101ed565b905080801561015957505f3d118061015957505f846001600160a01b03163b115b1561016e57610166610200565b9150506101c6565b801561019857604051639996b31560e01b81526001600160a01b03851660048201526024016100e1565b3d156101ab576101a6610219565b6101c4565b60405163d6bda27560e01b815260040160405180910390fd5b505b92915050565b34156101eb5760405163b398979f60e01b815260040160405180910390fd5b565b5f805f835160208501865af49392505050565b6040513d81523d5f602083013e3d602001810160405290565b6040513d5f823e3d81fd5b634e487b7160e01b5f52604160045260245ffd5b5f8060408385031215610249575f80fd5b82516001600160a01b038116811461025f575f80fd5b60208401519092506001600160401b0381111561027a575f80fd5b8301601f8101851361028a575f80fd5b80516001600160401b038111156102a3576102a3610224565b604051601f8201601f19908116603f011681016001600160401b03811182821017156102d1576102d1610224565b6040528181528282016020018710156102e8575f80fd5b8160208401602083015e5f602083830101528093505050509250929050565b60a3806103135f395ff3fe6080604052600a600c565b005b60186014601a565b6050565b565b5f604b7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc546001600160a01b031690565b905090565b365f80375f80365f845af43d5f803e8080156069573d5ff35b3d5ffdfea2646970667358221220ea7eb5c83a96d909b0b7de9a2de882a0206f4dac91c91b38404bcfda4f400f6464736f6c634300081a0033';
 
-const TOKEN_IMPL_ABI = ['constructor()'];
-const TOKEN_ABI = [
-  'function initialize(address owner, string name, string symbol) external',
-  'function mint(address to, uint256 amount) external',
-  'function approve(address spender, uint256 amount) external returns (bool)',
-  'function balanceOf(address) view returns (uint256)',
-];
-
-const HOOK_IMPL_ABI = ['constructor()'];
+// ── ABIs (match current deployed contracts) ──────────────────────────────────
 const HOOK_ABI = [
-  'function initialize(address treasury, address stakingContract, address owner, bool validateAddress) external',
-  'function setStakingContract(address) external',
-  'function stakingContract() view returns (address)',
+  // initialize(owner, poolManager, treasury)
+  'function initialize(address,address,address)',
+  'function setStakingContract(address)',
+  'function staking() view returns (address)',
+  'function treasury() view returns (address)',
+  'function poolManager() view returns (address)',
+  'function upgradeToAndCall(address,bytes)',
 ];
-
-const STAKING_IMPL_ABI = ['constructor()'];
+const TOKEN_ABI = [
+  'function initialize(address owner)',
+  'function mint(address to, uint256 amount)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function balanceOf(address) view returns (uint256)',
+  'function rescueERC20(address,uint256)',
+  'function rescueNative()',
+  'function upgradeToAndCall(address,bytes)',
+];
 const STAKING_ABI = [
-  'function initialize(address owner, address saviorToken, address poolManager, address treasury) external',
-  'function setPoolKey(tuple(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key) external',
-  'function addLiquidity(uint256 usdcAmount, uint256 saviorAmount, int24 tickLower, int24 tickUpper) external payable',
-  'function poolKeySet() view returns (bool)',
+  // initialize(savior, usdc, poolManager, treasury, owner)
+  'function initialize(address,address,address,address,address)',
+  // setPoolKey(currency0, currency1, fee, tickSpacing, hooks) — flat params, NOT tuple
+  'function setPoolKey(address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks)',
+  // swapExactIn — used for both buy and sell
+  'function swapExactIn(bool zeroForOne,uint256 amountIn,uint256 minOut)',
+  'function claim(uint256 i)',
+  'function claimAll()',
+  'function getLocks(address user) view returns (tuple(uint128 amount,uint64 unlockAt)[])',
+  'function claimable(address user) view returns (uint256)',
+  'function addLiquidity(int24 tickLower,int24 tickUpper,uint128 liquidity)',
+  'function removeLiquidity(int24 tickLower,int24 tickUpper,uint128 liquidity)',
+  'function emergencyUnlockAll()',
+  'function globalUnlock() view returns (bool)',
+  'function keySet() view returns (bool)',
+  'function lastBuyBlock(address) view returns (uint64)',
+  'function rescueERC20(address,uint256)',
+  'function rescueNative()',
+  'function upgradeToAndCall(address,bytes)',
 ];
-
 const PM_ABI = [
-  'function initialize(tuple(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint160 sqrtPriceX96) external returns (int24)',
+  'function initialize(tuple(address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint160 sqrtPriceX96) returns (int24)',
 ];
 
-// ── Bytecodes (injected by build script) ─────────────────────────────
-</script>
-<script id="bytecode-block">
-// Bytecodes injected below
-</script>
-<script>
-// ── Wallet ────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  if (window.WalletConnector) {
-    WalletConnector.onConnect(addr => {
-      document.getElementById('connect-btn').textContent = addr.slice(0,6)+'...'+addr.slice(-4);
-      addLog('Wallet connected: ' + addr);
-    });
+let provider, signer, deployer;
+let tokenAddr, hookImplAddr, hookAddr, stakingAddr;
+
+async function login() {
+  const pw = document.getElementById('pwInput').value;
+  const buf = new TextEncoder().encode(pw);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  const hex = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if (hex === HASH) {
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
   }
-});
-
-async function connectWallet(){
-  if(!window.WalletConnector){ alert('wallet.js not loaded'); return; }
-  await WalletConnector.connect();
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
-function addLog(msg, type=''){
-  const box = document.getElementById('log');
-  const ts = new Date().toLocaleTimeString();
-  const cls = type==='ok'?'log-ok':type==='err'?'log-err':'log-info';
-  box.innerHTML += `<div class="${cls}">[${ts}] ${msg}</div>`;
-  box.scrollTop = box.scrollHeight;
-}
-function clearLog(){ document.getElementById('log').innerHTML = ''; }
-function setBtn(id, loading, html){
-  const b = document.getElementById(id);
-  if(!b) return;
-  b.disabled = loading;
-  b.innerHTML = html;
-}
-function s(id){ return document.getElementById(id); }
-
-// ── BigInt isqrt ──────────────────────────────────────────────────────
-function isqrt(n){
-  if(n<0n) throw new Error('negative sqrt');
-  if(n===0n) return 0n;
-  let x = n, y = (x+1n)>>1n;
-  while(y<x){ x=y; y=(x+n/x)>>1n; }
-  return x;
-}
-function toSqrtPriceX96(saviorPerUsdc){
-  // price = saviorAmount / usdcAmount (adjusted for decimals)
-  // currency0=USDC (6 dec), currency1=SAVIOR (18 dec)
-  // price in token1/token0 = saviorPerUsdc * 10^18 / 10^6 = saviorPerUsdc * 10^12
-  // sqrtPriceX96 = sqrt(price) * 2^96
-  const Q96 = 2n**96n;
-  const priceScaled = BigInt(saviorPerUsdc) * (10n**12n);
-  // multiply by Q96^2 first for precision: sqrt(price * Q96^2) = sqrt(price)*Q96
-  const sq = isqrt(priceScaled * Q96 * Q96);
-  return sq;
+function showTab(t) {
+  document.querySelectorAll('.tab').forEach(el => {
+    const labels = {deploy:'deploy',manage:'yönetim',liquidity:'likidite',info:'bilgi'};
+    el.classList.toggle('active', el.onclick && el.onclick.toString().includes("'"+t+"'"));
+  });
+  document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  // fix tab highlight
+  document.querySelectorAll('.tab').forEach(el => {
+    el.classList.remove('active');
+    if (el.getAttribute('onclick') === "showTab('"+t+"')") el.classList.add('active');
+  });
 }
 
-// ── Deploy generic impl+proxy ─────────────────────────────────────────
-async function deployImplProxy(implName, implABI, implBytecode, proxyBytecode, initCalldata){
-  const signer = WalletConnector.signer;
-  if(!signer) throw new Error('Wallet not connected');
-
-  addLog(`Deploying ${implName} implementation...`);
-  const implF = new ethers.ContractFactory(implABI, implBytecode, signer);
-  const impl  = await implF.deploy();
-  await impl.waitForDeployment();
-  const implAddr = await impl.getAddress();
-  addLog(`${implName} impl: ${implAddr}`, 'ok');
-
-  addLog(`Deploying ERC1967Proxy for ${implName}...`);
-  const proxyF = new ethers.ContractFactory(PROXY_ABI, proxyBytecode, signer);
-  const proxy  = await proxyF.deploy(implAddr, initCalldata);
-  await proxy.waitForDeployment();
-  const proxyAddr = await proxy.getAddress();
-  addLog(`${implName} proxy: ${proxyAddr}`, 'ok');
-  return proxyAddr;
+async function loadEthers() {
+  if (window.ethers) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
 }
 
-// ── Step 1: Deploy SaviorToken ────────────────────────────────────────
-async function deployToken(){
-  if(!WalletConnector.signer){ alert('Connect wallet first'); return; }
-  setBtn('s1-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Deploying...');
-  const status = s('s1-status');
+async function connectWallet() {
+  setResult('walletInfo', 'Bağlanıyor...', '');
   try {
-    const signerAddr = await WalletConnector.signer.getAddress();
-    const iface = new ethers.Interface(TOKEN_ABI);
-    const initData = iface.encodeFunctionData('initialize',[signerAddr,'Savior','SAVIOR']);
-    const addr = await deployImplProxy('SaviorToken', TOKEN_IMPL_ABI, BYTECODES.SaviorToken, BYTECODES.Proxy, initData);
-    localStorage.setItem('savior_token', addr);
-    s('s2-token').value = addr;
-    s('s3-token').value = addr;
-    s('save-token').value = addr;
-    status.innerHTML = `<span class="text-emerald-400">✓ ${addr}</span>`;
-    addLog('SaviorToken deployed ✓', 'ok');
-  } catch(e){
-    addLog('Token deploy error: '+(e.reason||e.shortMessage||e.message),'err');
-    status.innerHTML = `<span class="text-red-400">Error</span>`;
-  } finally { setBtn('s1-btn',false,'<i class="fa-solid fa-coins text-xs"></i> Deploy Token'); }
-}
-
-// ── Step 2: Deploy SaviorHook (HookMiner) ─────────────────────────────
-async function deployHook(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s2-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Deploying...');
-  const status = s('s2-status');
-  try {
-    const signerAddr = await signer.getAddress();
-    const treasury = s('s2-treasury').value.trim();
-    if(!treasury || !ethers.isAddress(treasury)) throw new Error('Invalid treasury address');
-
-    // 1) Deploy impl
-    addLog('Deploying SaviorHook implementation...');
-    const implF = new ethers.ContractFactory(HOOK_IMPL_ABI, BYTECODES.SaviorHook, signer);
-    const impl  = await implF.deploy();
-    await impl.waitForDeployment();
-    const implAddr = await impl.getAddress();
-    addLog('SaviorHook impl: '+implAddr, 'ok');
-
-    // 2) Build proxy initcode for HookMiner
-    // Proxy initcode = proxy_bytecode ++ abi.encode(impl, initData)
-    const hookIface = new ethers.Interface(HOOK_ABI);
-    // stakingContract=address(0) at deploy; wired in Step 4
-    const initData = hookIface.encodeFunctionData('initialize',[treasury, ethers.ZeroAddress, signerAddr, true]);
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-    const proxyInitcode = BYTECODES.Proxy + abiCoder.encode(['address','bytes'],[implAddr,initData]).slice(2);
-
-    // 3) Mine salt
-    addLog(`Mining CREATE2 salt for hook address (flags=0xC0)... this may take a moment.`);
-    const initcodeHash = ethers.keccak256('0x'+proxyInitcode.replace(/^0x/,''));
-    let salt = 0n;
-    let hookAddr = '';
-    while(true){
-      const saltHex = '0x'+salt.toString(16).padStart(64,'0');
-      const addr2 = ethers.getCreate2Address(CREATE2_FACTORY, saltHex, initcodeHash);
-      const addrBig = BigInt(addr2);
-      if((addrBig & 0x3FFFn) === HOOK_FLAGS){
-        hookAddr = addr2;
-        addLog(`Salt found: ${saltHex}`, 'ok');
-        addLog(`Predicted hook proxy address: ${hookAddr}`);
-        const verified = (addrBig & 0x3FFFn) === HOOK_FLAGS;
-        addLog(`Address flags verified: 0x${(addrBig & 0x3FFFn).toString(16).toUpperCase()} ${verified?'✓':'✗'}`);
-        break;
+    await loadEthers();
+    if (!window.ethereum) throw new Error('Cüzdan bulunamadı');
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+    const net = await provider.getNetwork();
+    if (net.chainId !== BigInt(ARC_CHAIN_ID)) {
+      try {
+        await provider.send('wallet_switchEthereumChain',[{chainId:'0x'+ARC_CHAIN_ID.toString(16)}]);
+      } catch(e) {
+        await provider.send('wallet_addEthereumChain',[{
+          chainId:'0x'+ARC_CHAIN_ID.toString(16), chainName:'Arc Mainnet',
+          nativeCurrency:{name:'USDC',symbol:'USDC',decimals:18},
+          rpcUrls:['https://rpc.arc.io'], blockExplorerUrls:['https://explorer.arc.io']
+        }]);
       }
-      salt++;
-      if(salt % 10000n === 0n) addLog(`HookMiner: ${Number(salt).toLocaleString()} attempts...`);
+      provider = new ethers.BrowserProvider(window.ethereum);
     }
+    signer  = await provider.getSigner();
+    deployer = await signer.getAddress();
+    const bal = await provider.getBalance(deployer);
+    setResult('walletInfo', deployer + '\nBalance: ' + ethers.formatEther(bal) + ' USDC', 'ok');
+  } catch(e) { setResult('walletInfo', e.message, 'err'); }
+}
 
-    // 4) Deploy via CREATE2Factory
-    addLog('Deploying via CREATE2 factory...');
-    const saltHex = '0x'+salt.toString(16).padStart(64,'0');
-    const tx = await signer.sendTransaction({
-      to: CREATE2_FACTORY,
-      data: saltHex + proxyInitcode.replace(/^0x/,''),
+async function deployToken() {
+  setResult('tokenResult','Deploy ediliyor...','');
+  try {
+    await ensureSigner();
+    const iface = new ethers.Interface(['function initialize(address owner)']);
+    const initData = iface.encodeFunctionData('initialize',[deployer]);
+    const implAddr = await deployBytecode(TOKEN_BC,'SaviorToken impl');
+    tokenAddr = await deployProxy(implAddr, initData,'SaviorToken proxy');
+    setResult('tokenResult','✓ Token: '+tokenAddr,'ok');
+    ['mgmtToken','mintToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; });
+  } catch(e){ setResult('tokenResult',e.message,'err'); }
+}
+
+async function deployHookImpl() {
+  setResult('hookImplResult','Deploy ediliyor...','');
+  try {
+    await ensureSigner();
+    hookImplAddr = await deployBytecode(HOOK_BC,'SaviorHook impl');
+    setResult('hookImplResult','✓ Hook Impl: '+hookImplAddr,'ok');
+  } catch(e){ setResult('hookImplResult',e.message,'err'); }
+}
+
+async function mineAndDeployHook() {
+  if (!hookImplAddr){ setResult('hookResult','Önce Hook Impl deploy edin (Step 3)','err'); return; }
+  setResult('hookResult','Salt aranıyor (beforeSwap+afterSwap = flags 0xC0)...','');
+  document.getElementById('btnMineHook').disabled = true;
+  try {
+    await ensureSigner();
+    // New ABI: initialize(poolManager, stakingContract, owner, validateAddress)
+    // stakingContract can be address(0) at deploy — setStakingContract called in Step 5
+    const hookIface = new ethers.Interface(['function initialize(address,address,address,bool)']);
+    const initData = hookIface.encodeFunctionData('initialize',[POOL_MANAGER, ethers.ZeroAddress, deployer, false]);
+    const constructorArgs = ethers.AbiCoder.defaultAbiCoder().encode(['address','bytes'],[hookImplAddr, initData]);
+    const proxyCreationCode = PROXY_BC + constructorArgs.slice(2);
+    const codeHash = ethers.keccak256(proxyCreationCode);
+    let salt = null, predictedHook = null;
+    // flags = 0xC0 = beforeSwap(0x40) + afterSwap(0x80)
+    // Hook permissions: beforeInitialize(14)+afterInitialize(13)+beforeSwap(7)+afterSwap(6)
+    // = 0x4000+0x2000+0x0080+0x0040 = 0x60C0
+    const FLAGS = 0x60C0n;
+    const MASK  = 0xFFFFn;
+    for (let i = 0; i < 1000000; i++) {
+      const saltHex = '0x' + i.toString(16).padStart(64,'0');
+      const pre = ethers.keccak256('0xff' + C2_FACTORY.slice(2) + saltHex.slice(2) + codeHash.slice(2));
+      const addr = '0x' + pre.slice(-40);
+      if ((BigInt(addr) & MASK) === FLAGS) { salt = i; predictedHook = ethers.getAddress(addr); break; }
+      if (i % 50000 === 0) setResult('hookResult','Salt aranıyor... '+i+'/1000000','');
+    }
+    if (salt === null) throw new Error('Uygun salt bulunamadı (1M deneme)');
+    setResult('hookResult','Salt: '+salt+' → '+predictedHook+'\nDeploy ediliyor...','');
+    const saltBytes = '0x' + salt.toString(16).padStart(64,'0');
+    const tx = await signer.sendTransaction({ to: C2_FACTORY, data: saltBytes + proxyCreationCode.slice(2), gasLimit: 2000000 });
+    await tx.wait();
+    hookAddr = predictedHook;
+    ['mgmtHook'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=hookAddr; });
+    setResult('hookResult','✓ Hook: '+hookAddr+'\nSalt: '+salt+'\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('hookResult',e.message,'err'); }
+  document.getElementById('btnMineHook').disabled = false;
+}
+
+async function deployStaking() {
+  setResult('stakingResult','Deploy ediliyor...','');
+  try {
+    await ensureSigner();
+    // initialize(saviorToken, usdcToken, poolManager, treasury, owner)
+    const USDC = '0x3600000000000000000000000000000000000000';
+    const TREASURY = document.getElementById('stakingTreasury')?.value?.trim() || '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
+    if (!tokenAddr) throw new Error('Önce Token deploy edin (Step 1)');
+    const iface = new ethers.Interface(['function initialize(address,address,address,address,address)']);
+    const initData = iface.encodeFunctionData('initialize',[tokenAddr, USDC, POOL_MANAGER, TREASURY, deployer]);
+    const implAddr = await deployBytecode(STAKING_BC,'SaviorStaking impl');
+    stakingAddr = await deployProxy(implAddr, initData,'SaviorStaking proxy');
+    ['mgmtStaking','upgradeProxy','emergencyProxy','treasuryProxy','infoStaking','liqStaking','remLiqStaking'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value=stakingAddr;
     });
-    addLog('CREATE2 TX: '+tx.hash);
-    await tx.wait();
-    addLog(`SaviorHook proxy deployed at: ${hookAddr} ✓`, 'ok');
-
-    localStorage.setItem('savior_hook', hookAddr);
-    s('save-hook').value = hookAddr;
-    status.innerHTML = `<span class="text-emerald-400">✓ ${hookAddr}</span>`;
-  } catch(e){
-    addLog('Hook deploy error: '+(e.reason||e.shortMessage||e.message),'err');
-    status.innerHTML = `<span class="text-red-400">Error</span>`;
-  } finally { setBtn('s2-btn',false,'<i class="fa-solid fa-hook text-xs"></i> Deploy Hook (HookMiner)'); }
+    setResult('stakingResult','✓ Staking: '+stakingAddr,'ok');
+  } catch(e){ setResult('stakingResult',e.message,'err'); }
 }
 
-// ── Step 3: Deploy SaviorStaking ──────────────────────────────────────
-async function deployStaking(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s3-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Deploying...');
-  const status = s('s3-status');
+async function wireAndMint() {
+  setResult('wireResult','İşlem yapılıyor...','');
   try {
-    const signerAddr = await signer.getAddress();
-    const tokenAddr   = s('s3-token').value.trim() || localStorage.getItem('savior_token');
-    const treasury    = s('s3-treasury').value.trim();
-    if(!tokenAddr || !ethers.isAddress(tokenAddr)) throw new Error('SaviorToken address missing — complete Step 1 first');
-    if(!treasury || !ethers.isAddress(treasury)) throw new Error('Invalid treasury address');
-
-    const iface = new ethers.Interface(STAKING_ABI);
-    const initData = iface.encodeFunctionData('initialize',[signerAddr, tokenAddr, POOL_MANAGER, treasury]);
-    const addr = await deployImplProxy('SaviorStaking', STAKING_IMPL_ABI, BYTECODES.SaviorStaking, BYTECODES.Proxy, initData);
-
-    localStorage.setItem('savior_staking', addr);
-    s('save-staking').value = addr;
-    status.innerHTML = `<span class="text-emerald-400">✓ ${addr}</span>`;
-    addLog('SaviorStaking deployed ✓', 'ok');
-  } catch(e){
-    addLog('Staking deploy error: '+(e.reason||e.shortMessage||e.message),'err');
-    status.innerHTML = `<span class="text-red-400">Error</span>`;
-  } finally { setBtn('s3-btn',false,'<i class="fa-solid fa-vault text-xs"></i> Deploy Staking'); }
-}
-
-// ── Step 4: Wire Hook ─────────────────────────────────────────────────
-async function wireHook(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s4-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Wiring...');
-  const status = s('s4-status');
-  try {
-    const hookAddr    = localStorage.getItem('savior_hook');
-    const stakingAddr = localStorage.getItem('savior_staking');
-    if(!hookAddr    || !ethers.isAddress(hookAddr))    throw new Error('SaviorHook address missing — complete Step 2 first');
-    if(!stakingAddr || !ethers.isAddress(stakingAddr)) throw new Error('SaviorStaking address missing — complete Step 3 first');
-
-    const hook = new ethers.Contract(hookAddr, HOOK_ABI, signer);
-    addLog(`Calling setStakingContract(${stakingAddr.slice(0,10)}...)...`);
-    const tx = await hook.setStakingContract(stakingAddr);
-    await tx.wait();
-    addLog('Hook wired to SaviorStaking ✓', 'ok');
-    status.innerHTML = `<span class="text-emerald-400">✓ Hook → Staking wired</span>`;
-  } catch(e){
-    addLog('Wire error: '+(e.reason||e.shortMessage||e.message),'err');
-    status.innerHTML = `<span class="text-red-400">Error</span>`;
-  } finally { setBtn('s4-btn',false,'<i class="fa-solid fa-link text-xs"></i> Wire Hook'); }
-}
-
-// ── Step 5: Mint ──────────────────────────────────────────────────────
-async function mintTokens(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s5-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Minting...');
-  const status = s('s5-status');
-  try {
-    const tokenAddr = localStorage.getItem('savior_token') || s('save-token').value.trim();
-    if(!tokenAddr || !ethers.isAddress(tokenAddr)) throw new Error('SaviorToken address missing');
-    const amt   = BigInt(s('s5-amount').value || '0') * 10n**18n;
-    const recip = s('s5-recipient').value.trim() || await signer.getAddress();
-    if(!ethers.isAddress(recip)) throw new Error('Invalid recipient');
-    if(amt === 0n) throw new Error('Amount must be > 0');
-
-    const token = new ethers.Contract(tokenAddr, TOKEN_ABI, signer);
-    addLog(`Minting ${s('s5-amount').value} SAVIOR to ${recip.slice(0,10)}...`);
-    const tx = await token.mint(recip, amt);
-    await tx.wait();
-    addLog('Mint OK ✓', 'ok');
-    status.innerHTML = `<span class="text-emerald-400">✓ Minted</span>`;
-  } catch(e){
-    const msg = e.reason||e.shortMessage||e.message||String(e);
-    if(msg.toLowerCase().includes('reject')||msg.toLowerCase().includes('user denied')){
-      addLog('ERROR: rejected','err');
-    } else {
-      addLog('Mint error: '+msg,'err');
+    await ensureSigner();
+    if (!hookAddr||!stakingAddr||!tokenAddr) throw new Error('Hook/Staking/Token adresi eksik');
+    const hookC  = new ethers.Contract(hookAddr,  HOOK_ABI,  signer);
+    const tokenC = new ethers.Contract(tokenAddr, TOKEN_ABI, signer);
+    // Wire hook → staking (one-time, AlreadySet error = already done)
+    let wireHash = 'already set';
+    try {
+      const t1 = await hookC.setStakingContract(stakingAddr, {gasLimit: 100000});
+      await t1.wait();
+      wireHash = t1.hash;
+    } catch(e2) {
+      if (!e2.message.includes('AlreadySet') && !e2.message.includes('already')) throw e2;
     }
-    status.innerHTML = `<span class="text-red-400">Error</span>`;
-  } finally { setBtn('s5-btn',false,'<i class="fa-solid fa-hammer text-xs"></i> Mint'); }
+    // Mint 1B SAVIOR (6 dec)
+    const t2 = await tokenC.mint(deployer, ethers.parseUnits('1000000000', 6), {gasLimit: 200000});
+    await t2.wait();
+    setResult('wireResult','✓ Hook wired + 1B SAVIOR minted\nWire: '+wireHash+'\nMint: '+t2.hash,'ok');
+  } catch(e){ setResult('wireResult',e.message,'err'); }
 }
 
-// ── Step 6: Initialize Pool ───────────────────────────────────────────
-async function initializePool(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s6-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Initializing...');
-  const status = s('s6-status');
+// fee→tickSpacing eşlemesi (V4 standardı)
+const FEE_TO_TS = {100:1, 500:10, 3000:60, 10000:200};
+
+function syncTickSpacing() {
+  const fee = parseInt(document.getElementById('poolFee').value);
+  const ts = FEE_TO_TS[fee] || 200;
+  document.getElementById('poolTickSpacing').value = ts;
+  previewBands();
+}
+
+function sqrtPriceToTick(sqrtPriceX96Str) {
+  // tick = log(price) / log(1.0001)
+  // price = (sqrtPriceX96 / 2^96)^2
   try {
-    const tokenAddr   = localStorage.getItem('savior_token');
-    const hookAddr    = localStorage.getItem('savior_hook');
-    const stakingAddr = localStorage.getItem('savior_staking');
-    if(!tokenAddr || !hookAddr || !stakingAddr) throw new Error('Complete Steps 1-3 first');
+    const sp = parseFloat(sqrtPriceX96Str);
+    const Q96 = Math.pow(2, 96);
+    const price = (sp / Q96) * (sp / Q96);
+    return Math.floor(Math.log(price) / Math.log(1.0001));
+  } catch { return 0; }
+}
 
-    const price       = parseInt(s('s6-price').value || '1000');
-    const fee         = parseInt(s('s6-fee').value   || '3000');
-    const tickSpacing = parseInt(s('s6-tickspacing').value || '60');
+function previewBands() {
+  const sqrtStr = document.getElementById('poolSqrtPrice').value;
+  const ts = parseInt(document.getElementById('poolTickSpacing').value) || 200;
+  const currentTick = sqrtPriceToTick(sqrtStr);
+  const tickR = Math.floor(currentTick / ts) * ts;
+  const bands = [];
+  for (let i = 0; i < 5; i++) {
+    const tu = tickR - i * ts;
+    const tl = tu - ts;
+    bands.push('[' + tl + ', ' + tu + ']');
+  }
+  const el = document.getElementById('bandPreview');
+  if (el) el.textContent = 'Current tick: ' + currentTick + '  (rounded: ' + tickR + ')\nBand preview (SAVIOR-only, tickUpper ≤ currentTick):\n' + bands.join('\n');
+}
 
-    // currency0 < currency1 (address order)
-    const currency0 = USDC.toLowerCase() < tokenAddr.toLowerCase() ? USDC : tokenAddr;
-    const currency1 = USDC.toLowerCase() < tokenAddr.toLowerCase() ? tokenAddr : USDC;
+// Sayfa yüklenince preview göster
+window.addEventListener('load', () => { setTimeout(previewBands, 100); });
 
-    // price: if currency0=USDC, price = SAVIOR/USDC = price input
-    // if currency0=SAVIOR, price = USDC/SAVIOR = 1/price input
-    let saviorPerUsdc = price;
-    const isUsdcC0 = currency0.toLowerCase() === USDC.toLowerCase();
-    const sqrtPriceX96 = isUsdcC0 ? toSqrtPriceX96(saviorPerUsdc) : toSqrtPriceX96(1);
+async function initPool() {
+  setResult('poolResult','Initialize ediliyor...','');
+  try {
+    await ensureSigner();
+    if (!hookAddr||!tokenAddr) throw new Error('Hook/Token eksik (Step 3+4+5 tamamlanmalı)');
+    const fee         = parseInt(document.getElementById('poolFee').value);
+    const tickSpacing = parseInt(document.getElementById('poolTickSpacing').value);
+    const sqrtPrice   = BigInt(document.getElementById('poolSqrtPrice').value);
 
-    const poolKey = { currency0, currency1, fee, tickSpacing, hooks: hookAddr };
+    // Sağlama: fee-tickSpacing uyumu
+    const expectedTs = FEE_TO_TS[fee];
+    if (expectedTs && tickSpacing !== expectedTs) {
+      throw new Error('Fee ' + fee + ' için tickSpacing ' + expectedTs + ' olmalı, şu an ' + tickSpacing);
+    }
 
-    addLog(`currency0=${currency0} (${isUsdcC0?'USDC':'SAVIOR'})`);
-    addLog(`currency1=${currency1} (${isUsdcC0?'SAVIOR':'USDC'})`);
-    addLog(`fee=${fee} tickSpacing=${tickSpacing}`);
-    addLog(`sqrtPriceX96=${sqrtPriceX96} (${sqrtPriceX96.toString(16)})`);
-    addLog(`hook=${hookAddr}`);
+    const pmC = new ethers.Contract(POOL_MANAGER, PM_ABI, signer);
+    const tx = await pmC.initialize(
+      {currency0:USDC, currency1:tokenAddr, fee, tickSpacing, hooks:hookAddr},
+      sqrtPrice,
+      {gasLimit: 500000}
+    );
+    const rc = await tx.wait();
+    const tick = sqrtPriceToTick(document.getElementById('poolSqrtPrice').value);
+    setResult('poolResult',
+      '✓ Pool initialized\nTx: '+tx.hash+'\nBlock: '+rc.blockNumber+
+      '\nfee='+fee+' ts='+tickSpacing+' sqrtPrice='+sqrtPrice+
+      '\nCurrent tick ≈ '+tick,
+    'ok');
+  } catch(e){ setResult('poolResult', e.message + (e.data ? '\ndata: '+e.data : ''), 'err'); }
+}
 
-    const pm = new ethers.Contract(POOL_MANAGER, PM_ABI, signer);
-    const tx = await pm.initialize(poolKey, sqrtPriceX96);
-    addLog('Initialize TX: '+tx.hash);
-    status.innerHTML = '<span class="text-amber-400">Waiting...</span>';
-    await tx.wait();
-    addLog('Pool initialized! ✓', 'ok');
-    status.innerHTML = '<span class="text-emerald-400">✓ Pool initialized</span>';
-
-    // Save pool params
+async function setPoolKeyAndApprove() {
+  setResult('poolKeyResult','İşlem yapılıyor...','');
+  try {
+    await ensureSigner();
+    if (!stakingAddr||!hookAddr||!tokenAddr) throw new Error('Adres eksik');
+    const fee         = parseInt(document.getElementById('poolFee').value);
+    const tickSpacing = parseInt(document.getElementById('poolTickSpacing').value);
+    const stakingC = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
+    const tokenC   = new ethers.Contract(tokenAddr,   TOKEN_ABI,   signer);
+    const t1 = await stakingC.setPoolKey(USDC, tokenAddr, fee, tickSpacing, hookAddr, {gasLimit: 200000});
+    await t1.wait();
+    const t2 = await tokenC.approve(stakingAddr, ethers.MaxUint256);
+    await t2.wait();
+    // index.html'in pool parametrelerini bilmesi için localStorage'a yaz
     localStorage.setItem('pool_fee', String(fee));
     localStorage.setItem('pool_tick_spacing', String(tickSpacing));
-    localStorage.setItem('pool_currency0', currency0);
-    localStorage.setItem('pool_currency1', currency1);
-
-    // Set pool key on staking contract
-    const staking = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
-    addLog(`Setting pool key on SaviorStaking...`);
-    const stx = await staking.setPoolKey(poolKey);
-    await stx.wait();
-    addLog('Pool key set on staking ✓', 'ok');
-    status.innerHTML += ' <span class="text-emerald-400">· Pool key set ✓</span>';
-
-  } catch(e){
-    const msg = e.reason||e.shortMessage||e.message||String(e);
-    const data = e.data||e.error?.data||'';
-    addLog('Pool init error: '+msg,'err');
-    if(data) addLog('Error data: '+data,'err');
-    if(msg.includes('PoolAlreadyInitialized')||data.includes('7983c051')){
-      addLog('Pool already initialized — setting pool key only...','ok');
-      // Still try to set pool key
-      try {
-        const tokenAddr = localStorage.getItem('savior_token');
-        const hookAddr  = localStorage.getItem('savior_hook');
-        const stakingAddr = localStorage.getItem('savior_staking');
-        const fee = parseInt(s('s6-fee').value||'3000');
-        const tickSpacing = parseInt(s('s6-tickspacing').value||'60');
-        const currency0 = USDC.toLowerCase() < tokenAddr.toLowerCase() ? USDC : tokenAddr;
-        const currency1 = USDC.toLowerCase() < tokenAddr.toLowerCase() ? tokenAddr : USDC;
-        const poolKey = {currency0,currency1,fee,tickSpacing,hooks:hookAddr};
-        const staking = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
-        const stx = await staking.setPoolKey(poolKey);
-        await stx.wait();
-        addLog('Pool key set on staking ✓','ok');
-        status.innerHTML = '<span class="text-emerald-400">Pool already initialized · Pool key set ✓</span>';
-        localStorage.setItem('pool_fee',String(fee));
-        localStorage.setItem('pool_tick_spacing',String(tickSpacing));
-      } catch(e2){ addLog('setPoolKey error: '+(e2.reason||e2.message),'err'); }
-    } else {
-      status.innerHTML = `<span class="text-red-400">Error: ${msg.slice(0,80)}</span>`;
-    }
-  } finally { setBtn('s6-btn',false,'<i class="fa-solid fa-water text-xs"></i> Initialize Pool'); }
+    localStorage.setItem('savior_staking', stakingAddr);
+    localStorage.setItem('savior_token',   tokenAddr);
+    localStorage.setItem('savior_hook',    hookAddr);
+    setResult('poolKeyResult','✓ Pool key set + approved\nSetKey: '+t1.hash+'\nApprove: '+t2.hash+'\n\nLocalStorage güncellendi → index.html hazır','ok');
+  } catch(e){ setResult('poolKeyResult',e.message,'err'); }
 }
 
-// ── Step 7a: Approve SAVIOR for Staking ───────────────────────────────
-async function approveSaviorForStaking(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s7-approve-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Approving...');
+async function seedLiquidity() {
+  setResult('liquidityResult','5 band hesaplanıyor...','');
   try {
-    const tokenAddr   = localStorage.getItem('savior_token');
-    const stakingAddr = localStorage.getItem('savior_staking');
-    if(!tokenAddr||!stakingAddr) throw new Error('Complete Steps 1-3 first');
-    const perBand = BigInt(s('s7-savior-per-band').value||'200000000') * 10n**18n;
-    const totalApprove = perBand * 5n;
-    const token = new ethers.Contract(tokenAddr, TOKEN_ABI, signer);
-    addLog(`Approving ${(totalApprove/10n**18n).toString()} SAVIOR for SaviorStaking...`);
-    const tx = await token.approve(stakingAddr, totalApprove);
-    await tx.wait();
-    addLog('SAVIOR approved ✓', 'ok');
-    s('s7-status').innerHTML = '<span class="text-emerald-400">✓ Approved — now click Add 5 Bands</span>';
-  } catch(e){
-    addLog('Approve error: '+(e.reason||e.shortMessage||e.message),'err');
-  } finally { setBtn('s7-approve-btn',false,'<i class="fa-solid fa-check text-xs"></i> Approve SAVIOR'); }
-}
+    await ensureSigner();
+    if (!stakingAddr) throw new Error('Staking eksik');
+    const L = BigInt(document.getElementById('liquidityPerBand').value);
+    const ts = parseInt(document.getElementById('poolTickSpacing').value) || 200;
+    const sqrtStr = document.getElementById('poolSqrtPrice').value;
+    const currentTick = sqrtPriceToTick(sqrtStr);
+    const tickR = Math.floor(currentTick / ts) * ts;
 
-// ── Step 7b: Add 5 Liquidity Bands ───────────────────────────────────
-async function addLiquidityBands(){
-  const signer = WalletConnector.signer;
-  if(!signer){ alert('Connect wallet first'); return; }
-  setBtn('s7-btn',true,'<i class="fa-solid fa-spinner spin text-xs"></i> Adding bands...');
-  const status = s('s7-status');
-  try {
-    const stakingAddr = localStorage.getItem('savior_staking');
-    const tokenAddr   = localStorage.getItem('savior_token');
-    const hookAddr    = localStorage.getItem('savior_hook');
-    if(!stakingAddr||!tokenAddr||!hookAddr) throw new Error('Complete Steps 1-6 first');
-
-    const fee         = parseInt(localStorage.getItem('pool_fee')||'3000');
-    const tickSpacing = parseInt(localStorage.getItem('pool_tick_spacing')||'60');
-    const currency0   = localStorage.getItem('pool_currency0') || USDC;
-    const currency1   = localStorage.getItem('pool_currency1') || tokenAddr;
-    const isUsdcC0 = currency0.toLowerCase() === USDC.toLowerCase();
-
-    const perBand = BigInt(s('s7-savior-per-band').value||'200000000') * 10n**18n;
-
-    // 5 price bands (USDC per 1 SAVIOR in our case, but V4 tick is in currency1/currency0 units)
-    // Prices: band edge prices in SAVIOR/USDC (since currency0=USDC if sorted that way)
-    // Band  From price (SAVIOR/USDC)  To price
-    // 1     500 SAVIOR/USDC           1000 SAVIOR/USDC   (0.001 USDC/SAVIOR → 0.002 USDC)
-    // 2     1000                      1500  (but expressed in SAVIOR/USDC, higher = cheaper)
-    // Actually price in V4 is token1/token0 = SAVIOR/USDC if c0=USDC
-    // We want to seed at: 1 USDC = 1000 SAVIOR ... up to 1 USDC = 333 SAVIOR
-    // i.e. 0.001 USDC/SAVIOR to 0.003 USDC/SAVIOR
-    // In SAVIOR/USDC (p = token1/token0): p = 1000 → 333
-
-    // Tick = log_1.0001(sqrtPrice^2) = log_1.0001(price)
-    // price in token1/token0 units, accounting for decimals:
-    // actual_price = p * 10^(dec0 - dec1) = p * 10^(6-18) = p * 10^-12
-    // tick = log(actual_price) / log(1.0001)
-
-    // For 5 bands at edges: 1000, 1500, 2000, 2500, 3000 SAVIOR/USDC
-    // Conversion: price_adjusted = saviorPerUsdc * 1e-12
-    // tick = Math.floor(Math.log(price_adjusted) / Math.log(1.0001))
-
-    function priceToTick(saviorPerUsdc){
-      const p = saviorPerUsdc * 1e-12;
-      return Math.floor(Math.log(p) / Math.log(1.0001));
-    }
-    function roundTick(tick, spacing){
-      return Math.round(tick / spacing) * spacing;
-    }
-
-    const bandPrices = [1000, 1500, 2000, 2500, 3000];
+    // SAVIOR-only liquidity: tickUpper <= currentTick (token1-only = currency1-only = SAVIOR)
+    // Her band [tickR - (i+1)*ts, tickR - i*ts]
     const bands = [];
-    for(let i=0; i<5; i++){
-      const loPrice = i===0 ? 500 : bandPrices[i-1];
-      const hiPrice = bandPrices[i];
-      const tickLo = roundTick(priceToTick(isUsdcC0 ? hiPrice : loPrice), tickSpacing);
-      const tickHi = roundTick(priceToTick(isUsdcC0 ? loPrice : hiPrice), tickSpacing);
-      bands.push({ tickLower: Math.min(tickLo, tickHi), tickUpper: Math.max(tickLo, tickHi) });
+    for (let i = 0; i < 5; i++) {
+      const tu = tickR - i * ts;
+      const tl = tu - ts;
+      bands.push([tl, tu]);
     }
 
-    const staking = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
+    setResult('liquidityResult',
+      'Bandlar: '+bands.map(b=>'['+b[0]+','+b[1]+']').join(', ')+'\nEkleniyor...', '');
 
-    for(let i=0; i<5; i++){
-      const {tickLower, tickUpper} = bands[i];
-      const saviorAmt = perBand;
-      addLog(`Band ${i+1}: tickLower=${tickLower} tickUpper=${tickUpper} savior=${(saviorAmt/10n**18n).toString()}M...`);
-      // SAVIOR-only: usdcAmount=0, msg.value=0
-      const tx = await staking.addLiquidity(0, saviorAmt, tickLower, tickUpper, {value: 0});
-      addLog(`Band ${i+1} TX: ${tx.hash}`);
-      await tx.wait();
-      addLog(`Band ${i+1} added ✓`, 'ok');
-      status.innerHTML = `<span class="text-emerald-400">${i+1}/5 bands added</span>`;
+    const stakingC = new ethers.Contract(stakingAddr, STAKING_ABI, signer);
+    const txs = [];
+    for (const [tl, tu] of bands) {
+      setResult('liquidityResult', 'Band ['+tl+','+tu+'] ekleniyor...', '');
+      const tx = await stakingC.addLiquidity(tl, tu, L, {value: 0, gasLimit: 600000});
+      const rc = await tx.wait();
+      txs.push('['+tl+','+tu+']: '+tx.hash.slice(0,22)+'...');
     }
-
-    addLog('All 5 liquidity bands added ✓', 'ok');
-    status.innerHTML = '<span class="text-emerald-400">✓ All 5 bands added — pool is live!</span>';
-  } catch(e){
-    const msg = e.reason||e.shortMessage||e.message||String(e);
-    addLog('Liquidity error: '+msg,'err');
-    status.innerHTML = `<span class="text-red-400">Error: ${msg.slice(0,100)}</span>`;
-  } finally { setBtn('s7-btn',false,'<i class="fa-solid fa-droplet text-xs"></i> Add 5 Bands'); }
+    setResult('liquidityResult','✓ 5 band eklendi\nCurrent tick: '+currentTick+'\n'+txs.join('\n'),'ok');
+  } catch(e){ setResult('liquidityResult', e.message + (e.data ? '\ndata: '+e.data : ''), 'err'); }
 }
 
-// ── Step 8: Save ──────────────────────────────────────────────────────
-function saveAddresses(){
-  const map = {
-    savior_token:   'save-token',
-    savior_hook:    'save-hook',
-    savior_staking: 'save-staking',
-    pool_manager:   'save-poolmanager',
-  };
-  let saved = 0;
-  for(const [k,id] of Object.entries(map)){
-    const v = s(id).value.trim();
-    if(v){ localStorage.setItem(k,v); saved++; }
-  }
-  addLog(`Addresses saved to localStorage (${saved} entries).`, 'ok');
-  s('save-status').innerHTML = '<span class="text-emerald-400">✓ Saved</span>';
-  refreshSavedCard();
+function loadFromDeploy() {
+  if (tokenAddr)   document.getElementById('mgmtToken').value   = tokenAddr;
+  if (hookAddr)    document.getElementById('mgmtHook').value    = hookAddr;
+  if (stakingAddr) document.getElementById('mgmtStaking').value = stakingAddr;
 }
 
-function refreshSavedCard(){
-  const keys = ['savior_token','savior_hook','savior_staking','pool_manager'];
-  const labels = {'savior_token':'SaviorToken','savior_hook':'SaviorHook','savior_staking':'SaviorStaking','pool_manager':'PoolManager'};
-  let html = '';
-  for(const k of keys){
-    const v = localStorage.getItem(k);
-    if(v) html += `<div class="flex justify-between gap-2 mb-1"><span class="text-white/50">${labels[k]}</span><span class="text-blue-400 font-mono text-xs">${v.slice(0,8)}...${v.slice(-6)}</span></div>`;
-  }
-  s('saved-list').innerHTML = html || '<span class="text-white/30">No contracts saved yet.</span>';
+async function upgradeStaking() {
+  setResult('upgradeResult','Upgrade ediliyor...','');
+  try {
+    await ensureSigner();
+    const proxy = document.getElementById('upgradeProxy').value;
+    if (!proxy) throw new Error('Proxy adresi girin');
+    const newImpl = await deployBytecode(STAKING_BC,'New SaviorStaking impl');
+    const c = new ethers.Contract(proxy, STAKING_ABI, signer);
+    const tx = await c.upgradeToAndCall(newImpl,'0x');
+    await tx.wait();
+    setResult('upgradeResult','✓ Upgrade\nNew impl: '+newImpl+'\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('upgradeResult',e.message,'err'); }
 }
 
-function prefillFromStorage(){
-  const fillIfEmpty = (id, key) => {
-    const el = s(id); if(!el) return;
-    const v = localStorage.getItem(key);
-    if(v && !el.value) el.value = v;
-  };
-  fillIfEmpty('s2-token','savior_token');
-  fillIfEmpty('s3-token','savior_token');
-  fillIfEmpty('save-token','savior_token');
-  fillIfEmpty('save-hook','savior_hook');
-  fillIfEmpty('save-staking','savior_staking');
-  refreshSavedCard();
+async function emergencyUnlock() {
+  if (!confirm('Tüm kilitler KALICI olarak açılır. Devam?')) return;
+  setResult('emergencyResult','...','');
+  try {
+    await ensureSigner();
+    const proxy = document.getElementById('emergencyProxy').value;
+    const c = new ethers.Contract(proxy, STAKING_ABI, signer);
+    const tx = await c.emergencyUnlockAll();
+    await tx.wait();
+    setResult('emergencyResult','✓ Emergency unlock\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('emergencyResult',e.message,'err'); }
 }
 
-document.addEventListener('DOMContentLoaded', prefillFromStorage);
-</script>
-<script src="wallet.js"></script>
-<!-- Bytecodes injected by build process -->
-<script>
-const BYTECODES = {
-  SaviorToken:   '0x60a060405230608052348015610013575f80fd5b5061001c610021565b6100d3565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00805468010000000000000000900460ff16156100715760405163f92ee8a960e01b815260040160405180910390fd5b80546001600160401b03908116146100d05780546001600160401b0319166001600160401b0390811782556040519081527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b50565b60805161151d6100f95f395f8181610a1b01528181610a440152610b83015261151d5ff3fe608060405260043610610113575f3560e01c8063715018a61161009d578063ad3cb1cc11610062578063ad3cb1cc14610308578063c4d66de814610338578063dd62ed3e14610357578063f2fde38b14610376578063fc82f08414610395575f80fd5b8063715018a6146102765780638cd4426d1461028a5780638da5cb5b146102a957806395d89b41146102d5578063a9059cbb146102e9575f80fd5b8063313ce567116100e3578063313ce567146101d357806340c10f19146101ee5780634f1ef2861461020f57806352d1902d1461022257806370a0823114610236575f80fd5b806306fdde031461011e578063095ea7b31461014857806318160ddd1461017757806323b872dd146101b4575f80fd5b3661011a57005b5f80fd5b348015610129575f80fd5b506101326103a9565b60405161013f919061115f565b60405180910390f35b348015610153575f80fd5b506101676101623660046111af565b610469565b604051901515815260200161013f565b348015610182575f80fd5b507f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace02545b60405190815260200161013f565b3480156101bf575f80fd5b506101676101ce3660046111d7565b610482565b3480156101de575f80fd5b506040516012815260200161013f565b3480156101f9575f80fd5b5061020d6102083660046111af565b6104a5565b005b61020d61021d366004611225565b6104bb565b34801561022d575f80fd5b506101a66104d6565b348015610241575f80fd5b506101a66102503660046112e9565b6001600160a01b03165f9081525f805160206114a8833981519152602052604090205490565b348015610281575f80fd5b5061020d6104f1565b348015610295575f80fd5b5061020d6102a43660046111af565b610504565b3480156102b4575f80fd5b506102bd6105fb565b6040516001600160a01b03909116815260200161013f565b3480156102e0575f80fd5b50610132610629565b3480156102f4575f80fd5b506101676103033660046111af565b610667565b348015610313575f80fd5b50610132604051806040016040528060058152602001640352e302e360dc1b81525081565b348015610343575f80fd5b5061020d6103523660046112e9565b610674565b348015610362575f80fd5b506101a6610371366004611309565b6107d1565b348015610381575f80fd5b5061020d6103903660046112e9565b61081a565b3480156103a0575f80fd5b5061020d610857565b7f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace0380546060915f805160206114a8833981519152916103e79061133a565b80601f01602080910402602001604051908101604052809291908181526020018280546104139061133a565b801561045e5780601f106104355761010080835404028352916020019161045e565b820191905f5260205f20905b81548152906001019060200180831161044157829003601f168201915b505050505091505090565b5f336104768185856108de565b60019150505b92915050565b5f3361048f8582856108f0565b61049a85858561094d565b506001949350505050565b6104ad6109aa565b6104b782826109dc565b5050565b6104c3610a10565b6104cc82610ab4565b6104b78282610abc565b5f6104df610b78565b505f805160206114c883398151915290565b6104f96109aa565b6105025f610bc1565b565b61050c6109aa565b6040516370a0823160e01b81523060048201525f906001600160a01b038416906370a0823190602401602060405180830381865afa158015610550573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906105749190611372565b90505f82158061058357508183115b61058d578261058f565b815b90505f81116105d95760405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b60448201526064015b60405180910390fd5b6105f56105e46105fb565b6001600160a01b0386169083610c31565b50505050565b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300546001600160a01b031690565b7f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace0480546060915f805160206114a8833981519152916103e79061133a565b5f3361047681858561094d565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a008054600160401b810460ff16159067ffffffffffffffff165f811580156106b95750825b90505f8267ffffffffffffffff1660011480156106d55750303b155b9050811580156106e3575080155b156107015760405163f92ee8a960e01b815260040160405180910390fd5b845467ffffffffffffffff19166001178555831561072b57845460ff60401b1916600160401b1785555b610772604051806040016040528060078152602001661229a0ab24a7a960c91b8152506040518060400160405280600681526020016529a0ab24a7a960d11b815250610c66565b61077b86610c78565b610783610c89565b83156107c957845460ff60401b19168555604051600181527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b505050505050565b6001600160a01b039182165f9081527f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace016020908152604080832093909416825291909152205490565b6108226109aa565b6001600160a01b03811661084b57604051631e4fbdf760e01b81525f60048201526024016105d0565b61085481610bc1565b50565b61085f6109aa565b47806108a15760405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b60448201526064016105d0565b6108a96105fb565b6001600160a01b03166108fc8290811502906040515f60405180830381858888f193505050501580156104b7573d5f803e3d5ffd5b6108eb8383836001610c91565b505050565b5f6108fb84846107d1565b90505f1981146105f5578181101561093f57604051637dc7a0d960e11b81526001600160a01b038416600482015260248101829052604481018390526064016105d0565b6105f584848484035f610c91565b6001600160a01b03831661097657604051634b637e8f60e11b81525f60048201526024016105d0565b6001600160a01b03821661099f5760405163ec442f0560e01b81525f60048201526024016105d0565b6108eb838383610d75565b336109b36105fb565b6001600160a01b0316146105025760405163118cdaa760e01b81523360048201526024016105d0565b6001600160a01b038216610a055760405163ec442f0560e01b81525f60048201526024016105d0565b6104b75f8383610d75565b306001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161480610a9657507f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316610a8a5f805160206114c8833981519152546001600160a01b031690565b6001600160a01b031614155b156105025760405163703e46dd60e11b815260040160405180910390fd5b6108546109aa565b816001600160a01b03166352d1902d6040518163ffffffff1660e01b8152600401602060405180830381865afa925050508015610b16575060408051601f3d908101601f19168201909252610b1391810190611372565b60015b610b3e57604051634c9c8ce360e01b81526001600160a01b03831660048201526024016105d0565b5f805160206114c88339815191528114610b6e57604051632a87526960e21b8152600481018290526024016105d0565b6108eb8383610eae565b306001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146105025760405163703e46dd60e11b815260040160405180910390fd5b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c19930080546001600160a01b031981166001600160a01b03848116918217845560405192169182907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a3505050565b610c3e8383836001610f03565b6108eb57604051635274afe760e01b81526001600160a01b03841660048201526024016105d0565b610c6e610f65565b6104b78282610fae565b610c80610f65565b61085481610ffe565b610502610f65565b5f805160206114a88339815191526001600160a01b038516610cc85760405163e602df0560e01b81525f60048201526024016105d0565b6001600160a01b038416610cf157604051634a1406b160e11b81525f60048201526024016105d0565b6001600160a01b038086165f90815260018301602090815260408083209388168352929052208390558115610d6e57836001600160a01b0316856001600160a01b03167f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b92585604051610d6591815260200190565b60405180910390a35b5050505050565b5f805160206114a88339815191526001600160a01b038416610daf5781816002015f828254610da49190611389565b90915550610e1f9050565b6001600160a01b0384165f9081526020829052604090205482811015610e015760405163391434e360e21b81526001600160a01b038616600482015260248101829052604481018490526064016105d0565b6001600160a01b0385165f9081526020839052604090209083900390555b6001600160a01b038316610e3d576002810180548390039055610e5b565b6001600160a01b0383165f9081526020829052604090208054830190555b826001600160a01b0316846001600160a01b03167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef84604051610ea091815260200190565b60405180910390a350505050565b610eb782611006565b6040516001600160a01b038316907fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a2805115610efb576108eb8282611069565b6104b7611109565b60405163a9059cbb60e01b5f8181526001600160a01b038616600452602485905291602083604481808b5af1925060015f51148316610f59578383151615610f4d573d5f823e3d81fd5b5f873b113d1516831692505b60405250949350505050565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a0054600160401b900460ff1661050257604051631afcd79f60e31b815260040160405180910390fd5b610fb6610f65565b5f805160206114a88339815191527f52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace03610fef84826113ec565b50600481016105f583826113ec565b610822610f65565b806001600160a01b03163b5f0361103b57604051634c9c8ce360e01b81526001600160a01b03821660048201526024016105d0565b5f805160206114c883398151915280546001600160a01b0319166001600160a01b0392909216919091179055565b60605f6110768484611128565b905080801561109757505f3d118061109757505f846001600160a01b03163b115b156110ac576110a461113b565b91505061047c565b80156110d657604051639996b31560e01b81526001600160a01b03851660048201526024016105d0565b3d156110e9576110e4611154565b611102565b60405163d6bda27560e01b815260040160405180910390fd5b5092915050565b34156105025760405163b398979f60e01b815260040160405180910390fd5b5f805f835160208501865af49392505050565b6040513d81523d5f602083013e3d602001810160405290565b6040513d5f823e3d81fd5b602081525f82518060208401528060208501604085015e5f604082850101526040601f19601f83011684010191505092915050565b80356001600160a01b03811681146111aa575f80fd5b919050565b5f80604083850312156111c0575f80fd5b6111c983611194565b946020939093013593505050565b5f805f606084860312156111e9575f80fd5b6111f284611194565b925061120060208501611194565b929592945050506040919091013590565b634e487b7160e01b5f52604160045260245ffd5b5f8060408385031215611236575f80fd5b61123f83611194565b9150602083013567ffffffffffffffff81111561125a575f80fd5b8301601f8101851361126a575f80fd5b803567ffffffffffffffff81111561128457611284611211565b604051601f8201601f19908116603f0116810167ffffffffffffffff811182821017156112b3576112b3611211565b6040528181528282016020018710156112ca575f80fd5b816020840160208301375f602083830101528093505050509250929050565b5f602082840312156112f9575f80fd5b61130282611194565b9392505050565b5f806040838503121561131a575f80fd5b61132383611194565b915061133160208401611194565b90509250929050565b600181811c9082168061134e57607f821691505b60208210810361136c57634e487b7160e01b5f52602260045260245ffd5b50919050565b5f60208284031215611382575f80fd5b5051919050565b8082018082111561047c57634e487b7160e01b5f52601160045260245ffd5b601f8211156108eb57805f5260205f20601f840160051c810160208510156113cd5750805b601f840160051c820191505b81811015610d6e575f81556001016113d9565b815167ffffffffffffffff81111561140657611406611211565b61141a81611414845461133a565b846113a8565b6020601f82116001811461144c575f83156114355750848201515b5f19600385901b1c1916600184901b178455610d6e565b5f84815260208120601f198516915b8281101561147b578785015182556020948501946001909201910161145b565b508482101561149857868401515f19600387901b60f8161c191681555b50505050600190811b0190555056fe52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbca2646970667358221220e1a608b260c4578bba5d881fde36c456a03b7d8165a40b435126bec4cf258cab64736f6c634300081a0033',
-  SaviorHook:    '0x60a060405230608052348015610013575f80fd5b5061001c610021565b6100d3565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00805468010000000000000000900460ff16156100715760405163f92ee8a960e01b815260040160405180910390fd5b80546001600160401b03908116146100d05780546001600160401b0319166001600160401b0390811782556040519081527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b50565b608051611bab6100f95f395f8181610d7601528181610d9f0152610ee30152611bab5ff3fe608060405260043610610164575f3560e01c80639f063efc116100cd578063dc98354e11610087578063f0f4426011610062578063f0f44260146105db578063f2fde38b146105fa578063fc82f08414610619578063fecf97341461062d575f80fd5b8063dc98354e14610567578063e1b4af6914610590578063ee99205c146105bc575f80fd5b80639f063efc14610379578063ad3cb1cc146103a8578063b47b2fb1146103e5578063b6a8b0fa14610427578063bf333f2c14610453578063c4e833ce14610467575f80fd5b80636c2bbe7e1161011e5780636c2bbe7e1461029a5780636fe7e6eb146102e9578063715018a6146103135780638cd4426d146103275780638da5cb5b146103465780639dd373b91461035a575f80fd5b806321d0ee701461016f578063259982e5146101b85780634f1ef286146101e357806352d1902d146101f8578063575e24b41461021a57806361d027b314610264575f80fd5b3661016b57005b5f80fd5b34801561017a575f80fd5b5061019a610189366004611548565b63021d0ee760e41b95945050505050565b6040516001600160e01b031990911681526020015b60405180910390f35b3480156101c3575f80fd5b5061019a6101d2366004611548565b63259982e560e01b95945050505050565b6101f66101f13660046115d3565b61064c565b005b348015610203575f80fd5b5061020c61066b565b6040519081526020016101af565b348015610225575f80fd5b506102396102343660046116a9565b610686565b604080516001600160e01b03199094168452602084019290925262ffffff16908201526060016101af565b34801561026f575f80fd5b505f54610282906001600160a01b031681565b6040516001600160a01b0390911681526020016101af565b3480156102a5575f80fd5b506102c96102b4366004611703565b633615df3f60e11b5f97509795505050505050565b604080516001600160e01b031990931683526020830191909152016101af565b3480156102f4575f80fd5b5061019a61030336600461178e565b636fe7e6eb60e01b949350505050565b34801561031e575f80fd5b506101f661071a565b348015610332575f80fd5b506101f66103413660046117ed565b61072d565b348015610351575f80fd5b5061028261081f565b348015610365575f80fd5b506101f6610374366004611817565b61084d565b348015610384575f80fd5b506102c9610393366004611703565b6327c18fbf60e21b5f97509795505050505050565b3480156103b3575f80fd5b506103d8604051806040016040528060058152602001640352e302e360dc1b81525081565b6040516101af9190611839565b3480156103f0575f80fd5b506104046103ff36600461186e565b6108f5565b604080516001600160e01b03199093168352600f9190910b6020830152016101af565b348015610432575f80fd5b5061019a6104413660046118ef565b635b54587d60e11b9695505050505050565b34801561045e575f80fd5b5061020c60c881565b348015610472575f80fd5b5061055a604080516101c0810182525f80825260208201819052918101829052606081018290526080810182905260a0810182905260c0810182905260e08101829052610100810182905261012081018290526101408101829052610160810182905261018081018290526101a081019190915250604080516101c0810182525f80825260208201819052918101829052606081018290526080810182905260a08101829052600160c0820181905260e0820152610100810182905261012081018290526101408101829052610160810182905261018081018290526101a081019190915290565b6040516101af9190611949565b348015610572575f80fd5b5061019a610581366004611a63565b636e4c1aa760e11b9392505050565b34801561059b575f80fd5b5061019a6105aa3660046118ef565b63e1b4af6960e01b9695505050505050565b3480156105c7575f80fd5b50600154610282906001600160a01b031681565b3480156105e6575f80fd5b506101f66105f5366004611817565b6109f1565b348015610605575f80fd5b506101f6610614366004611817565b610a98565b348015610624575f80fd5b506101f6610ad5565b348015610638575f80fd5b506101f6610647366004611aaa565b610b5c565b610654610d6b565b61065d82610e0f565b6106678282610e17565b5050565b5f610674610ed8565b505f80516020611b5683398151915290565b5f805f6106a1886001546001600160a01b0391821691161490565b6107025760405162461bcd60e51b815260206004820152602760248201527f536176696f72486f6f6b3a206f6e6c7920536176696f725374616b696e67206d6044820152660617920737761760cc1b60648201526084015b60405180910390fd5b506315d7892d60e21b975f9750879650945050505050565b610722610f21565b61072b5f610f53565b565b610735610f21565b6040516370a0823160e01b81523060048201525f906001600160a01b038416906370a0823190602401602060405180830381865afa158015610779573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061079d9190611afc565b90505f8215806107ac57508183115b6107b657826107b8565b815b90505f81116107fd5760405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b60448201526064016106f9565b61081961080861081f565b6001600160a01b0386169083610fc3565b50505050565b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300546001600160a01b031690565b610855610f21565b6001600160a01b03811661089a5760405162461bcd60e51b815260206004820152600c60248201526b5a65726f207374616b696e6760a01b60448201526064016106f9565b6001546040516001600160a01b038084169216907f7042586b23181180eb30b4798702d7a0233b7fc2551e89806770e8e5d9392e6a905f90a3600180546001600160a01b0319166001600160a01b0392909216919091179055565b5f805f61090286600f0b90565b90505f8082600f0b13156109da575f61271061093160c86fffffffffffffffffffffffffffffffff8616611b13565b61093b9190611b36565b90505f8111801561095557505f546001600160a01b031615155b156109d85733630b0d9c0961097060408d0160208e01611817565b5f5460405160e084901b6001600160e01b03191681526001600160a01b03928316600482015291166024820152604481018490526064015f604051808303815f87803b1580156109be575f80fd5b505af11580156109d0573d5f803e3d5ffd5b505050508091505b505b63b47b2fb160e01b9a909950975050505050505050565b6109f9610f21565b6001600160a01b038116610a3f5760405162461bcd60e51b815260206004820152600d60248201526c5a65726f20747265617375727960981b60448201526064016106f9565b5f80546040516001600160a01b03808516939216917f4ab5be82436d353e61ca18726e984e561f5c1cc7c6d38b29d2553c790434705a91a35f80546001600160a01b0319166001600160a01b0392909216919091179055565b610aa0610f21565b6001600160a01b038116610ac957604051631e4fbdf760e01b81525f60048201526024016106f9565b610ad281610f53565b50565b610add610f21565b4780610b1f5760405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720746f2072657363756560781b60448201526064016106f9565b610b2761081f565b6001600160a01b03166108fc8290811502906040515f60405180830381858888f19350505050158015610667573d5f803e3d5ffd5b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a008054600160401b810460ff16159067ffffffffffffffff165f81158015610ba15750825b90505f8267ffffffffffffffff166001148015610bbd5750303b155b905081158015610bcb575080155b15610be95760405163f92ee8a960e01b815260040160405180910390fd5b845467ffffffffffffffff191660011785558315610c1357845460ff60401b1916600160401b1785555b6001600160a01b038916610c595760405162461bcd60e51b815260206004820152600d60248201526c5a65726f20747265617375727960981b60448201526064016106f9565b610c6287610ff8565b610c6a611009565b5f80546001600160a01b03808c166001600160a01b03199283161790925560018054928b16929091169190911790558515610d1a57604080516101c0810182525f80825260208201819052918101829052606081018290526080810182905260a08101829052600160c0820181905260e0820152610100810182905261012081018290526101408101829052610160810182905261018081018290526101a0810191909152610d1a903090611011565b8315610d6057845460ff60401b19168555604051600181527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b505050505050505050565b306001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161480610df157507f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316610de55f80516020611b56833981519152546001600160a01b031690565b6001600160a01b031614155b1561072b5760405163703e46dd60e11b815260040160405180910390fd5b610ad2610f21565b816001600160a01b03166352d1902d6040518163ffffffff1660e01b8152600401602060405180830381865afa925050508015610e71575060408051601f3d908101601f19168201909252610e6e91810190611afc565b60015b610e9957604051634c9c8ce360e01b81526001600160a01b03831660048201526024016106f9565b5f80516020611b568339815191528114610ec957604051632a87526960e21b8152600481018290526024016106f9565b610ed3838361123e565b505050565b306001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461072b5760405163703e46dd60e11b815260040160405180910390fd5b33610f2a61081f565b6001600160a01b03161461072b5760405163118cdaa760e01b81523360048201526024016106f9565b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c19930080546001600160a01b031981166001600160a01b03848116918217845560405192169182907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a3505050565b610fd08383836001611293565b610ed357604051635274afe760e01b81526001600160a01b03841660048201526024016106f9565b6110006112f5565b610ad28161133e565b61072b6112f5565b6110266001600160a01b038316612000611346565b81511515901515141580611056575061104a6001600160a01b038316611000611346565b15158160200151151514155b8061107d57506110716001600160a01b038316610800611346565b15158160400151151514155b806110a457506110986001600160a01b038316610400611346565b15158160600151151514155b806110cb57506110bf6001600160a01b038316610200611346565b15158160800151151514155b806110f257506110e66001600160a01b038316610100611346565b15158160a00151151514155b80611118575061110c6001600160a01b0383166080611346565b15158160c00151151514155b8061113e57506111326001600160a01b0383166040611346565b15158160e00151151514155b8061116557506111586001600160a01b0383166020611346565b1515816101000151151514155b8061118c575061117f6001600160a01b0383166010611346565b1515816101200151151514155b806111b357506111a66001600160a01b0383166008611346565b1515816101400151151514155b806111da57506111cd6001600160a01b0383166004611346565b1515816101600151151514155b8061120157506111f46001600160a01b0383166002611346565b1515816101800151151514155b80611228575061121b6001600160a01b0383166001611346565b1515816101a00151151514155b1561066757610667630732d7b560e51b8361135b565b61124782611370565b6040516001600160a01b038316907fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a280511561128b57610ed382826113d3565b610667611473565b60405163a9059cbb60e01b5f8181526001600160a01b038616600452602485905291602083604481808b5af1925060015f511483166112e95783831516156112dd573d5f823e3d81fd5b5f873b113d1516831692505b60405250949350505050565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a0054600160401b900460ff1661072b57604051631afcd79f60e31b815260040160405180910390fd5b610aa06112f5565b6001600160a01b038282161615155b92915050565b815f526001600160a01b03811660045260245ffd5b806001600160a01b03163b5f036113a557604051634c9c8ce360e01b81526001600160a01b03821660048201526024016106f9565b5f80516020611b5683398151915280546001600160a01b0319166001600160a01b0392909216919091179055565b60605f6113e08484611492565b905080801561140157505f3d118061140157505f846001600160a01b03163b115b156114165761140e6114a5565b915050611355565b801561144057604051639996b31560e01b81526001600160a01b03851660048201526024016106f9565b3d156114535761144e6114be565b61146c565b60405163d6bda27560e01b815260040160405180910390fd5b5092915050565b341561072b5760405163b398979f60e01b815260040160405180910390fd5b5f805f835160208501865af49392505050565b6040513d81523d5f602083013e3d602001810160405290565b6040513d5f823e3d81fd5b6001600160a01b0381168114610ad2575f80fd5b5f60a082840312156114ed575f80fd5b50919050565b5f608082840312156114ed575f80fd5b5f8083601f840112611513575f80fd5b50813567ffffffffffffffff81111561152a575f80fd5b602083019150836020828501011115611541575f80fd5b9250929050565b5f805f805f610160868803121561155d575f80fd5b8535611568816114c9565b945061157787602088016114dd565b93506115868760c088016114f3565b925061014086013567ffffffffffffffff8111156115a2575f80fd5b6115ae88828901611503565b969995985093965092949392505050565b634e487b7160e01b5f52604160045260245ffd5b5f80604083850312156115e4575f80fd5b82356115ef816114c9565b9150602083013567ffffffffffffffff81111561160a575f80fd5b8301601f8101851361161a575f80fd5b803567ffffffffffffffff811115611634576116346115bf565b604051601f8201601f19908116603f0116810167ffffffffffffffff81118282101715611663576116636115bf565b60405281815282820160200187101561167a575f80fd5b816020840160208301375f602083830101528093505050509250929050565b5f606082840312156114ed575f80fd5b5f805f805f61014086880312156116be575f80fd5b85356116c9816114c9565b94506116d887602088016114dd565b93506116e78760c08801611699565b925061012086013567ffffffffffffffff8111156115a2575f80fd5b5f805f805f805f6101a0888a03121561171a575f80fd5b8735611725816114c9565b96506117348960208a016114dd565b95506117438960c08a016114f3565b94506101408801359350610160880135925061018088013567ffffffffffffffff81111561176f575f80fd5b61177b8a828b01611503565b989b979a50959850939692959293505050565b5f805f8061010085870312156117a2575f80fd5b84356117ad816114c9565b93506117bc86602087016114dd565b925060c08501356117cc816114c9565b915060e0850135600281900b81146117e2575f80fd5b939692955090935050565b5f80604083850312156117fe575f80fd5b8235611809816114c9565b946020939093013593505050565b5f60208284031215611827575f80fd5b8135611832816114c9565b9392505050565b602081525f82518060208401528060208501604085015e5f604082850101526040601f19601f83011684010191505092915050565b5f805f805f806101608789031215611884575f80fd5b863561188f816114c9565b955061189e88602089016114dd565b94506118ad8860c08901611699565b9350610120870135925061014087013567ffffffffffffffff8111156118d1575f80fd5b6118dd89828a01611503565b979a9699509497509295939492505050565b5f805f805f806101208789031215611905575f80fd5b8635611910816114c9565b955061191f88602089016114dd565b945060c0870135935060e0870135925061010087013567ffffffffffffffff8111156118d1575f80fd5b8151151581526101c081016020830151611967602084018215159052565b50604083015161197b604084018215159052565b50606083015161198f606084018215159052565b5060808301516119a3608084018215159052565b5060a08301516119b760a084018215159052565b5060c08301516119cb60c084018215159052565b5060e08301516119df60e084018215159052565b506101008301516119f561010084018215159052565b50610120830151611a0b61012084018215159052565b50610140830151611a2161014084018215159052565b50610160830151611a3761016084018215159052565b50610180830151611a4d61018084018215159052565b506101a083015161146c6101a084018215159052565b5f805f60e08486031215611a75575f80fd5b8335611a80816114c9565b9250611a8f85602086016114dd565b915060c0840135611a9f816114c9565b809150509250925092565b5f805f8060808587031215611abd575f80fd5b8435611ac8816114c9565b93506020850135611ad8816114c9565b92506040850135611ae8816114c9565b9150606085013580151581146117e2575f80fd5b5f60208284031215611b0c575f80fd5b5051919050565b808202811582820484141761135557634e487b7160e01b5f52601160045260245ffd5b5f82611b5057634e487b7160e01b5f52601260045260245ffd5b50049056fe360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbca26469706673582212205b266ded59b994e3ee33d67ab3ce1d0f8bc71c8cea18c2e2a726b07e3829b27e64736f6c634300081a0033',
-  SaviorStaking: '0x60a060405230608052348015610013575f80fd5b5061001c610021565b6100d3565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00805468010000000000000000900460ff16156100715760405163f92ee8a960e01b815260040160405180910390fd5b80546001600160401b03908116146100d05780546001600160401b0319166001600160401b0390811782556040519081527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b50565b6080516130c56100f95f395f8181611db201528181611ddb0152611f1a01526130c55ff3fe6080604052600436106101b2575f3560e01c80638da5cb5b116100e7578063d6febde811610087578063f0ec98d711610062578063f0ec98d71461053c578063f2fde38b1461055b578063f8c8765e1461057a578063fc82f08414610599575f80fd5b8063d6febde8146104f6578063dc4c90d314610509578063e20cc07914610528575f80fd5b8063a583024b116100c2578063a583024b14610452578063aa33fedb14610471578063ab0abb4a146104ad578063ad3cb1cc146104c6575f80fd5b80638da5cb5b146103f457806391dd7346146104085780639a32752f14610434575f80fd5b80634f1ef28611610152578063715018a61161012d578063715018a614610395578063817b1cd2146103a957806389a30271146103be5780638cd4426d146103d5575f80fd5b80634f1ef2861461033757806352d1902d1461034a57806361d027b31461035e575f80fd5b806323c1ee431161018d57806323c1ee43146102a25780632bc8c6e0146102e45780632e17de781461030557806348cce9f814610324575f80fd5b806306aec0ef146101bd578063182148ef146101f057806323a35de914610276575f80fd5b366101b957005b5f80fd5b3480156101c8575f80fd5b506006546101db90610100900460ff1681565b60405190151581526020015b60405180910390f35b3480156101fb575f80fd5b50600354600454600554610236926001600160a01b03908116928082169262ffffff600160a01b83041692600160b81b90920460020b911685565b604080516001600160a01b039687168152948616602086015262ffffff9093169284019290925260020b606083015291909116608082015260a0016101e7565b348015610281575f80fd5b50610295610290366004612822565b6105ad565b6040516101e79190612844565b3480156102ad575f80fd5b506102d66102bc366004612822565b6001600160a01b03165f9081526007602052604090205490565b6040519081526020016101e7565b3480156102ef575f80fd5b506103036102fe3660046128b2565b61063f565b005b348015610310575f80fd5b5061030361031f3660046128f1565b61075d565b610303610332366004612908565b61086e565b6103036103453660046129bb565b610b0f565b348015610355575f80fd5b506102d6610b2e565b348015610369575f80fd5b5060025461037d906001600160a01b031681565b6040516001600160a01b0390911681526020016101e7565b3480156103a0575f80fd5b50610303610b49565b3480156103b4575f80fd5b506102d660085481565b3480156103c9575f80fd5b5061037d601b60991b81565b3480156103e0575f80fd5b506103036103ef366004612a48565b610b5c565b3480156103ff575f80fd5b5061037d610ccc565b348015610413575f80fd5b50610427610422366004612a72565b610cfa565b6040516101e79190612b0e565b34801561043f575f80fd5b505f5461037d906001600160a01b031681565b34801561045d575f80fd5b506102d661046c366004612822565b61156e565b34801561047c575f80fd5b5061049061048b366004612a48565b61163a565b6040805193845260208401929092521515908201526060016101e7565b3480156104b8575f80fd5b506006546101db9060ff1681565b3480156104d1575f80fd5b50610427604051806040016040528060058152602001640352e302e360dc1b81525081565b610303610504366004612b20565b61167b565b348015610514575f80fd5b5060015461037d906001600160a01b031681565b348015610533575f80fd5b50610303611916565b348015610547575f80fd5b50610303610556366004612b40565b611969565b348015610566575f80fd5b50610303610575366004612822565b6119b8565b348015610585575f80fd5b50610303610594366004612b59565b6119f5565b3480156105a4575f80fd5b50610303611c5f565b6001600160a01b0381165f908152600760209081526040808320805482518185028101850190935280835260609492939192909184015b82821015610634575f8481526020908190206040805160608101825260038602909201805483526001808201548486015260029091015460ff1615159183019190915290835290920191016105e4565b505050509050919050565b610647611cff565b60065460ff1661066a57604051633382f3a560e01b815260040160405180910390fd5b6001546040805160026020820181905291810186905284820b60608201529083900b60808201526001600160a01b03909116906348c894919060a0016040516020818303038152906040526040518263ffffffff1660e01b81526004016106d19190612b0e565b5f604051808303815f875af11580156106ec573d5f803e3d5ffd5b505050506040513d5f823e601f3d908101601f191682016040526107139190810190612ba7565b5060408051848152600284810b602083015283900b8183015290517f1c062cca8e5a2334209d343cfdbcf334076088a94098cc00249f5e5aacfb9a309181900360600190a1505050565b335f90815260076020526040812080548390811061077d5761077d612c1c565b5f9182526020909120600390910201600281015490915060ff16156107b557604051632ecfcaf960e01b815260040160405180910390fd5b600654610100900460ff161580156107d05750806001015442105b156107ee57604051630f0f585760e01b815260040160405180910390fd5b805460028201805460ff19166001179055600880548291905f90610813908490612c44565b90915550505f5461082e906001600160a01b03163383611d31565b604080518281526020810185905233917f7fc4727e062e336010f2c282598ef5f14facb3de68cf8195c2f23e1454b2b74e910160405180910390a2505050565b610876611cff565b60065460ff1661089957604051633382f3a560e01b815260040160405180910390fd5b825f036108b9576040516365e52d5160e11b815260040160405180910390fd5b8334146108fd5760405162461bcd60e51b815260206004820152600d60248201526c0aaa6888640dad2e6dac2e8c6d609b1b60448201526064015b60405180910390fd5b61091b610908610ccc565b5f546001600160a01b0316903086611d6b565b83156109995760015460405163095ea7b360e01b81526001600160a01b03909116600482015260248101859052601b60991b9063095ea7b3906044016020604051808303815f875af1158015610973573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906109979190612c57565b505b5f5460015460405163095ea7b360e01b81526001600160a01b0391821660048201526024810186905291169063095ea7b3906044016020604051808303815f875af11580156109ea573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610a0e9190612c57565b5060018054604080516020810193909352820186905260608201859052600284810b608084015283900b60a08301526001600160a01b0316906348c894919060c0016040516020818303038152906040526040518263ffffffff1660e01b8152600401610a7b9190612b0e565b5f604051808303815f875af1158015610a96573d5f803e3d5ffd5b505050506040513d5f823e601f3d908101601f19168201604052610abd9190810190612ba7565b506040805185815260208101859052600284810b8284015283900b606082015290517fb91a07ff00a3949e880b95302b63180453cd43c6bc04b1deb0e98ae306fcf7759181900360800190a150505050565b610b17611da7565b610b2082611e4b565b610b2a8282611e53565b5050565b5f610b37611f0f565b505f8051602061307083398151915290565b610b51611cff565b610b5a5f611f58565b565b610b64611cff565b6040516370a0823160e01b81523060048201525f906001600160a01b038416906370a0823190602401602060405180830381865afa158015610ba8573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610bcc9190612c76565b90505f821580610bdb57508183115b610be55782610be7565b815b5f549091506001600160a01b0390811690851603610c4757600854808311610c22576040516312d37ee560e31b815260040160405180910390fd5b610c2c8184612c44565b91505f84118015610c3c57508184105b15610c45578391505b505b805f03610c67576040516312d37ee560e31b815260040160405180910390fd5b610c83610c72610ccc565b6001600160a01b0386169083611d31565b836001600160a01b03167f8aec0ce3dadffacf4b7a963e0fed1ff2e6151b4c95d4a65acafa9d129963040282604051610cbe91815260200190565b60405180910390a250505050565b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300546001600160a01b031690565b6001546060906001600160a01b03163314610d285760405163f655705d60e01b815260040160405180910390fd5b5f610d3583850185612ca2565b90508060ff165f03610fb4575f80610d4f85870187612cbb565b9350509250505f610d61600183611fc8565b90505f604051806060016040528060011515815260200185610d8290612cf1565b81526001600160a01b03808516602090920191909152600154604051633cf3645360e21b81529293505f9291169063f3cd914c90610dc7906003908690600401612d50565b6020604051808303815f875af1158015610de3573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610e079190612c76565b90505f610e148260801d90565b90505f610e2183600f0b90565b90505f82600f0b1215610f2e57600154600354604051632961046560e21b81526001600160a01b03918216600482015291169063a5841194906024015f604051808303815f87803b158015610e74575f80fd5b505af1158015610e86573d5f803e3d5ffd5b5050600154610eb79250601b60991b91506001600160a01b0316610ea985612d9a565b6001600160801b0316611d31565b60015f9054906101000a90046001600160a01b03166001600160a01b03166311da60b46040518163ffffffff1660e01b81526004016020604051808303815f875af1158015610f08573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610f2c9190612c76565b505b5f81600f0b1315610fa85760015460048054604051630b0d9c0960e01b81526001600160a01b0393841693630b0d9c0993610f7a939091169130916001600160801b0388169101612dc7565b5f604051808303815f87803b158015610f91575f80fd5b505af1158015610fa3573d5f803e3d5ffd5b505050505b50505050505050611557565b8060ff1660010361139c575f808080610fcf87890189612deb565b60408051608081018252600284810b825283900b60208201528082018590525f606082018190526001549251632d35e7ed60e11b8152969b5094995092975090955090935090916001600160a01b0390911690635a6bcfda90611039906003908690600401612e44565b60408051808303815f875af1158015611054573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906110789190612e95565b5090505f6110868260801d90565b90505f61109383600f0b90565b90505f82600f0b121561119657600154600354604051632961046560e21b81526001600160a01b03918216600482015291169063a5841194906024015f604051808303815f87803b1580156110e6575f80fd5b505af11580156110f8573d5f803e3d5ffd5b505060015461111b9250601b60991b91506001600160a01b0316610ea985612d9a565b60015f9054906101000a90046001600160a01b03166001600160a01b03166311da60b46040518163ffffffff1660e01b81526004016020604051808303815f875af115801561116c573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906111909190612c76565b50611210565b5f82600f0b131561121057600154600354604051630b0d9c0960e01b81526001600160a01b0392831692630b0d9c09926111e29291169030906001600160801b03881690600401612dc7565b5f604051808303815f87803b1580156111f9575f80fd5b505af115801561120b573d5f803e3d5ffd5b505050505b5f81600f0b12156113155760015460048054604051632961046560e21b81526001600160a01b03918216928101929092529091169063a5841194906024015f604051808303815f87803b158015611265575f80fd5b505af1158015611277573d5f803e3d5ffd5b50505f5460015461129a93506001600160a01b03918216925016610ea984612d9a565b60015f9054906101000a90046001600160a01b03166001600160a01b03166311da60b46040518163ffffffff1660e01b81526004016020604051808303815f875af11580156112eb573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061130f9190612c76565b5061138f565b5f81600f0b131561138f5760015460048054604051630b0d9c0960e01b81526001600160a01b0393841693630b0d9c0993611361939091169130916001600160801b0388169101612dc7565b5f604051808303815f87803b158015611378575f80fd5b505af115801561138a573d5f803e3d5ffd5b505050505b5050505050505050611557565b8060ff1660020361153e575f80806113b686880188612eb7565b60408051608081018252600284810b825283900b60208201528082018590525f606082018190526001549251632d35e7ed60e11b815295995093975091955090935090916001600160a01b0390911690635a6bcfda9061141d906003908690600401612e44565b60408051808303815f875af1158015611438573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061145c9190612e95565b5090505f61146a8260801d90565b90505f61147783600f0b90565b90505f82600f0b1315610f2e57600154600354604051630b0d9c0960e01b81526001600160a01b0392831692630b0d9c09926114c59291169030906001600160801b03881690600401612dc7565b5f604051808303815f87803b1580156114dc575f80fd5b505af11580156114ee573d5f803e3d5ffd5b505050505f81600f0b1315610fa85760015460048054604051630b0d9c0960e01b81526001600160a01b0393841693630b0d9c0993610f7a939091169130916001600160801b0388169101612dc7565b60405163211bf9ef60e21b815260040160405180910390fd5b505060408051602081019091525f81525b92915050565b6001600160a01b0381165f908152600760205260408120815b8154811015611633578181815481106115a2576115a2612c1c565b5f91825260209091206002600390920201015460ff161580156115f75750600654610100900460ff16806115f757508181815481106115e3576115e3612c1c565b905f5260205f209060030201600101544210155b1561162b5781818154811061160e5761160e612c1c565b905f5260205f2090600302015f0154836116289190612eea565b92505b600101611587565b5050919050565b6007602052815f5260405f208181548110611653575f80fd5b5f91825260209091206003909102018054600182015460029092015490935090915060ff1683565b60065460ff1661169e57604051633382f3a560e01b815260040160405180910390fd5b345f036116be576040516365e52d5160e11b815260040160405180910390fd5b5f6127106116cd3460c8612efd565b6116d79190612f28565b90505f6116e48234612c44565b90508115611725576002546040516001600160a01b039091169083156108fc029084905f818181858888f19350505050158015611723573d5f803e3d5ffd5b505b5f61173182868661202b565b90505f61173f600283612f28565b90505f61174c8284612c44565b9050811561176a575f5461176a906001600160a01b03163384611d31565b80156118c357335f8181526007602090815260408083205481514281850152808301959095526060850152436080808601919091528151808603909101815260a090940190528251920191909120906117c4600683612f3b565b6117cf906005612eea565b6117dc9062015180612efd565b6117e69042612eea565b335f908152600760209081526040808320815160608101835288815280840186815292810185815282546001808201855593875294862091516003909502909101938455915190830155516002909101805460ff191691151591909117905560088054929350859290919061185c908490612eea565b9091555050335f818152600760205260409020547f44cebfefa4561bee5b61d675ccfd8dc9969fff9cc15e7a4eccccd62af94f9c1190859084906118a290600190612c44565b6040805193845260208401929092529082015260600160405180910390a250505b60408051348152602081018590529081018290526060810183905233907f12f896602bc703cdb1020e4fa4290e8762d2c249238e02dc053b97bf013662de9060800160405180910390a250505050505050565b61191e611cff565b6006805461ff0019166101001790556040517fb40ecda044b40192be4a209fe70a9ae9708b7ca524700e321314a23e14e122019061195f9042815260200190565b60405180910390a1565b611971611cff565b80600361197e8282612f7a565b50506006805460ff191660011790556040517fa2905f5ba755f74cd1bcfa456add3ecbd7109ec7aca7297516c18f5169c1842f905f90a150565b6119c0611cff565b6001600160a01b0381166119e957604051631e4fbdf760e01b81525f60048201526024016108f4565b6119f281611f58565b50565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a008054600160401b810460ff16159067ffffffffffffffff165f81158015611a3a5750825b90505f8267ffffffffffffffff166001148015611a565750303b155b905081158015611a64575080155b15611a825760405163f92ee8a960e01b815260040160405180910390fd5b845467ffffffffffffffff191660011785558315611aac57845460ff60401b1916600160401b1785555b6001600160a01b038916611aef5760405162461bcd60e51b815260206004820152600a6024820152692d32b9379037bbb732b960b11b60448201526064016108f4565b6001600160a01b038816611b325760405162461bcd60e51b815260206004820152600a6024820152692d32b937903a37b5b2b760b11b60448201526064016108f4565b6001600160a01b038716611b7b5760405162461bcd60e51b815260206004820152601060248201526f2d32b937903837b7b626b0b730b3b2b960811b60448201526064016108f4565b6001600160a01b038616611bc15760405162461bcd60e51b815260206004820152600d60248201526c5a65726f20747265617375727960981b60448201526064016108f4565b611bca89612268565b611bd2612279565b5f80546001600160a01b03808b166001600160a01b031992831617909255600180548a841690831617905560028054928916929091169190911790558315611c5457845460ff60401b19168555604051600181527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b505050505050505050565b611c67611cff565b475f819003611c89576040516312d37ee560e31b815260040160405180910390fd5b611c91610ccc565b6001600160a01b03166108fc8290811502906040515f60405180830381858888f19350505050158015611cc6573d5f803e3d5ffd5b506040518181525f907f8aec0ce3dadffacf4b7a963e0fed1ff2e6151b4c95d4a65acafa9d12996304029060200160405180910390a250565b33611d08610ccc565b6001600160a01b031614610b5a5760405163118cdaa760e01b81523360048201526024016108f4565b611d3e8383836001612281565b611d6657604051635274afe760e01b81526001600160a01b03841660048201526024016108f4565b505050565b611d798484848460016122e3565b611da157604051635274afe760e01b81526001600160a01b03851660048201526024016108f4565b50505050565b306001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161480611e2d57507f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316611e215f80516020613070833981519152546001600160a01b031690565b6001600160a01b031614155b15610b5a5760405163703e46dd60e11b815260040160405180910390fd5b6119f2611cff565b816001600160a01b03166352d1902d6040518163ffffffff1660e01b8152600401602060405180830381865afa925050508015611ead575060408051601f3d908101601f19168201909252611eaa91810190612c76565b60015b611ed557604051634c9c8ce360e01b81526001600160a01b03831660048201526024016108f4565b5f805160206130708339815191528114611f0557604051632a87526960e21b8152600481018290526024016108f4565b611d668383612350565b306001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614610b5a5760405163703e46dd60e11b815260040160405180910390fd5b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c19930080546001600160a01b031981166001600160a01b03848116918217845560405192169182907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a3505050565b5f8215612007575f611fdb600a84612f28565b611fe6906001612eea565b611ff490620d89e719613025565b9050611fff816123a5565b915050611568565b5f612013600a84612f28565b61201e906001612eea565b611ff490620d89e861304a565b5f80546040516370a0823160e01b815230600482015282916001600160a01b0316906370a0823190602401602060405180830381865afa158015612071573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906120959190612c76565b60015460405163095ea7b360e01b81526001600160a01b03909116600482015260248101879052909150601b60991b9063095ea7b3906044016020604051808303815f875af11580156120ea573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061210e9190612c57565b50600154604080515f60208201528082018890526060810187905260808082018790528251808303909101815260a08201928390526348c8949160e01b9092526001600160a01b03909216916348c894919161216c9160a401612b0e565b5f604051808303815f875af1158015612187573d5f803e3d5ffd5b505050506040513d5f823e601f3d908101601f191682016040526121ae9190810190612ba7565b505f80546040516370a0823160e01b81523060048201526001600160a01b03909116906370a0823190602401602060405180830381865afa1580156121f5573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906122199190612c76565b9050818111612228575f612232565b6122328282612c44565b92508483101561225f57604051633b5d56ed60e11b815260048101849052602481018690526044016108f4565b50509392505050565b61227061265d565b6119f2816126a6565b610b5a61265d565b60405163a9059cbb60e01b5f8181526001600160a01b038616600452602485905291602083604481808b5af1925060015f511483166122d75783831516156122cb573d5f823e3d81fd5b5f873b113d1516831692505b60405250949350505050565b6040516323b872dd60e01b5f8181526001600160a01b038781166004528616602452604485905291602083606481808c5af1925060015f5114831661233f578383151615612333573d5f823e3d81fd5b5f883b113d1516831692505b604052505f60605295945050505050565b612359826126ae565b6040516001600160a01b038316907fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a280511561239d57611d668282612711565b610b2a6127a9565b60020b5f60ff82901d80830118620d89e88111156123ce576123ce6345c3193d60e11b846127c8565b7001fffcb933bd6fad37aa2d162d1a5940016001821602600160801b18600282161561240a576ffff97272373d413259a46990580e213a0260801c5b6004821615612429576ffff2e50f5f656932ef12357cf3c7fdcc0260801c5b6008821615612448576fffe5caca7e10e4e61c3624eaa0941cd00260801c5b6010821615612467576fffcb9843d60f6159c9db58835c9266440260801c5b6020821615612486576fff973b41fa98c081472e6896dfb254c00260801c5b60408216156124a5576fff2ea16466c96a3843ec78b326b528610260801c5b60808216156124c4576ffe5dee046a99a2a811c461f1969c30530260801c5b6101008216156124e4576ffcbe86c7900a88aedcffc83b479aa3a40260801c5b610200821615612504576ff987a7253ac413176f2b074cf7815e540260801c5b610400821615612524576ff3392b0822b70005940c7a398e4b70f30260801c5b610800821615612544576fe7159475a2c29b7443b29c7fa6e889d90260801c5b611000821615612564576fd097f3bdfd2022b8845ad8f792aa58250260801c5b612000821615612584576fa9f746462d870fdf8a65dc1f90e061e50260801c5b6140008216156125a4576f70d869a156d2a1b890bb3df62baf32f70260801c5b6180008216156125c4576f31be135f97d08fd981231505542fcfa60260801c5b620100008216156125e5576f09aa508b5b7a84e1c677de54f3e99bc90260801c5b62020000821615612605576e5d6af8dedb81196699c329225ee6040260801c5b62040000821615612624576d2216e584f5fa1ea926041bedfe980260801c5b62080000821615612641576b048a170391f7dc42444e8fa20260801c5b5f84131561264d575f19045b63ffffffff0160201c9392505050565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a0054600160401b900460ff16610b5a57604051631afcd79f60e31b815260040160405180910390fd5b6119c061265d565b806001600160a01b03163b5f036126e357604051634c9c8ce360e01b81526001600160a01b03821660048201526024016108f4565b5f8051602061307083398151915280546001600160a01b0319166001600160a01b0392909216919091179055565b60605f61271e84846127d7565b905080801561273f57505f3d118061273f57505f846001600160a01b03163b115b1561274c57611fff6127ea565b801561277657604051639996b31560e01b81526001600160a01b03851660048201526024016108f4565b3d1561278957612784612803565b6127a2565b60405163d6bda27560e01b815260040160405180910390fd5b5092915050565b3415610b5a5760405163b398979f60e01b815260040160405180910390fd5b815f528060020b60045260245ffd5b5f805f835160208501865af49392505050565b6040513d81523d5f602083013e3d602001810160405290565b6040513d5f823e3d81fd5b6001600160a01b03811681146119f2575f80fd5b5f60208284031215612832575f80fd5b813561283d8161280e565b9392505050565b602080825282518282018190525f918401906040840190835b8181101561289957835180518452602081015160208501526040810151151560408501525060608301925060208401935060018101905061285d565b509095945050505050565b8060020b81146119f2575f80fd5b5f805f606084860312156128c4575f80fd5b8335925060208401356128d6816128a4565b915060408401356128e6816128a4565b809150509250925092565b5f60208284031215612901575f80fd5b5035919050565b5f805f806080858703121561291b575f80fd5b84359350602085013592506040850135612934816128a4565b91506060850135612944816128a4565b939692955090935050565b634e487b7160e01b5f52604160045260245ffd5b604051601f8201601f1916810167ffffffffffffffff8111828210171561298c5761298c61294f565b604052919050565b5f67ffffffffffffffff8211156129ad576129ad61294f565b50601f01601f191660200190565b5f80604083850312156129cc575f80fd5b82356129d78161280e565b9150602083013567ffffffffffffffff8111156129f2575f80fd5b8301601f81018513612a02575f80fd5b8035612a15612a1082612994565b612963565b818152866020838501011115612a29575f80fd5b816020840160208301375f602083830101528093505050509250929050565b5f8060408385031215612a59575f80fd5b8235612a648161280e565b946020939093013593505050565b5f8060208385031215612a83575f80fd5b823567ffffffffffffffff811115612a99575f80fd5b8301601f81018513612aa9575f80fd5b803567ffffffffffffffff811115612abf575f80fd5b856020828401011115612ad0575f80fd5b6020919091019590945092505050565b5f81518084528060208401602086015e5f602082860101526020601f19601f83011685010191505092915050565b602081525f61283d6020830184612ae0565b5f8060408385031215612b31575f80fd5b50508035926020909101359150565b5f60a0828403128015612b51575f80fd5b509092915050565b5f805f8060808587031215612b6c575f80fd5b8435612b778161280e565b93506020850135612b878161280e565b92506040850135612b978161280e565b915060608501356129448161280e565b5f60208284031215612bb7575f80fd5b815167ffffffffffffffff811115612bcd575f80fd5b8201601f81018413612bdd575f80fd5b8051612beb612a1082612994565b818152856020838501011115612bff575f80fd5b8160208401602083015e5f91810160200191909152949350505050565b634e487b7160e01b5f52603260045260245ffd5b634e487b7160e01b5f52601160045260245ffd5b8181038181111561156857611568612c30565b5f60208284031215612c67575f80fd5b8151801515811461283d575f80fd5b5f60208284031215612c86575f80fd5b5051919050565b803560ff81168114612c9d575f80fd5b919050565b5f60208284031215612cb2575f80fd5b61283d82612c8d565b5f805f8060808587031215612cce575f80fd5b612cd785612c8d565b966020860135965060408601359560600135945092505050565b5f600160ff1b8201612d0557612d05612c30565b505f0390565b80546001600160a01b0390811683526001820154808216602085015260a081901c62ffffff16604085015260b81c600290810b60608501529091015416608090910152565b612d5a8184612d0b565b8151151560a0820152602082015160c08201526040909101516001600160a01b031660e082015261012061010082018190525f9082015261014001919050565b5f81600f0b6f7fffffffffffffffffffffffffffffff198103612dbf57612dbf612c30565b5f0392915050565b6001600160a01b039384168152919092166020820152604081019190915260600190565b5f805f805f60a08688031215612dff575f80fd5b612e0886612c8d565b945060208601359350604086013592506060860135612e26816128a4565b91506080860135612e36816128a4565b809150509295509295909350565b612e4e8184612d0b565b8151600290810b60a08301526020830151900b60c0820152604082015160e082015260609091015161010082015261014061012082018190525f9082015261016001919050565b5f8060408385031215612ea6575f80fd5b505080516020909101519092909150565b5f805f8060808587031215612eca575f80fd5b612ed385612c8d565b9350602085013592506040850135612934816128a4565b8082018082111561156857611568612c30565b808202811582820484141761156857611568612c30565b634e487b7160e01b5f52601260045260245ffd5b5f82612f3657612f36612f14565b500490565b5f82612f4957612f49612f14565b500690565b80546001600160a01b0319166001600160a01b0392909216919091179055565b5f81356115688161280e565b8135612f858161280e565b612f8f8183612f4e565b50600181016020830135612fa28161280e565b612fac8183612f4e565b50604083013562ffffff81168114612fc2575f80fd5b815462ffffff60a01b191660a09190911b62ffffff60a01b161781555f6060840135612fed816128a4565b825460b89190911b62ffffff60b81b1662ffffff60b81b199091161790915550610b2a61301c60808401612f6e565b60028301612f4e565b600281810b9083900b01627fffff8113627fffff198212171561156857611568612c30565b600282810b9082900b03627fffff198112627fffff8213171561156857611568612c3056fe360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbca264697066735822122034dffc29e8194b011b8db697e6e7ab4675e50d5e10c8e33e7180f4ac166d15e464736f6c634300081a0033',
-  Proxy:         '0x60806040526040516103b63803806103b683398101604081905261002291610238565b8051610041576040516330a289cf60e21b815260040160405180910390fd5b61004b8282610052565b5050610307565b61005b826100b0565b6040516001600160a01b038316907fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a28051156100a45761009f828261012b565b505050565b6100ac6101cc565b5050565b806001600160a01b03163b5f036100ea57604051634c9c8ce360e01b81526001600160a01b03821660048201526024015b60405180910390fd5b7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc80546001600160a01b0319166001600160a01b0392909216919091179055565b60605f61013884846101ed565b905080801561015957505f3d118061015957505f846001600160a01b03163b115b1561016e57610166610200565b9150506101c6565b801561019857604051639996b31560e01b81526001600160a01b03851660048201526024016100e1565b3d156101ab576101a6610219565b6101c4565b60405163d6bda27560e01b815260040160405180910390fd5b505b92915050565b34156101eb5760405163b398979f60e01b815260040160405180910390fd5b565b5f805f835160208501865af49392505050565b6040513d81523d5f602083013e3d602001810160405290565b6040513d5f823e3d81fd5b634e487b7160e01b5f52604160045260245ffd5b5f8060408385031215610249575f80fd5b82516001600160a01b038116811461025f575f80fd5b60208401519092506001600160401b0381111561027a575f80fd5b8301601f8101851361028a575f80fd5b80516001600160401b038111156102a3576102a3610224565b604051601f8201601f19908116603f011681016001600160401b03811182821017156102d1576102d1610224565b6040528181528282016020018710156102e8575f80fd5b8160208401602083015e5f602083830101528093505050509250929050565b60a3806103135f395ff3fe6080604052600a600c565b005b60186014601a565b6050565b565b5f604b7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc546001600160a01b031690565b905090565b365f80375f80365f845af43d5f803e8080156069573d5ff35b3d5ffdfea2646970667358221220ea7eb5c83a96d909b0b7de9a2de882a0206f4dac91c91b38404bcfda4f400f6464736f6c634300081a0033',
-};
+async function updateTreasury() {
+  setResult('treasuryResult','...','');
+  try {
+    await ensureSigner();
+    const proxy = document.getElementById('treasuryProxy').value;
+    const newAddr = document.getElementById('newTreasury').value;
+    const type_ = document.getElementById('treasuryContractType').value;
+    const abi = type_==='hook' ? HOOK_ABI : STAKING_ABI;
+    const c = new ethers.Contract(proxy, abi, signer);
+    const tx = await c.setTreasury(newAddr);
+    await tx.wait();
+    setResult('treasuryResult','✓ Treasury güncellendi\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('treasuryResult',e.message,'err'); }
+}
+
+async function mintTokens() {
+  setResult('mintResult','...','');
+  try {
+    await ensureSigner();
+    const t=document.getElementById('mintToken').value;
+    const to=document.getElementById('mintTo').value;
+    const am=BigInt(document.getElementById('mintAmount').value);
+    const c=new ethers.Contract(t,TOKEN_ABI,signer);
+    const tx=await c.mint(to,am); await tx.wait();
+    setResult('mintResult','✓ Mint\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('mintResult',e.message,'err'); }
+}
+
+async function rescueNative() {
+  setResult('rescueResult','...','');
+  try {
+    await ensureSigner();
+    const addr=document.getElementById('rescueContract').value;
+    const c=new ethers.Contract(addr,STAKING_ABI,signer);
+    const tx=await c.rescueNative(); await tx.wait();
+    setResult('rescueResult','✓ Rescue\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('rescueResult',e.message,'err'); }
+}
+
+async function rescueERC20() {
+  setResult('rescueResult','...','');
+  try {
+    await ensureSigner();
+    const addr=document.getElementById('rescueContract').value;
+    const token=document.getElementById('rescueToken').value;
+    const amount=BigInt(document.getElementById('rescueAmount').value);
+    const c=new ethers.Contract(addr,STAKING_ABI,signer);
+    const tx=await c.rescueERC20(token,amount); await tx.wait();
+    setResult('rescueResult','✓ Rescue\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('rescueResult',e.message,'err'); }
+}
+
+async function addLiquidityAdmin() {
+  setResult('liqAddResult','...','');
+  try {
+    await ensureSigner();
+    const s=document.getElementById('liqStaking').value;
+    const tl=parseInt(document.getElementById('liqTickLower').value);
+    const tu=parseInt(document.getElementById('liqTickUpper').value);
+    const L=BigInt(document.getElementById('liqLiquidity').value);
+    const c=new ethers.Contract(s,STAKING_ABI,signer);
+    const tx=await c.addLiquidity(tl,tu,L,{value:0}); await tx.wait();
+    setResult('liqAddResult','✓ Eklendi\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('liqAddResult',e.message,'err'); }
+}
+
+async function addLiquidityUser() {
+  setResult('liqAddResult','...','');
+  try {
+    await ensureSigner();
+    const s=document.getElementById('liqStaking').value;
+    const tl=parseInt(document.getElementById('liqTickLower').value);
+    const tu=parseInt(document.getElementById('liqTickUpper').value);
+    const L=BigInt(document.getElementById('liqLiquidity').value);
+    const c=new ethers.Contract(s,STAKING_ABI,signer);
+    const tx=await c.addLiquidity(tl,tu,L,{value:0}); await tx.wait();
+    setResult('liqAddResult','✓ Eklendi\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('liqAddResult',e.message,'err'); }
+}
+
+async function removeLiquidityUser() {
+  setResult('liqRemResult','...','');
+  try {
+    await ensureSigner();
+    const s=document.getElementById('remLiqStaking').value;
+    const tl=parseInt(document.getElementById('remTickLower').value);
+    const tu=parseInt(document.getElementById('remTickUpper').value);
+    const L=BigInt(document.getElementById('remLiquidity').value);
+    const c=new ethers.Contract(s,STAKING_ABI,signer);
+    const tx=await c.removeLiquidity(tl,tu,L); await tx.wait();
+    setResult('liqRemResult','✓ Çıkarıldı\nTx: '+tx.hash,'ok');
+  } catch(e){ setResult('liqRemResult',e.message,'err'); }
+}
+
+function calcTick() {
+  const price=parseFloat(document.getElementById('calcPrice').value);
+  const ts=parseInt(document.getElementById('calcTickSpacing').value);
+  if(!price||!ts) return;
+  const tick=Math.floor(Math.log(price)/Math.log(1.0001));
+  const tickR=Math.floor(tick/ts)*ts;
+  // sqrtPriceX96 — float precision yeterli (2^96 ~ 7.9e28, sqrt(200000)*2^96 ~ 3.5e28, float64 ok)
+  const sqrtP=BigInt(Math.floor(Math.sqrt(price)*Math.pow(2,96)));
+  // SAVIOR-only band preview
+  const bands = [];
+  for (let i=0;i<5;i++) { const tu=tickR-i*ts; bands.push('['+((tu-ts))+', '+tu+']'); }
+  setResult('calcResult',
+    'Fiyat: '+price+' SAVIOR/USDC\n'+
+    'Tick: '+tick+' | Rounded (ts='+ts+'): '+tickR+'\n'+
+    'sqrtPriceX96: '+sqrtP.toString()+'\n\n'+
+    'SAVIOR-only band preview (tickUpper ≤ '+tickR+'):\n'+bands.join('\n'),
+  'ok');
+}
+
+async function readContracts() {
+  setResult('infoResult','Okunuyor...','');
+  try {
+    await ensureSigner();
+    const sa=document.getElementById('infoStaking').value;
+    const ta=document.getElementById('infoToken').value;
+    let lines=[];
+    if (sa) {
+      const sc=new ethers.Contract(sa,STAKING_ABI,provider);
+      lines.push('=== Staking: '+sa+' ===');
+      lines.push('poolKeySet: '+await sc.poolKeySet());
+      lines.push('emergencyUnlocked: '+await sc.emergencyUnlocked());
+    }
+    if (ta) {
+      const tc=new ethers.Contract(ta,TOKEN_ABI,provider);
+      const bal=await tc.balanceOf(deployer||ethers.ZeroAddress);
+      lines.push('=== Token: '+ta+' ===');
+      lines.push('Deployer balance: '+ethers.formatUnits(bal,6)+' SAVIOR');
+    }
+    setResult('infoResult',lines.join('\n'),'ok');
+  } catch(e){ setResult('infoResult',e.message,'err'); }
+}
+
+async function deployBytecode(bc, label) {
+  const tx = await signer.sendTransaction({data: bc});
+  const rc = await tx.wait();
+  if (!rc.contractAddress) throw new Error(label+': no contract address');
+  console.log(label, rc.contractAddress);
+  return rc.contractAddress;
+}
+
+async function deployProxy(impl, initData, label) {
+  const encoded = ethers.AbiCoder.defaultAbiCoder().encode(['address','bytes'],[impl,initData]);
+  const data = PROXY_BC + encoded.slice(2);
+  return await deployBytecode(data, label);
+}
+
+async function ensureSigner() {
+  await loadEthers();
+  if (!signer) { await connectWallet(); }
+  if (!signer) throw new Error('Cüzdan bağlı değil');
+}
+
+function setResult(id, msg, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'result' + (cls ? ' ' + cls : '');
+}
 </script>
 </body>
 </html>

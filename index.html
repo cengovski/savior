@@ -9,7 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js" crossorigin="anonymous"></script>
+<script>if(typeof ethers==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"><\/script>')}</script>
 <style>
   *{box-sizing:border-box}
   body{background:#08080f;color:#e2e8f0;font-family:'Inter',sans-serif;min-height:100vh;
@@ -330,7 +331,256 @@
 
 </div><!-- /grid -->
 
-<script src="wallet.js"></script>
+<script>
+/**
+ * wallet.js — Shared wallet connector
+ * Supports: MetaMask, Coinbase, Rainbow, Trust, Brave, any EIP-1193 injected wallet,
+ *           and WalletConnect v2 (300+ wallets via QR/deep link)
+ *
+ * Usage:
+ *   await WalletConnector.connect()   → opens picker modal
+ *   WalletConnector.address           → current address or null
+ *   WalletConnector.provider          → ethers BrowserProvider
+ *   WalletConnector.signer            → ethers Signer
+ *   WalletConnector.on('connect', fn)
+ *   WalletConnector.on('disconnect', fn)
+ *   WalletConnector.on('accountsChanged', fn)
+ */
+
+const ARC_TESTNET_PARAMS = {
+    chainId: '0x13B2', // 5042 — Arc Mainnet
+    chainName: 'Arc',
+    nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+    rpcUrls: ['https://rpc.arc.io'],
+    blockExplorerUrls: ['https://explorer.arc.io']
+};
+
+const WC_PROJECT_ID = 'b56e18d47c72ab683b10814fe9495694';
+
+const WalletConnector = (() => {
+    let _provider = null;
+    let _signer   = null;
+    let _address  = null;
+    let _rawProvider = null;
+    const _listeners = { connect: [], disconnect: [], accountsChanged: [] };
+
+    function emit(event, data) {
+        (_listeners[event] || []).forEach(fn => { try { fn(data); } catch(e) {} });
+    }
+
+    function on(event, fn) { (_listeners[event] = _listeners[event] || []).push(fn); }
+
+    // ── Discover injected wallets via EIP-6963 ────────────────────────
+    function getInjectedWallets() {
+        const wallets = [];
+        // EIP-6963 announced providers
+        if (window.__eip6963Providers) {
+            for (const [, p] of window.__eip6963Providers) wallets.push({ name: p.info.name, icon: p.info.icon, provider: p.provider });
+        }
+        // Legacy window.ethereum (MetaMask compatible)
+        if (window.ethereum && wallets.length === 0) {
+            const name = window.ethereum.isMetaMask ? 'MetaMask' :
+                         window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet' :
+                         window.ethereum.isBraveWallet ? 'Brave Wallet' :
+                         window.ethereum.isTrust ? 'Trust Wallet' : 'Browser Wallet';
+            wallets.push({ name, icon: null, provider: window.ethereum });
+        }
+        // Multi-provider (window.ethereum.providers array)
+        if (window.ethereum?.providers?.length > 0) {
+            wallets.length = 0;
+            for (const p of window.ethereum.providers) {
+                const name = p.isMetaMask ? 'MetaMask' :
+                             p.isCoinbaseWallet ? 'Coinbase Wallet' :
+                             p.isBraveWallet ? 'Brave Wallet' :
+                             p.isTrust ? 'Trust Wallet' : 'Injected Wallet';
+                wallets.push({ name, icon: null, provider: p });
+            }
+        }
+        return wallets;
+    }
+
+    // EIP-6963 listener
+    window.addEventListener('eip6963:announceProvider', (e) => {
+        if (!window.__eip6963Providers) window.__eip6963Providers = new Map();
+        window.__eip6963Providers.set(e.detail.info.uuid, e.detail);
+    });
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+    // ── Switch / add Arc Mainnet ──────────────────────────────────────
+    async function ensureArcTestnet(rawProvider) {
+        const chainId = await rawProvider.request({ method: 'eth_chainId' });
+        if (chainId === ARC_TESTNET_PARAMS.chainId) return;
+        try {
+            await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_PARAMS.chainId }] });
+        } catch(e) {
+            if (e.code === 4902 || e.code === -32603) {
+                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_PARAMS] });
+            } else throw e;
+        }
+    }
+
+    // ── Connect with a specific raw provider ─────────────────────────
+    async function connectWithProvider(rawProvider) {
+        await rawProvider.request({ method: 'eth_requestAccounts' });
+        await ensureArcTestnet(rawProvider);
+
+        _rawProvider = rawProvider;
+        _provider    = new ethers.BrowserProvider(rawProvider);
+        _signer      = await _provider.getSigner();
+        _address     = await _signer.getAddress();
+
+        // Watch for account/chain changes
+        rawProvider.on('accountsChanged', async (accounts) => {
+            if (!accounts || accounts.length === 0) { disconnect(); return; }
+            _signer  = await _provider.getSigner();
+            _address = accounts[0];
+            emit('accountsChanged', _address);
+        });
+        rawProvider.on('chainChanged', () => window.location.reload());
+        rawProvider.on('disconnect',   () => disconnect());
+
+        emit('connect', _address);
+        return _address;
+    }
+
+    // ── WalletConnect v2 ──────────────────────────────────────────────
+    async function connectWalletConnect() {
+        // Lazy-load WalletConnect provider from CDN
+        if (!window.EthereumProvider) {
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.3/dist/index.umd.js';
+                s.onload = resolve; s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        const wcProvider = await window.EthereumProvider.init({
+            projectId: WC_PROJECT_ID,
+            chains: [5042],
+            optionalChains: [1],
+            rpcMap: { 5042: 'https://rpc.arc.io', 1: 'https://cloudflare-eth.com' },
+            showQrModal: true,
+            qrModalOptions: { themeMode: 'dark' },
+            metadata: {
+                name: '$SAVIOR Protocol',
+                description: 'Fair token distribution on Arc Mainnet',
+                url: window.location.origin,
+                icons: []
+            }
+        });
+        await wcProvider.connect();
+        return connectWithProvider(wcProvider);
+    }
+
+    // ── Main connect() — shows picker modal ──────────────────────────
+    async function connect() {
+        return new Promise((resolve, reject) => {
+            const injected = getInjectedWallets();
+            showPickerModal(injected, async (choice) => {
+                try {
+                    let addr;
+                    if (choice === 'wc') {
+                        addr = await connectWalletConnect();
+                    } else {
+                        addr = await connectWithProvider(choice.provider);
+                    }
+                    resolve(addr);
+                } catch(e) {
+                    reject(e);
+                }
+            }, reject);
+        });
+    }
+
+    function disconnect() {
+        _provider = null; _signer = null; _address = null; _rawProvider = null;
+        emit('disconnect');
+    }
+
+    // ── Picker modal UI ───────────────────────────────────────────────
+    function showPickerModal(injected, onPick, onCancel) {
+        // Remove existing modal
+        const existing = document.getElementById('wc-picker-modal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'wc-picker-modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+
+        const walletIcons = {
+            'MetaMask':        '🦊',
+            'Coinbase Wallet': '🔵',
+            'Rainbow':         '🌈',
+            'Trust Wallet':    '🛡️',
+            'Brave Wallet':    '🦁',
+            'Browser Wallet':  '🌐',
+        };
+
+        const injectedHTML = injected.map((w, i) => `
+            <button onclick="window.__wcPickerPick(${i})"
+                style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;color:#fff;font-size:15px;font-weight:500;transition:background .15s"
+                onmouseover="this.style.background='rgba(0,82,255,.15)'"
+                onmouseout="this.style.background='rgba(255,255,255,.05)'">
+                <span style="font-size:24px;width:32px;text-align:center">${walletIcons[w.name] || '💼'}</span>
+                <span>${w.name}</span>
+                <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.3);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);border-radius:100px;padding:2px 8px;color:#34d399">Detected</span>
+            </button>`).join('');
+
+        overlay.innerHTML = `
+            <div style="background:#0f1018;border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:28px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                    <div>
+                        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#fff">Connect Wallet</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">Choose your wallet to connect</div>
+                    </div>
+                    <button onclick="window.__wcPickerCancel()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:50%;width:32px;height:32px;cursor:pointer;color:rgba(255,255,255,.5);font-size:16px;display:flex;align-items:center;justify-content:center">&times;</button>
+                </div>
+
+                ${injected.length > 0 ? `
+                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Installed Wallets</div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${injectedHTML}</div>` : ''}
+
+                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Other Wallets</div>
+                <button onclick="window.__wcPickerPick('wc')"
+                    style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;color:#fff;font-size:15px;font-weight:500;transition:background .15s"
+                    onmouseover="this.style.background='rgba(0,82,255,.15)'"
+                    onmouseout="this.style.background='rgba(255,255,255,.05)'">
+                    <span style="font-size:24px;width:32px;text-align:center">📱</span>
+                    <div style="text-align:left">
+                        <div>WalletConnect</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,.4)">MetaMask Mobile, Trust, Rainbow, 300+ wallets</div>
+                    </div>
+                </button>
+
+                <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.05);font-size:11px;color:rgba(255,255,255,.25);text-align:center">
+                    Connected to Arc Mainnet · USDC gas token
+                </div>
+            </div>`;
+
+        window.__wcPickerPick = (choice) => {
+            overlay.remove();
+            delete window.__wcPickerPick;
+            delete window.__wcPickerCancel;
+            if (choice === 'wc') { onPick('wc'); }
+            else { onPick(injected[choice]); }
+        };
+        window.__wcPickerCancel = () => {
+            overlay.remove();
+            delete window.__wcPickerPick;
+            delete window.__wcPickerCancel;
+            onCancel(new Error('User cancelled'));
+        };
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) window.__wcPickerCancel(); });
+        document.body.appendChild(overlay);
+    }
+
+    return { connect, disconnect, on, get address() { return _address; }, get provider() { return _provider; }, get signer() { return _signer; } };
+})();
+
+window.WalletConnector = WalletConnector;
+
+</script>
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
 const USDC_ADDR    = '0x3600000000000000000000000000000000000000';
@@ -338,15 +588,16 @@ const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
 const QUOTER_ADDR  = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
 
 const STAKING_ABI = [
-  'function buy(uint256 minSaviorOut, uint256 slippageBps) external payable',
-  'function unstake(uint256 lockIndex) external',
-  'function getUserLocks(address user) external view returns (tuple(uint256 amount, uint256 unlockTime, bool claimed)[])',
-  'function getClaimable(address user) external view returns (uint256)',
-  'function getLockCount(address user) external view returns (uint256)',
-  'function totalStaked() view returns (uint256)',
-  'function globalUnlock() view returns (bool)',
-  'function poolKeySet() view returns (bool)',
-  'function poolKey() view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external',
+  'function claim(uint256 i) external',
+  'function emergencyUnlockAll() external',
+  'function getLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockAt)[])',
+  'function lastBuyBlock(address) external view returns (uint64)',
+  'function globalUnlock() external view returns (bool)',
+  'function keySet() external view returns (bool)',
+  'function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
+  'function treasury() external view returns (address)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
 ];
 
 const QUOTER_ABI = [
@@ -364,21 +615,58 @@ document.addEventListener('DOMContentLoaded', () => {
   TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
   refreshContractsDisplay();
 
-  if (window.WalletConnector) {
-    WalletConnector.onConnect(async addr => {
+  WalletConnector.on('connect', async addr => {
+    userAddress = addr;
+    const btn = document.getElementById('connect-btn');
+    btn.innerHTML = `<i class="fa-solid fa-check-circle text-xs text-emerald-400"></i><span class="font-mono">${addr.slice(0,6)}…${addr.slice(-4)}</span>`;
+    await updateUSDCBalance();
+    await refreshStakes();
+  });
+  WalletConnector.on('disconnect', () => {
+    userAddress = null;
+    const btn = document.getElementById('connect-btn');
+    btn.innerHTML = '<i class="fa-regular fa-wallet"></i> Connect Wallet';
+  });
+  WalletConnector.on('accountsChanged', async addr => {
+    if (addr) {
       userAddress = addr;
-      const btn = document.getElementById('connect-btn');
-      btn.innerHTML = `<i class="fa-solid fa-check-circle text-xs text-emerald-400"></i><span class="font-mono">${addr.slice(0,6)}…${addr.slice(-4)}</span>`;
       await updateUSDCBalance();
       await refreshStakes();
-    });
-  }
+    } else {
+      userAddress = null;
+    }
+  });
   updateSwapQuote();
 });
 
 async function connectWallet(){
-  if(!window.WalletConnector){ alert('Wallet connector not loaded'); return; }
-  await WalletConnector.connect();
+  try {
+    await WalletConnector.connect();
+    // switch to Arc Mainnet (5042)
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x13B2' }]
+      });
+    } catch(switchErr) {
+      if (switchErr.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x13B2',
+            chainName: 'Arc Mainnet',
+            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+            rpcUrls: ['https://rpc.mainnet.arc.io'],
+            blockExplorerUrls: ['https://explorer.arc.io']
+          }]
+        });
+      }
+    }
+  } catch(e) {
+    console.error('Connect error:', e);
+    const msg = e.code === 4001 ? 'Connection rejected' : (e.message || 'Unknown error');
+    document.getElementById('connect-btn').innerHTML = `<i class="fa-solid fa-exclamation-circle text-xs text-red-400"></i> ${msg.slice(0,30)}`;
+  }
 }
 
 function switchTab(tab){
@@ -441,7 +729,7 @@ async function updateSwapQuote(){
     try{
       const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
       const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-      const pks=await staking.poolKeySet();
+      const pks=await staking.keySet();
       warnEl.classList.toggle('hidden',pks);
       if(!pks){outEl.textContent='—';lockEl.classList.add('hidden');return;}
     }catch(e){}
@@ -473,29 +761,62 @@ async function executeSwap(){
   if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured. Check admin panel.');return;}
   const amt=parseFloat(document.getElementById('swap-amount').value);
   if(!amt||amt<=0){alert('Enter a valid amount');return;}
-  const slippageBps=parseInt(document.getElementById('slippage-range').value);
+  const slippagePct=parseFloat(document.getElementById('slippage-range').value||'100')/100;
   const btn=document.getElementById('swap-btn');
   btn.disabled=true;
   btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
   try{
     const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
-    const pks=await staking.poolKeySet();
+    const pks=await staking.keySet();
     if(!pks){alert('Pool not initialized yet. Admin must set up the V4 pool first.');return;}
-    const usdcNative=BigInt(Math.round(amt*1e6));
-    const tx=await staking.buy(0n,BigInt(slippageBps),{value:usdcNative});
+
+    // USDC is ERC-20 (6 decimals) on Arc — must approve staking to spend
+    const amountIn=BigInt(Math.round(amt*1e6));
+    const usdc=new ethers.Contract(USDC_ADDR,
+      ['function approve(address,uint256) returns(bool)',
+       'function allowance(address,address) view returns(uint256)'],
+      WalletConnector.signer);
+    const allowance=await usdc.allowance(userAddress,STAKING_ADDR);
+    if(allowance<amountIn){
+      btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
+      const approveTx=await usdc.approve(STAKING_ADDR, amountIn*2n);
+      await approveTx.wait();
+    }
+
+    // Get quote for minOut
+    let minOut=0n;
+    try{
+      const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,WalletConnector.provider||new ethers.BrowserProvider(window.ethereum));
+      const q=await quoter.quoteExactInputSingle.staticCall({
+        poolKey_currency0:USDC_ADDR,
+        poolKey_currency1:TOKEN_ADDR||'0x0000000000000000000000000000000000000001',
+        poolKey_fee:10000,
+        poolKey_tickSpacing:200,
+        poolKey_hooks:STAKING_ADDR,
+        zeroForOne:true,
+        exactAmount:amountIn,
+        sqrtPriceLimitX96:0n
+      });
+      minOut=BigInt(Math.floor(Number(q.amountOut)*(1-slippagePct/100)));
+    }catch(_){minOut=0n;}
+
+    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
+    // zeroForOne=true: USDC(currency0) → SAVIOR(currency1)
+    const tx=await staking.swapExactIn(true,amountIn,minOut);
     btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
     await tx.wait();
-    alert('Swap successful! Check My Stakes tab.');
+    alert('Swap successful! 50% instant, 50% in My Stakes tab.');
     await updateUSDCBalance();
     await refreshStakes();
   }catch(e){
     const raw=e.reason||e.shortMessage||e.message||String(e);
-    const data=e.data||e.error?.data||'';
     let msg=raw;
-    if(data==='0x486aa307'||raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
-    else if(raw.includes('InsufficientLiquidity'))msg='Pool has no liquidity. Contact admin.';
-    else if(raw.includes('PoolKeyNotSet'))msg='Pool key not set on staking contract.';
-    else if(raw.includes('execution reverted')&&!raw.includes(':'))msg='Swap reverted — pool may not be active yet.';
+    if(raw.includes('OnlyStaking'))msg='Hook: only staking contract can swap.';
+    else if(raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
+    else if(raw.includes('Slippage'))msg='Slippage too high — try higher slippage tolerance.';
+    else if(raw.includes('SameBlock'))msg='Cannot sell in same block as buy.';
+    else if(raw.includes('ZeroAmount'))msg='Amount must be greater than 0.';
+    console.error('Swap error full:',e);
     alert('Swap error: '+msg);
   }finally{
     btn.disabled=false;
@@ -511,11 +832,12 @@ async function refreshStakes(){
   try{
     const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
     const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-    const [locks,claimable,globalUnlock]=await Promise.all([
-      staking.getUserLocks(userAddress),staking.getClaimable(userAddress),staking.globalUnlock()
+    const [locks,globalUnlock]=await Promise.all([
+      staking.getLocks(userAddress), staking.globalUnlock()
     ]);
     const now=Math.floor(Date.now()/1000);
-    const active=locks.filter(l=>!l.claimed);
+    // New struct: {uint128 amount, uint64 unlockAt} — amount=0 means claimed
+    const active=locks.filter(l=>Number(l.amount)>0);
     if(active.length===0){
       document.getElementById('stakes-loading').textContent='No active locks. Swap to start staking.';
       document.getElementById('stakes-loading').classList.remove('hidden');
@@ -524,15 +846,19 @@ async function refreshStakes(){
     }
     document.getElementById('stakes-loading').classList.add('hidden');
     const list=document.getElementById('stakes-list');
+    let claimableTotal=0;
     for(let i=0;i<locks.length;i++){
-      const lock=locks[i];if(lock.claimed)continue;
-      const unlockTs=Number(lock.unlockTime);
+      const lock=locks[i];
+      if(Number(lock.amount)===0) continue; // claimed
+      const unlockTs=Number(lock.unlockAt);
       const matured=globalUnlock||now>=unlockTs;
       const remaining=Math.max(0,unlockTs-now);
       const days=Math.floor(remaining/86400);
       const hours=Math.floor((remaining%86400)/3600);
       const progress=matured?100:Math.min(100,Math.round((1-remaining/864000)*100));
-      const amt=(Number(lock.amount)/1e18).toLocaleString(undefined,{maximumFractionDigits:2});
+      // SAVIOR is 6 decimals
+      const amt=(Number(lock.amount)/1e6).toLocaleString(undefined,{maximumFractionDigits:2});
+      if(matured) claimableTotal+=Number(lock.amount)/1e6;
       list.innerHTML+=`
         <div class="lock-row">
           <div class="flex justify-between items-start">
@@ -541,8 +867,8 @@ async function refreshStakes(){
               <div class="text-xs text-white/30 mt-0.5">Lock #${i} · ${matured?'<span class="text-emerald-400">Claimable now</span>':'~'+days+'d '+hours+'h remaining'}</div>
             </div>
             ${matured
-              ?`<button onclick="unstake(${i})" id="unstake-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
-                  <i class="fa-solid fa-unlock text-xs"></i>Unstake
+              ?`<button onclick="claim(${i})" id="claim-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
+                  <i class="fa-solid fa-unlock text-xs"></i>Claim
                 </button>`
               :`<span class="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">${days}d left</span>`
             }
@@ -550,9 +876,9 @@ async function refreshStakes(){
           <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
         </div>`;
     }
-    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e18,0);
+    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e6,0);
     document.getElementById('total-locked-display').textContent=totalLocked.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
-    document.getElementById('claimable-display').textContent=(Number(claimable)/1e18).toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
+    document.getElementById('claimable-display').textContent=claimableTotal.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
     document.getElementById('stakes-summary').classList.remove('hidden');
   }catch(e){
     document.getElementById('stakes-loading').textContent='Error: '+(e.reason||e.message);
