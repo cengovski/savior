@@ -483,7 +483,7 @@ async function deployStaking() {
     tokenAddr = tokenAddr || localStorage.getItem('savior_token') || '';
     if (!tokenAddr) throw new Error('Deploy Token first (Step 1) or refresh page');
     const iface = new ethers.Interface(['function initialize(address,address,address,address,address)']);
-    const initData = iface.encodeFunctionData('initialize',[tokenAddr, USDC, POOL_MANAGER, TREASURY, deployer]);
+    const initData = iface.encodeFunctionData('initialize',[deployer]);
     const implAddr = await deployBytecode(STAKING_BC,'SaviorStaking impl');
     stakingAddr = await deployProxy(implAddr, initData,'SaviorStaking proxy');
     ['mgmtStaking','upgradeProxy','emergencyProxy','treasuryProxy','infoStaking','liqStaking','remLiqStaking'].forEach(id=>{
