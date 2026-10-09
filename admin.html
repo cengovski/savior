@@ -49,7 +49,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
 </div>
 <div id="mainContent">
   <h1>⚙️ SAVIOR Admin Panel</h1>
-  <p class="subtitle">Arc Mainnet — Kontrat Deploy &amp; Yönetim</p>
+  <p class="subtitle">Arc Mainnet — Contract Deploy &amp; Yönetim</p>
   <div class="tab-bar">
     <div class="tab active" onclick="showTab('deploy')">Deploy</div>
     <div class="tab" onclick="showTab('manage')">Yönetim</div>
@@ -66,7 +66,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
     <div class="card"><h2><span class="step-badge">2</span> SaviorToken Deploy</h2>
       <div style="font-size:12px;color:#64748b;margin-bottom:12px">UUPS ERC-20, 6 decimal, $SAVIOR</div>
       <button onclick="deployToken()">Token Deploy Et</button>
-      <div class="result" id="tokenResult">Bekleniyor...</div>
+      <div class="result" id="tokenResult">Waiting...</div>
     </div>
     <div class="card"><h2><span class="step-badge">3</span> SaviorHook Impl Deploy</h2>
       <button onclick="deployHookImpl()">Hook Impl Deploy Et</button>
@@ -175,13 +175,13 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <div class="result" id="mintResult">Bekleniyor...</div>
     </div>
     <div class="card"><h2>Rescue</h2>
-      <label>Kontrat</label><input id="rescueContract" placeholder="0x...">
+      <label>Kontrat</label><input id="rescueContract" placeholder="0x..." value="0xA9Bd5FCa5EFD214fB42A5eDdbA87ae7E1ccA9732">
       <div class="grid2">
         <button onclick="rescueNative()">Rescue Native USDC</button>
         <div>
           <label>ERC-20 token + miktar</label>
-          <input id="rescueToken" placeholder="0x token adresi">
-          <input id="rescueAmount" placeholder="ham miktar">
+          <input id="rescueToken" placeholder="0x token address">
+          <input id="rescueAmount" placeholder="raw amount">
           <button onclick="rescueERC20()">Rescue ERC-20</button>
         </div>
       </div>
