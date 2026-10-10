@@ -21,7 +21,7 @@ const ARC_TESTNET_PARAMS = {
     blockExplorerUrls: ['https://explorer.arc.io']
 };
 
-const WC_PROJECT_ID = 'b56e18d47c72ab683b10814fe9495694';
+const WC_PROJECT_ID = '35a6cd36c771d9917bc693d762b4f824';
 
 const WalletConnector = (() => {
     let _provider = null;
