@@ -1,0 +1,8 @@
+{
+  "contract": "PoolManager",
+  "format": "ethers-human-readable",
+  "source": "live GitHub Pages frontend (partial ABI)",
+  "abi": [
+    "function initialize(tuple(address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint160 sqrtPriceX96) returns (int24)"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "contract": "SaviorHook",
+  "format": "ethers-human-readable",
+  "source": "live GitHub Pages frontend (partial ABI)",
+  "abi": [
+    "function initialize(address,address,address)",
+    "function setStakingContract(address)",
+    "function staking() view returns (address)",
+    "function treasury() view returns (address)",
+    "function poolManager() view returns (address)",
+    "function upgradeToAndCall(address,bytes)"
+  ]
+}
