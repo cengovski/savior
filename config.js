@@ -42,6 +42,8 @@ window.SAVIOR_CONFIG = {
   C.v2 = /^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x0{40}$/i.test(a) ? a : "";
   // v2 differences used by the site: minOut is checked against NET output (after the 0.3% treasury fee),
   // v1 checked the GROSS pool output. Fee (0.3%) and the 50/50 instant/locked split are unchanged.
-  C.stakingSources = C.v2 ? [{ id: "v1", label: "Old", address: C.contracts.staking }, { id: "v2", label: "v2", address: C.v2 }]
+  // The old staking contract is retired (no SAVIOR left, globalUnlock true): with v2 set, the site reads only v2.
+  C.v1Retired = !!C.v2;
+  C.stakingSources = C.v1Retired ? [{ id: "v2", label: "", address: C.v2 }] : C.v2 ? [{ id: "v1", label: "Old", address: C.contracts.staking }, { id: "v2", label: "v2", address: C.v2 }]
                           : [{ id: "v1", label: "", address: C.contracts.staking }];
 })(window.SAVIOR_CONFIG);
