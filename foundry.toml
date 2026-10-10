@@ -17,11 +17,12 @@ remappings = [
     "solmate/=lib/v4-core/lib/solmate/",
 ]
 
-# Arc Testnet
+# Arc (docs.arc.io): mainnet 5042, testnet 5042002, native gas USDC (18 dec)
 [rpc_endpoints]
 arc_testnet = "https://rpc.testnet.arc.io"
-arc_mainnet = "https://rpc.arc.io"
+arc_mainnet = "https://rpc.mainnet.arc.io"
+arc = "https://rpc.mainnet.arc.io"
 
 [etherscan]
-arc_testnet = { key = "placeholder", url = "https://explorer.testnet.arc.io/api" }
-arc_mainnet = { key = "placeholder", url = "https://explorer.arc.io/api" }
+arc_testnet = { key = "blockscout", chain = 5042002, url = "https://explorer.testnet.arc.io/api/" }
+arc_mainnet = { key = "blockscout", chain = 5042, url = "https://explorer.arc.io/api/" }

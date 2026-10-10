@@ -1,0 +1,29 @@
+# SaviorStakingV2 — standalone Foundry project (Arc Mainnet, chainId 5042)
+# Arc params per https://docs.arc.io/arc/references/rpc-endpoints and
+# https://docs.arc.io/integrate/infrastructure (native gas = USDC, 18 decimals).
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["../lib"]
+solc = "0.8.26"
+optimizer = true
+optimizer_runs = 200
+# Arc EVM target is Osaka; cancun opcodes are a safe subset.
+evm_version = "cancun"
+remappings = [
+    "@openzeppelin/contracts/=../lib/openzeppelin-contracts/contracts/",
+    "forge-std/=../lib/forge-std/src/",
+]
+
+[rpc_endpoints]
+arc = "${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
+arc_mainnet = "https://rpc.mainnet.arc.io"
+arc_testnet = "https://rpc.testnet.arc.io"
+
+# Arc explorer is Blockscout: forge verify-contract --verifier blockscout --verifier-url https://explorer.arc.io/api/
+[etherscan]
+arc = { key = "${ARC_EXPLORER_KEY:-blockscout}", chain = 5042, url = "https://explorer.arc.io/api/" }
+arc_mainnet = { key = "${ARC_EXPLORER_KEY:-blockscout}", chain = 5042, url = "https://explorer.arc.io/api/" }
+arc_testnet = { key = "${ARC_EXPLORER_KEY:-blockscout}", chain = 5042002, url = "https://explorer.testnet.arc.io/api/" }
