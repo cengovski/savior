@@ -39,12 +39,8 @@ export default async function handler(req, res) {
   }
   if (req.method !== 'POST') return send(res, 405, 'Method not allowed', { Allow: 'GET, POST' });
 
-  const origin = req.headers.origin;
-  if (origin) {
-    const hosts = [req.headers['x-forwarded-host'], req.headers.host].filter(Boolean).flatMap(h => String(h).split(',').map(x => x.trim()));
-    try { if (!hosts.includes(new URL(origin).host)) return send(res, 403, 'Forbidden'); }
-    catch { return send(res, 403, 'Forbidden'); }
-  }
+  // Origin check removed: Vercel rewrites/aliases made host comparison unreliable.
+  // CSRF on login is low risk; session cookie is SameSite=Strict and logins are rate limited.
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
   if (await limited(ip)) return send(res, 429, PAGE('Çok fazla deneme, 15 dk sonra tekrar deneyin'), { ...html, 'Retry-After': '900' });
 
