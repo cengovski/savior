@@ -1,0 +1,25 @@
+{
+  "contract": "SaviorStaking",
+  "format": "ethers-human-readable",
+  "source": "live GitHub Pages frontend (partial ABI)",
+  "abi": [
+    "function initialize(address owner_)",
+    "function setPoolKey(address c0, address c1, uint24 fee, int24 tickSpacing, address hooks)",
+    "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut)",
+    "function addLiquidity(int24 tickLower, int24 tickUpper, uint128 liquidity)",
+    "function claim(uint256 i)",
+    "function emergencyUnlockAll()",
+    "function rescue(address token, uint256 amount)",
+    "function getLocks(address user) view returns ((uint128 amount, uint64 unlockAt)[])",
+    "function key() view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)",
+    "function keySet() view returns (bool)",
+    "function globalUnlock() view returns (bool)",
+    "function lastBuyBlock(address) view returns (uint64)",
+    "function upgradeToAndCall(address newImpl, bytes data)",
+    "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external",
+    "function claim(uint256 i) external",
+    "function getLocks(address user) external view returns (tuple(uint128 amount, uint64 unlockAt)[])",
+    "function globalUnlock() external view returns (bool)",
+    "function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)"
+  ]
+}

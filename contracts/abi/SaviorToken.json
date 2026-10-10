@@ -1,0 +1,14 @@
+{
+  "contract": "SaviorToken",
+  "format": "ethers-human-readable",
+  "source": "live GitHub Pages frontend (partial ABI)",
+  "abi": [
+    "function initialize(address owner)",
+    "function mint(address to, uint256 amount)",
+    "function approve(address spender, uint256 amount) returns (bool)",
+    "function balanceOf(address) view returns (uint256)",
+    "function rescue(address token, uint256 amount)",
+    "function rescueNative()",
+    "function upgradeToAndCall(address,bytes)"
+  ]
+}
