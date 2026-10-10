@@ -4,7 +4,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/panel.js": {
-      "includeFiles": "{protected/**,../admin/protected/**}"
+      "includeFiles": "protected/**"
     }
   },
   "rewrites": [
