@@ -14,8 +14,16 @@ npx esbuild entry.js --bundle --format=esm --platform=browser --minify --target=
 ```
 No API keys are involved: the user's wallet signs, attestation uses Circle's public Iris API.
 
-`walletconnect.esm.js` is an esbuild ESM bundle of `@walletconnect/ethereum-provider@2.17.3` + `@walletconnect/modal@2.7.0`
-(exports `EthereumProvider`). Loaded lazily when the user picks WalletConnect. Same build flags as above, entry:
-`import { EthereumProvider } from '@walletconnect/ethereum-provider'; export { EthereumProvider }; import '@walletconnect/modal';`
-The WalletConnect/Reown projectId is a public identifier (not a secret); set it in `WC_PROJECT_ID` and allowlist
-the site domains in the Reown dashboard.
+`appkit/` is an esbuild ESM bundle (code-split, entry `appkit/entry.js`) of:
+- `@reown/appkit@1.8.24`
+- `@reown/appkit-adapter-ethers@1.8.24` (with ethers v6)
+
+Exports: `createAppKit`, `EthersAdapter`, `defineChain`. Loaded on page load to restore sessions; chunks load on demand.
+Rebuild:
+```
+npm i @reown/appkit@1.8.24 @reown/appkit-adapter-ethers@1.8.24 ethers@6 esbuild
+printf "export { createAppKit } from '@reown/appkit';\nexport { defineChain } from '@reown/appkit/networks';\nexport { EthersAdapter } from '@reown/appkit-adapter-ethers';\n" > entry.js
+npx esbuild entry.js --bundle --format=esm --splitting --chunk-names=chunks/[name]-[hash] --platform=browser --minify \
+  --target=es2020 --define:process.env.NODE_ENV='"production"' --define:global=globalThis --outdir=appkit
+```
+The Reown projectId (`WC_PROJECT_ID`) is a public identifier, not a secret. Allowed origins are set in the Reown dashboard.

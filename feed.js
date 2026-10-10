@@ -105,7 +105,7 @@
         lastBlock = to;
       }
       render();
-      setStatus("live · block " + head.toLocaleString());
+      setStatus("live, block " + head.toLocaleString());
     } catch (e) { console.warn("[feed] poll failed", e); setStatus("reconnecting…"); }
     timer = setTimeout(poll, POLL_MS);
   }
