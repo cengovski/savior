@@ -27,9 +27,12 @@ Safety:
 
 ## Cost
 
-Cloudflare Workers free plan: 100,000 requests per day; the Cache API is included. One page view sends
-roughly 60 to 80 RPC requests in its first minute after the batching changes, so the free plan covers
-about 1,000 to 1,500 full visits per day. Beyond that the Workers paid plan is 5 USD per month.
+Cloudflare Workers free plan: 100,000 requests per day; the Cache API is included. Measured on the
+preview (commit fff19b9), one visitor sends about 14 HTTP requests in the first minute, about 9 per minute
+while the tab is open and about 1.5 per minute while it is hidden. A 3-minute visit is roughly 30 requests,
+so the free plan covers about 3,000 such visits per day. Edge caching does not reduce the Worker request
+count (every browser request still hits the Worker), but it removes most upstream calls, which is what
+causes the 429s. Beyond the free plan, Workers paid is 5 USD per month.
 
 ## Deploy (when approved)
 
