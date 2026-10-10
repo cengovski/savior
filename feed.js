@@ -56,7 +56,7 @@
       const kind = el("span", "feed-kind k-" + it.kind);
       if (it.big) kind.innerHTML = '<svg class="ico-16"><use href="#i-bolt"/></svg>';
       kind.appendChild(document.createTextNode(it.kind));
-      if (V2 && it.src) kind.appendChild(el("span", "src-tag", it.src === "v2" ? "v2" : "Old"));
+      if (V2 && it.src && !C.v1Retired) kind.appendChild(el("span", "src-tag", it.src === "v2" ? "v2" : "Old"));
       const mid = el("div", "feed-main");
       mid.appendChild(el("div", null, it.text));
       if (it.locked != null) {
@@ -64,7 +64,7 @@
           `${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed")));
         if (it.unlock === undefined && !it._req && window.SaviorLocks && it.who) {
           it._req = true;
-          window.SaviorLocks.lockForBuy(it.who, it.locked, it.src || "v1").then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
+          (C.v1Retired && (it.src || "v1") === "v1" ? Promise.resolve(null) : window.SaviorLocks.lockForBuy(it.who, it.locked, it.src || "v1")).then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
         }
       }
       row.append(kind, mid, el("span", "feed-who", it.who ? short(it.who) : "#" + it.block));

@@ -13,6 +13,7 @@
   const lc = (a) => (a || "").toLowerCase();
   const STAKING = lc(C.contracts.staking), PM = lc(C.contracts.poolManager);
   const V2 = lc(C.v2 || "");
+  const V1_ON = !C.v1Retired; // retired v1: no v1 reads at all (no logs scan, no getLocks, no globalUnlock)
   const SRC = { v1: C.contracts.staking, v2: C.v2 || null };
   let provider = null, staking = null;
   const P = () => provider || (provider = window.SaviorRPC.provider()); // failover across public Arc RPCs
@@ -75,7 +76,7 @@
   const MC = () => mc || (mc = new ethers.Contract(MC3, ["function aggregate3((address target,bool allowFailure,bytes callData)[] calls) view returns ((bool success,bytes returnData)[])"], P()));
   // addrs: v1 wallets; addrs2: v2 wallets (only when v2 is active). Everything goes in ONE aggregate3 call.
   async function getLocksMany(addrs, addrs2 = []) {
-    const jobs = [{ src: "v1", gu: true }].concat(addrs.map((a) => ({ src: "v1", a })));
+    const jobs = V1_ON ? [{ src: "v1", gu: true }].concat(addrs.map((a) => ({ src: "v1", a }))) : [];
     if (V2) jobs.push({ src: "v2", gu: true }, ...addrs2.map((a) => ({ src: "v2", a })));
     const calls = jobs.map((j) => ({ target: SRC[j.src], allowFailure: true,
       callData: j.gu ? stakingIface.encodeFunctionData("globalUnlock", []) : stakingIface.encodeFunctionData("getLocks", [j.a]) }));
@@ -102,7 +103,7 @@
         cache.scanned = seed.scanned;
       }
       // seed lock snapshot: used only where we have nothing newer
-      for (const [w, l] of Object.entries(seed.locks || {})) if (!cache.locks[w] || cache.locks[w].t < (seed.locksAt || 0)) cache.locks[w] = { t: seed.locksAt || 0, l };
+      if (V1_ON) for (const [w, l] of Object.entries(seed.locks || {})) if (!cache.locks[w] || cache.locks[w].t < (seed.locksAt || 0)) cache.locks[w] = { t: seed.locksAt || 0, l };
       // v2 snapshot is used only if it was generated for this exact v2 address
       const s2 = seed.v2;
       if (V2 && s2 && lc(s2.address) === V2 && s2.scanned > cache2.scanned) {
@@ -192,7 +193,7 @@
       const row = el("div", "tr lb-row" + (isSoon ? " lb-soon" : ""));
       row.appendChild(el("span", "lb-rank", "#" + (idx + 1)));
       const a = el("a", "lb-addr", short(r.addr)); a.href = C.explorer + "/address/" + r.addr; a.target = "_blank"; a.rel = "noopener";
-      if (V2) { const w = el("span", "lb-addr-wrap"); w.appendChild(a); w.appendChild(el("span", "tag lb-src", r.srcLabel)); row.appendChild(w); }
+      if (V2 && V1_ON) { const w = el("span", "lb-addr-wrap"); w.appendChild(a); w.appendChild(el("span", "tag lb-src", r.srcLabel)); row.appendChild(w); }
       else row.appendChild(a);
       row.appendChild(el("span", "lb-amt", fmt(r.total)));
       row.appendChild(el("span", "lb-count", String(r.count)));
@@ -217,7 +218,7 @@
   // v1 + v2 merged per wallet. Locks in a contract with globalUnlock count as unlocked.
   function rowsMerged() {
     const now = Math.floor(Date.now() / 1000), by = {};
-    for (const src of ["v1", "v2"]) for (const [addr, c] of Object.entries(store(src).locks)) {
+    for (const src of V1_ON ? ["v1", "v2"] : ["v2"]) for (const [addr, c] of Object.entries(store(src).locks)) {
       const l = c.l.filter((x) => BigInt(x.amount) > 0n); if (!l.length) continue;
       const r = by[addr] || (by[addr] = { addr, locks: [], srcs: new Set() });
       r.srcs.add(src); l.forEach((x) => r.locks.push({ ...x, open: gu[src] || x.unlockAt <= now }));
@@ -227,7 +228,7 @@
       const pending = r.locks.filter((x) => !x.open).map((x) => x.unlockAt).sort((a, b) => a - b);
       return { addr: r.addr, total: r.locks.reduce((s, x) => s + BigInt(x.amount), 0n), count: r.locks.length,
         next: pending[0] || times[0], lastU: times[times.length - 1], allUnlocked: !pending.length,
-        srcLabel: r.srcs.size === 2 ? "Old + v2" : r.srcs.has("v2") ? "v2" : "Old",
+        srcLabel: V1_ON ? (r.srcs.size === 2 ? "Old + v2" : r.srcs.has("v2") ? "v2" : "Old") : "",
         soonAmt: r.locks.filter((x) => !x.open && x.unlockAt <= now + 86400).reduce((s, x) => s + BigInt(x.amount), 0n) };
     }).sort((a, b) => (b.total > a.total ? 1 : b.total < a.total ? -1 : 0));
   }
@@ -249,14 +250,14 @@
       if (!force && head === lastHead) { setStatus("Updated " + new Date().toLocaleTimeString("en-US")); return; } // no new block: nothing to re-read
       let failed = 0;
       // 1) wallets we already know (seed + cache): one Multicall3 call
-      const known = Object.keys(cache.wallets), known2 = Object.keys(cache2.wallets);
+      const known = V1_ON ? Object.keys(cache.wallets) : [], known2 = Object.keys(cache2.wallets);
       try { if (known.length || known2.length) { await getLocksMany(known, known2); showRows(); } }
       catch (e) { failed++; setStatus("Arc network is busy. Showing last known data.", true); return; }
       // 2) new lockers in blocks after the seed/cache
       try {
-        await scan((f) => setStatus("Checking new blocks " + Math.min(100, Math.round(f * 100)) + "%"));
+        if (V1_ON) await scan((f) => setStatus("Checking new blocks " + Math.min(100, Math.round(f * 100)) + "%"));
         await scanV2();
-        const fresh = Object.keys(cache.wallets).filter((w) => !known.includes(w));
+        const fresh = (V1_ON ? Object.keys(cache.wallets) : []).filter((w) => !known.includes(w));
         const fresh2 = Object.keys(cache2.wallets).filter((w) => !known2.includes(w));
         if (fresh.length || fresh2.length) await getLocksMany(fresh, fresh2);
       } catch (e) { console.warn("[locks] scan", e); failed++; }

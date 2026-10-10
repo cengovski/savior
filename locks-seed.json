@@ -1,28 +1,45 @@
 {
- "generated": "2026-10-10T22:25:37.246Z",
+ "generated": "2026-10-10T23:11:41.888Z",
  "scanned": 25311838,
  "wallets": {
   "0x7185d50557040047a142aeada95e41c4b31720e7": 25164492,
   "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": 25291404
  },
- "locksAt": 1791671137247,
- "locks": {
-  "0x7185d50557040047a142aeada95e41c4b31720e7": [
-   {
-    "i": 0,
-    "amount": "9804530625",
-    "unlockAt": 1792289644
-   }
-  ],
-  "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": [
-   {
-    "i": 0,
-    "amount": "9804520908",
-    "unlockAt": 1792130814
-   }
-  ]
- },
+ "locksAt": 1791673901889,
+ "locks": {},
  "trades": [
+  {
+   "kind": "CLAIM",
+   "src": "v1",
+   "text": "9,804.5209 SAVIOR claimed",
+   "who": "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de",
+   "tx": "0x39567f61d65be344acc63b21699201fc944e31cedfc383d1dc2c7a7a274ffcd8",
+   "block": 25317059,
+   "idx": 0,
+   "locked": null
+  },
+  {
+   "kind": "CLAIM",
+   "src": "v1",
+   "text": "9,804.5306 SAVIOR claimed",
+   "who": "0x7185d50557040047a142aeada95e41c4b31720e7",
+   "tx": "0xaea701a22bc679f0bdedf765fd48047c4e021a2c7b3d47ea482d54cde202206e",
+   "block": 25317020,
+   "idx": 0,
+   "locked": null
+  },
+  {
+   "kind": "BUY",
+   "src": "v2",
+   "text": "0.1 USDC to 19,668.0075 SAVIOR",
+   "who": "0x7185d50557040047A142aEadA95e41C4b31720e7",
+   "tx": "0x3a265acf9724e6dc47ca99cf6b4bba1d204d17e076ba735a8e9617bb86f7e57d",
+   "block": 25316750,
+   "idx": 26,
+   "big": false,
+   "locked": "9804501721",
+   "unlock": 1792235995
+  },
   {
    "kind": "BUY",
    "text": "0.1 USDC to 19,668.046 SAVIOR",
@@ -38,8 +55,18 @@
  "v2": {
   "address": "0x8807da96a254b370e1e9ae8d3cc4163d1e2939bb",
   "deployBlock": 25311674,
-  "scanned": 25311852,
-  "wallets": {},
-  "locks": {}
+  "scanned": 25317313,
+  "wallets": {
+   "0x7185d50557040047a142aeada95e41c4b31720e7": 25316750
+  },
+  "locks": {
+   "0x7185d50557040047a142aeada95e41c4b31720e7": [
+    {
+     "i": 0,
+     "amount": "9804501721",
+     "unlockAt": 1792235995
+    }
+   ]
+  }
  }
 }
