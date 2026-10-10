@@ -69,18 +69,23 @@
   const TTL = { eth_blockNumber: 2000, eth_call: 4000 };
   const mem = new Map();
   let bc = null; try { bc = new BroadcastChannel("savior-rpc"); bc.onmessage = (e) => { if (e.data && e.data.k) mem.set(e.data.k, e.data.v); }; } catch (e) {}
+  const LOGS_TTL = 600000;
   function cacheKey(p) {
-    if (Array.isArray(p) || !TTL[p.method]) return null;
+    if (Array.isArray(p)) return null;
+    if (p.method === "eth_getLogs") { const q = p.params && p.params[0]; return q && /^0x/.test(q.toBlock || "") ? "logs:" + JSON.stringify(q) : null; }
+    if (!TTL[p.method]) return null;
     if (p.method === "eth_call" && p.params[1] && p.params[1] !== "latest") return null;
     return p.method + ":" + JSON.stringify(p.params);
   }
   function cacheGet(k, method) {
+    if (method === "eth_getLogs") { const v = mem.get(k); return v && Date.now() - v.t < LOGS_TTL ? v.r : undefined; }
     let v = mem.get(k);
     if (!v) { try { v = JSON.parse(localStorage.getItem("savior.rpc." + k) || "null"); } catch (e) {} }
     return v && Date.now() - v.t < TTL[method] ? v.r : undefined;
   }
   function cachePut(k, r) {
     const v = { t: Date.now(), r }; mem.set(k, v);
+    if (k.startsWith("logs:")) return; // logs stay in this tab's memory only
     try { localStorage.setItem("savior.rpc." + k, JSON.stringify(v)); } catch (e) {}
     try { bc && bc.postMessage({ k, v }); } catch (e) {}
   }
@@ -147,7 +152,7 @@
         for (const p of list) {
           const k = cacheKey(p), hit = k && cacheGet(k, p.method);
           if (k && hit !== undefined) { window.__rpcStats.cached++; out.push({ jsonrpc: "2.0", id: p.id, result: hit }); }
-          else if (p.method === "eth_getLogs") out.push(await send(p));
+          else if (p.method === "eth_getLogs" && !(p.params && p.params[0] && p.params[0].toBlock === "latest")) out.push(await send(p));
           else rest.push(p);
         }
         if (rest.length === 1) out.push(await send(rest[0]));

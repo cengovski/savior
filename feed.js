@@ -28,7 +28,7 @@
   }
   // cache: last trades survive reloads and show instantly
   const CACHE_KEY = "savior.feed.v1";
-  let backfillFailed = false, pollFails = 0;
+  let backfillFailed = false, pollFails = 0, lastPollOk = 0, seedScanned = 0;
   function saveCache() {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify({ lastBlock, items: items.map((i) => ({ ...i, _req: undefined, locked: i.locked == null ? null : String(i.locked) })) })); } catch (e) {}
   }
@@ -90,8 +90,8 @@
 
   // Arc public RPC: eth_getLogs max 2000 blocks/request, rate-limited. PoolManager emits Swap for every pool
   // (very noisy), so we scan only the sparse SAVIOR Transfer log and decode the pool Swap from the receipt.
-  async function fetchRange(from, to, live) {
-    const transfers = await withRetry(() => provider.getLogs({ address: C.contracts.token, topics: [TRANSFER_TOPIC], fromBlock: from, toBlock: to }));
+  async function fetchRange(from, to, live, pre) {
+    const transfers = pre || await withRetry(() => provider.getLogs({ address: C.contracts.token, topics: [TRANSFER_TOPIC], fromBlock: from, toBlock: to }));
     const byTx = new Map();
     for (const l of transfers) { if (!byTx.has(l.transactionHash)) byTx.set(l.transactionHash, []); byTx.get(l.transactionHash).push(l); }
     for (const [hash, logs] of byTx) {
@@ -124,6 +124,17 @@
 
   async function poll() {
     try {
+      // steady state: head + new logs in ONE batched HTTP request (logs to "latest", deduped by tx:index)
+      if (lastBlock && Date.now() - lastPollOk < 60000) {
+        const [head, logs] = await Promise.all([provider.getBlockNumber(),
+          provider.getLogs({ address: C.contracts.token, topics: [TRANSFER_TOPIC], fromBlock: lastBlock + 1, toBlock: "latest" })]);
+        if (logs.length) await fetchRange(lastBlock + 1, head, true, logs);
+        lastBlock = Math.max(lastBlock, head, ...logs.map((l) => l.blockNumber));
+        pollFails = 0; lastPollOk = Date.now();
+        render(); if (logs.length) saveCache();
+        setStatus("Live, block " + lastBlock.toLocaleString("en-US"));
+        return schedule();
+      }
       const head = await provider.getBlockNumber();
       if (head === lastBlock) { pollFails = 0; setStatus("Live, block " + head.toLocaleString("en-US")); return schedule(); } // no new block
       if (!lastBlock || head - lastBlock > BACKFILL_CHUNKS * CHUNK) lastBlock = head; // too far behind: jump to live
@@ -132,7 +143,7 @@
         await fetchRange(lastBlock + 1, to, true);
         lastBlock = to;
       }
-      pollFails = 0;
+      pollFails = 0; lastPollOk = Date.now();
       render(); saveCache();
       setStatus("Live, block " + head.toLocaleString("en-US"));
     } catch (e) {
@@ -159,7 +170,7 @@
     let cached = null; try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch (e) {}
     if (cached && cached.items && cached.items.length) { loadItems(cached.items); lastBlock = cached.lastBlock || 0; }
     else {
-      try { const r = await fetch(new URL("locks-seed.json", document.baseURI), { cache: "no-cache" }); if (r.ok) { const sd = await r.json(); loadItems(sd.trades); } } catch (e) {}
+      try { const r = await fetch(new URL("locks-seed.json", document.baseURI), { cache: "no-cache" }); if (r.ok) { const sd = await r.json(); loadItems(sd.trades); seedScanned = sd.scanned || 0; } } catch (e) {}
     }
     if (items.length) { render(); setStatus("Showing recent trades, connecting to Arc..."); }
     else setStatus("Loading recent trades...");
@@ -168,6 +179,13 @@
       try {
         const head = await provider.getBlockNumber();
         lastBlock = head;
+        if (seedScanned && head - seedScanned <= BACKFILL_CHUNKS * CHUNK) {
+          for (let from = seedScanned + 1; from <= head; from += CHUNK) {
+            const to = Math.min(head, from + CHUNK - 1);
+            await fetchRange(from, to, false);
+          }
+          throw "done";
+        }
         const ff = Number(new URLSearchParams(location.search).get("feedfrom"));
         const top = ff > 0 && ff < head ? ff + (BACKFILL_CHUNKS * CHUNK) / 2 : head;
         let found = 0, chunkFails = 0;
@@ -179,7 +197,7 @@
           if (i % 5 === 4) { render(); setStatus(`Loading trade history: ${((i + 1) * CHUNK).toLocaleString("en-US")} blocks checked`); }
           await sleep(400);
         }
-      } catch (e) { console.warn("[feed] backfill failed", e); backfillFailed = true; lastBlock = 0; }
+      } catch (e) { if (e !== "done") { console.warn("[feed] backfill failed", e); backfillFailed = true; lastBlock = 0; } }
     }
     render(); saveCache();
     poll();
