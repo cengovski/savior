@@ -1,0 +1,27 @@
+{
+  "network": "Arc Mainnet",
+  "chainId": 5042,
+  "chainIdHex": "0x13b2",
+  "rpc": ["https://rpc.mainnet.arc.io", "https://rpc.arc.io"],
+  "explorer": "https://explorer.arc.io",
+  "nativeGas": "USDC",
+  "source": "live https://cengovski.github.io/savior/ (gh-pages) + on-chain reads 2026-10-10",
+  "contracts": {
+    "SaviorToken": { "proxy": "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3", "implementation": "0x4b28e4fe26940af880d5e6056b6c463df6be622a", "owner": "0x7185d50557040047A142aEadA95e41C4b31720e7", "decimals": 6, "proxyType": "ERC1967/UUPS" },
+    "SaviorHook": { "proxy": "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0", "implementation": "0xaee9227ff2c17ec2e72ab2e23091c85ae38c2bd9", "owner": "0x7185d50557040047A142aEadA95e41C4b31720e7", "proxyType": "ERC1967/UUPS" },
+    "SaviorStaking": { "address": "0xBCA651C0A0540a1fCDef066B5476d714431fa525", "proxyType": "none (no EIP-1967 impl slot set; owner() reverts)", "note": "frontend labels this 'Staking Proxy' but on-chain it is a plain contract" },
+    "PoolManager": { "address": "0x8366a39CC670B4001A1121B8F6A443A643e40951", "owner": "0xbca30b5429935205037069cf5b8a165f55d05a75" },
+    "V4Quoter": { "address": "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94" },
+    "USDC": { "address": "0x3600000000000000000000000000000000000000" },
+    "Create2Factory": { "address": "0x4e59b44847b379578588920cA78FbF26c0B4956C" },
+    "Treasury": { "address": "0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787" },
+    "Deployer": { "address": "0x7185d50557040047A142aEadA95e41C4b31720e7" }
+  },
+  "poolKey": { "currency0": "0x3600000000000000000000000000000000000000", "currency1": "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3", "fee": 10000, "tickSpacing": 200, "hooks": "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0" },
+  "previousDeployment_AGENTS_md": {
+    "note": "Older addresses listed in AGENTS.md; still have code, all owned by deployer",
+    "SaviorToken": { "proxy": "0x80999297169de61D0C02ada180e6b92440f77770", "implementation": "0x1a042ac1c4880dc68bc074e5c2bff4b8c279c86a" },
+    "SaviorHook": { "proxy": "0x33139589A270bec9BD940512ba6d422DA22a00C0", "implementation": "0x6b188016276a88c972ba3607abc63451263ed124" },
+    "SaviorStaking": { "proxy": "0xC3F106BEAC49bC93130379a03f67B0D725865B51", "implementation": "0x5b970cf267b98289aaa947fb494636fde5ed2283" }
+  }
+}
