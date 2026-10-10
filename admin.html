@@ -144,13 +144,13 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button class="btn-sm" onclick="loadFromDeploy()">Deploy'dan Yükle</button>
     </div>
     <div class="card"><h2>Staking Upgrade</h2>
-      <label>Staking Proxy</label><input id="upgradeProxy" value="0xBCA651c0A0540a1fCdEf066B5476d714431fA525" placeholder="0x...">
+      <label>Staking Proxy</label><input id="upgradeProxy" value="0xBCA651C0A0540a1fCDef066B5476d714431fa525" placeholder="0x...">
       <button onclick="upgradeStaking()">Upgrade Et</button>
       <div class="result" id="upgradeResult">Bekleniyor...</div>
     </div>
     <div class="card"><h2>Emergency Unlock All</h2>
       <div class="warning">⚠️ GERİ ALINAMAZ — tüm kilitler açılır</div>
-      <label>Staking Proxy</label><input id="emergencyProxy" value="0xBCA651c0A0540a1fCdEf066B5476d714431fA525" placeholder="0x...">
+      <label>Staking Proxy</label><input id="emergencyProxy" value="0xBCA651C0A0540a1fCDef066B5476d714431fa525" placeholder="0x...">
       <button class="btn-red" onclick="emergencyUnlock()">Emergency Unlock</button>
       <div class="result" id="emergencyResult">Bekleniyor...</div>
     </div>
@@ -181,7 +181,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <div id="approveResult" class="result"></div>
     </div>
     <div class="card"><h2>Rescue</h2>
-      <label>Kontrat</label><input id="rescueContract" placeholder="0x..." value="0xBCA651c0A0540a1fCdEf066B5476d714431fA525">
+      <label>Kontrat</label><input id="rescueContract" placeholder="0x..." value="0xBCA651C0A0540a1fCDef066B5476d714431fa525">
       <div class="grid2">
         <button onclick="rescueNative()">Rescue Native USDC</button>
         <div>
@@ -307,7 +307,7 @@ let tokenAddr, hookImplAddr, hookAddr, stakingAddr;
 document.addEventListener('DOMContentLoaded', () => {
   tokenAddr   = localStorage.getItem('savior_token')   || '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3';
   hookAddr    = localStorage.getItem('savior_hook')    || '0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0';
-  stakingAddr = localStorage.getItem('savior_staking') || '0xBCA651c0A0540a1fCdEf066B5476d714431fA525';
+  stakingAddr = localStorage.getItem('savior_staking') || '0xBCA651C0A0540a1fCDef066B5476d714431fa525';
   // Persist defaults so subsequent steps find them
   if (!localStorage.getItem('savior_token'))   localStorage.setItem('savior_token',   tokenAddr);
   if (!localStorage.getItem('savior_hook'))     localStorage.setItem('savior_hook',     hookAddr);
@@ -686,7 +686,7 @@ async function upgradeHook() {
     setResult('hookUpgradeResult', 'Upgraded! setStakingContract...', '');
 
     // 3. Set new staking address
-    const newStaking = '0xBCA651c0A0540a1fCdEf066B5476d714431fA525';
+    const newStaking = '0xBCA651C0A0540a1fCDef066B5476d714431fa525';
     if (!newStaking) throw new Error('Staking adresi yok. Önce Upgrade Staking çalıştır.');
     const tx = await hook.setStakingContract(newStaking, { gasLimit: 200000 });
     await tx.wait();
@@ -930,7 +930,7 @@ function setResult(id, msg, cls) {
         signer
       );
       el.className = 'result pending'; el.textContent = 'Waiting for signature...';
-      const tx = await token.approve('0xBCA651c0A0540a1fCdEf066B5476d714431fA525', ethers.MaxUint256);
+      const tx = await token.approve('0xBCA651C0A0540a1fCDef066B5476d714431fa525', ethers.MaxUint256);
       el.textContent = 'Confirming...';
       await tx.wait();
       el.className = 'result success';
