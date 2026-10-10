@@ -2,6 +2,8 @@
 // the user's injected wallet signs approve+burn on the source chain and the mint on Arc;
 // attestation comes from Circle's public Iris API (handled inside Bridge Kit).
 let kitMod = null;
+// Use the wallet the user connected (injected or WalletConnect); fall back to an injected wallet.
+const getWallet = () => (window.WalletConnector && window.WalletConnector.rawProvider) || window.ethereum || null;
 const $ = (id) => document.getElementById(id);
 function log(msg, cls = "text-white/60") {
   const box = $("bridge-log"); if (!box) return;
@@ -22,13 +24,14 @@ async function runBridge() {
   const speed = $("bridge-speed").value;
   $("bridge-log").replaceChildren();
   if (!/^\d+(\.\d{1,6})?$/.test(amount) || Number(amount) <= 0) return log("Enter a valid USDC amount (max 6 decimals).", "text-rose-400");
-  if (!window.ethereum) return log("No injected wallet found (MetaMask, Rabby, Coinbase…). WalletConnect is not supported for bridging yet.", "text-rose-400");
+  const eip1193 = getWallet();
+  if (!eip1193) return log("Connect a wallet first (browser wallet or WalletConnect).", "text-rose-400");
   if (recipient && !/^0x[0-9a-fA-F]{40}$/.test(recipient)) return log("Recipient must be a 0x EVM address.", "text-rose-400");
   btn.disabled = true;
   try {
     const { BridgeKit, createEthersAdapterFromProvider } = await loadKit();
     const kit = new BridgeKit();
-    const adapter = await createEthersAdapterFromProvider({ provider: window.ethereum });
+    const adapter = await createEthersAdapterFromProvider({ provider: getWallet() });
     kit.on("*", (p) => {
       try {
         const name = p?.method || p?.name || p?.action || "step";
@@ -58,7 +61,7 @@ async function retryBridge() {
   if (!window.lastBridgeResult) return log("Nothing to retry.", "text-white/40");
   const { BridgeKit, createEthersAdapterFromProvider } = await loadKit();
   const kit = new BridgeKit();
-  const adapter = await createEthersAdapterFromProvider({ provider: window.ethereum });
+  const adapter = await createEthersAdapterFromProvider({ provider: getWallet() });
   try { const r = await kit.retry(window.lastBridgeResult, { from: adapter, to: adapter }); window.lastBridgeResult = r; log("Retry result: " + r.state, "text-emerald-400"); }
   catch (e) { log("Retry failed: " + (e.shortMessage || e.message), "text-rose-400"); }
 }

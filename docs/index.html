@@ -57,6 +57,7 @@
   .spin{animation:spin 1s linear infinite}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
   .badge{padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600}
+  .badge{white-space:nowrap}@media (max-width:420px){nav .badge{font-size:9px;padding:2px 6px;margin-left:4px}}
   .lock-row{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
             border-radius:14px;padding:14px 16px;transition:border-color .2s}
   .lock-row:hover{border-color:rgba(59,91,219,.3)}
@@ -82,14 +83,14 @@
 <!-- Nav -->
 <nav class="nav-blur sticky top-0 z-50 px-4 py-3">
   <div class="max-w-5xl mx-auto flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <img src="../logo.svg" alt="$SAVIOR logo" width="36" height="36" class="w-9 h-9 rounded-xl shadow-lg shadow-blue-500/30"/>
-      <div>
-        <span class="font-black text-base tracking-tight">$SAVIOR</span>
-        <span class="ml-2 badge bg-blue-500/15 text-blue-400 border border-blue-500/20">ARC MAINNET</span>
+    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+      <img src="../logo.svg" alt="$SAVIOR logo" width="36" height="36" class="w-9 h-9 rounded-full shrink-0 shadow-lg shadow-blue-500/30"/>
+      <div class="flex items-center whitespace-nowrap">
+        <span class="font-black text-base tracking-tight whitespace-nowrap">$SAVIOR</span>
+        <span class="ml-2 badge whitespace-nowrap text-[9px] sm:text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/20">ARC MAINNET</span>
       </div>
     </div>
-    <button id="connect-btn" onclick="connectWallet()" class="btn-ghost btn-sm flex items-center gap-2">
+    <button id="connect-btn" onclick="connectWallet()" class="btn-ghost btn-sm flex items-center gap-2 whitespace-nowrap shrink-0">
       <i class="fa-solid fa-wallet text-xs"></i>
       <span>Connect Wallet</span>
     </button>
@@ -354,7 +355,7 @@ const ARC_TESTNET_PARAMS = {
     chainId: '0x13B2', // 5042, Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-    rpcUrls: ['https://rpc.arc.io'],
+    rpcUrls: ['https://rpc.mainnet.arc.io'],
     blockExplorerUrls: ['https://explorer.arc.io']
 };
 
@@ -411,15 +412,17 @@ const WalletConnector = (() => {
 
     // ── Switch / add Arc Mainnet ──────────────────────────────────────
     async function ensureArcTestnet(rawProvider) {
-        const chainId = await rawProvider.request({ method: 'eth_chainId' });
-        if (chainId === ARC_TESTNET_PARAMS.chainId) return;
+        const isArc = async () => String(await rawProvider.request({ method: 'eth_chainId' })).toLowerCase() === ARC_TESTNET_PARAMS.chainId.toLowerCase();
+        if (await isArc()) return;
         try {
             await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_PARAMS.chainId }] });
-        } catch(e) {
-            if (e.code === 4902 || e.code === -32603) {
-                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_PARAMS] });
-            } else throw e;
+        } catch (e) {
+            // 4902 = unknown chain. Mobile wallets over WalletConnect often return other codes, so try adding Arc anyway.
+            if (e && (e.code === 4001 || /reject|denied/i.test(e.message || ''))) throw new Error('Network switch rejected. Please switch to Arc Mainnet (chain 5042).');
+            await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_PARAMS] });
+            try { await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_PARAMS.chainId }] }); } catch (_) {}
         }
+        if (!(await isArc())) throw new Error('Please switch your wallet to Arc Mainnet (chain 5042) and try again.');
     }
 
     // ── Connect with a specific raw provider ─────────────────────────
@@ -439,7 +442,11 @@ const WalletConnector = (() => {
             _address = accounts[0];
             emit('accountsChanged', _address);
         });
-        rawProvider.on('chainChanged', () => window.location.reload());
+        rawProvider.on('chainChanged', async () => {
+            // Rebuild instead of reloading: a reload would drop a WalletConnect session.
+            _provider = new ethers.BrowserProvider(rawProvider);
+            try { _signer = await _provider.getSigner(); } catch (_) {}
+        });
         rawProvider.on('disconnect',   () => disconnect());
 
         emit('connect', _address);
@@ -447,30 +454,36 @@ const WalletConnector = (() => {
     }
 
     // ── WalletConnect v2 ──────────────────────────────────────────────
+    // Root cause of the old mobile error ("Cannot read properties of undefined (reading 'init')"):
+    // the UMD build of @walletconnect/ethereum-provider registers window["@walletconnect/ethereum-provider"],
+    // never window.EthereumProvider, and its QR modal is a separate dynamic import. We now load a vendored ESM
+    // bundle (provider + modal). Arc (5042) is optional, not required: wallets reject sessions that require
+    // a chain they do not know yet, so we connect first and then add/switch to Arc.
+    let _wcProvider = null;
     async function connectWalletConnect() {
-        // Lazy-load WalletConnect provider from CDN
-        if (!window.EthereumProvider) {
-            await new Promise((resolve, reject) => {
-                const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.3/dist/index.umd.js';
-                s.onload = resolve; s.onerror = reject;
-                document.head.appendChild(s);
-            });
-        }
-        const wcProvider = await window.EthereumProvider.init({
+        if (!WC_PROJECT_ID) throw new Error('WalletConnect is not configured (missing projectId).');
+        const { EthereumProvider } = await import(new URL('../vendor/walletconnect.esm.js', document.baseURI).href);
+        if (_wcProvider) { try { await _wcProvider.disconnect(); } catch (_) {} }
+        const wcProvider = await EthereumProvider.init({
             projectId: WC_PROJECT_ID,
-            chains: [5042],
-            optionalChains: [1],
-            rpcMap: { 5042: 'https://rpc.arc.io', 1: 'https://cloudflare-eth.com' },
+            optionalChains: [5042, 1],
+            rpcMap: { 5042: 'https://rpc.mainnet.arc.io', 1: 'https://cloudflare-eth.com' },
+            optionalMethods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData', 'eth_signTypedData_v4',
+                              'wallet_switchEthereumChain', 'wallet_addEthereumChain'],
             showQrModal: true,
-            qrModalOptions: { themeMode: 'dark' },
+            qrModalOptions: { themeMode: 'dark', explorerRecommendedWalletIds: [
+                'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+                '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust
+                '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
+            ] },
             metadata: {
-                name: '$SAVIOR Protocol',
+                name: '$SAVIOR',
                 description: 'Fair token distribution on Arc Mainnet',
                 url: window.location.origin,
-                icons: []
+                icons: [new URL('logo.svg', location.origin + location.pathname.replace(/docs\/[^/]*$/, '')).href]
             }
         });
+        _wcProvider = wcProvider;
         await wcProvider.connect();
         return connectWithProvider(wcProvider);
     }
@@ -543,6 +556,7 @@ const WalletConnector = (() => {
                 <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Installed Wallets</div>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${injectedHTML}</div>` : ''}
 
+                ${injected.length === 0 ? `<div style="font-size:12px;line-height:1.5;color:#fcd34d;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:10px 12px;margin-bottom:16px">${/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 'No wallet detected in this mobile browser. Use WalletConnect below to connect MetaMask, Trust or Rainbow, or open this site inside your wallet app\'s browser.' : 'No browser wallet extension detected. Install MetaMask or another wallet, or use WalletConnect below.'}</div>` : ''}
                 <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Other Wallets</div>
                 <button onclick="window.__wcPickerPick('wc')"
                     style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;color:#fff;font-size:15px;font-weight:500;transition:background .15s"
@@ -578,7 +592,7 @@ const WalletConnector = (() => {
         document.body.appendChild(overlay);
     }
 
-    return { connect, disconnect, on, get address() { return _address; }, get provider() { return _provider; }, get signer() { return _signer; } };
+    return { connect, disconnect, on, get address() { return _address; }, get provider() { return _provider; }, get signer() { return _signer; }, get rawProvider() { return _rawProvider; } };
 })();
 
 window.WalletConnector = WalletConnector;

@@ -13,3 +13,9 @@ npx esbuild entry.js --bundle --format=esm --platform=browser --minify --target=
   --define:process.env.NODE_ENV='"production"' --define:global=globalThis --outfile=bridge-kit.esm.js
 ```
 No API keys are involved: the user's wallet signs, attestation uses Circle's public Iris API.
+
+`walletconnect.esm.js` is an esbuild ESM bundle of `@walletconnect/ethereum-provider@2.17.3` + `@walletconnect/modal@2.7.0`
+(exports `EthereumProvider`). Loaded lazily when the user picks WalletConnect. Same build flags as above, entry:
+`import { EthereumProvider } from '@walletconnect/ethereum-provider'; export { EthereumProvider }; import '@walletconnect/modal';`
+The WalletConnect/Reown projectId is a public identifier (not a secret); set it in `WC_PROJECT_ID` and allowlist
+the site domains in the Reown dashboard.
