@@ -20,6 +20,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js" crossorigin="anonymous"></script>
 <script>if(typeof ethers==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"><\/script>')}</script>
+<script src="config.js"></script>
 <script src="rpc.js"></script>
 <link rel="stylesheet" href="site.css"/>
 </head>
@@ -156,6 +157,24 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div id="stakes-loading" class="empty">Connect wallet to see your positions</div>
     </div>
     <div id="stakes-summary" class="hidden"></div>
+
+    <div id="migrate-card" class="card hidden" style="margin-top:16px">
+      <div class="eyebrow">Staking upgrade</div>
+      <h3 class="h2">Move your old locks to the new staking contract</h3>
+      <p class="sub">The old staking contract is being retired. Step 1: claim your positions from the old contract (they are unlocked for everyone once the migration starts). Step 2: stake the SAVIOR into the new contract. Staking is optional and locks it again for a random 5 to 10 days, same as a buy (minimum 1 SAVIOR). Nothing is moved without your signature.</p>
+      <div class="grid g3" style="margin:12px 0">
+        <div class="card stat"><div class="label">Old contract, still locked</div><div class="value" id="mig-v1-total">-</div><div class="sub" id="mig-v1-state">-</div></div>
+        <div class="card stat"><div class="label">Wallet SAVIOR</div><div class="value" id="mig-wallet">-</div></div>
+        <div class="card stat"><div class="label">New contract, your locks</div><div class="value" id="mig-v2-total">-</div></div>
+      </div>
+      <div class="field"><div class="field-top"><span class="label">Amount to stake in the new contract (SAVIOR)</span><button class="btn btn-ghost btn-sm" onclick="SaviorMigrate.max()">Max</button></div>
+        <div class="field-row"><input id="mig-amount" type="text" inputmode="decimal" placeholder="0.0" aria-label="Amount of SAVIOR to stake"/></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button id="mig-claim-btn" class="btn btn-primary" onclick="SaviorMigrate.claimAllOld()">1. Claim from old contract</button>
+        <button id="mig-stake-btn" class="btn btn-primary" onclick="SaviorMigrate.stakeNew()">2. Stake in new contract</button>
+      </div>
+      <p class="sub mono" id="mig-status" style="margin-top:8px"></p>
+    </div>
 
     <div class="sub-h">
       <div><div class="eyebrow">Locks leaderboard</div><h3 class="h2">Who is holding for the long run</h3></div>
@@ -447,7 +466,36 @@ window.WalletConnector = WalletConnector;
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
 const TOKEN_ADDR   = "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3";
-const STAKING_ADDR = "0xBCA651C0A0540a1fCDef066B5476d714431fa525";
+const STAKING_V1_ADDR = "0xBCA651C0A0540a1fCDef066B5476d714431fa525"; // legacy staking (migration source)
+// v2 switch: set contracts.stakingV2 in config.js (single source of truth). Swaps then go to v2,
+// claims/positions/leaderboard/feed read old + v2, and the migration card shows. Empty = exactly as before.
+const STAKING_V2_ADDR = (window.SAVIOR_CONFIG && window.SAVIOR_CONFIG.v2) || ""; // set contracts.stakingV2 in config.js
+const STAKING_ADDR = STAKING_V2_ADDR || STAKING_V1_ADDR;
+// v2 swapExactIn has a 4th `deadline` argument (audit D-3); v1 keeps the 3-argument form.
+const SWAP_DEADLINE_SECS = 600;
+// Swap routing: the hook only accepts swaps from the staking contract it points to, so with v2 configured we read
+// hook.stakingContract() (cached 30s for estimates, fresh before sending) and swap through that contract.
+// v1-only config never reads the hook and always uses v1, exactly as before.
+let _swapRoute = null;
+async function getSwapRoute(force) {
+  if (!STAKING_V2_ADDR) return { addr: STAKING_V1_ADDR, v2: false };
+  if (!force && _swapRoute && Date.now() - _swapRoute.t < 30000) return _swapRoute;
+  try {
+    const hook = new ethers.Contract("0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0", ["function stakingContract() view returns (address)"], getReadProvider());
+    const a = (await hook.stakingContract()).toLowerCase();
+    const isV2 = a === STAKING_V2_ADDR.toLowerCase();
+    if (!isV2 && a !== STAKING_V1_ADDR.toLowerCase()) throw new Error("The pool is pointed at an unknown staking contract. Swaps are paused on this site.");
+    _swapRoute = { addr: isV2 ? STAKING_V2_ADDR : STAKING_V1_ADDR, v2: isV2, t: Date.now() };
+  } catch (e) { if (!_swapRoute || /unknown staking/.test(e.message)) throw e; } // RPC hiccup: keep last known route
+  return _swapRoute;
+}
+// Exact call for a swap on a route (used for sending, and for checks without sending).
+function buildSwapCall(route, zeroForOne, amountIn, minOut) {
+  const abi = route.v2 ? STAKING_V2_ABI : ["function swapExactIn(bool,uint256,uint256)"];
+  const args = route.v2 ? [zeroForOne, amountIn, minOut, BigInt(Math.floor(Date.now() / 1000) + SWAP_DEADLINE_SECS)] : [zeroForOne, amountIn, minOut];
+  return { to: route.addr, abi, args, data: new ethers.Interface(abi).encodeFunctionData("swapExactIn", args) };
+}
+window.SaviorSwap = { getSwapRoute, buildSwapCall };
 const HOOK_ADDR    = "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0";
 const USDC_ADDR    = "0x3600000000000000000000000000000000000000";
 const POOL_MANAGER = "0x8366a39CC670B4001A1121B8F6A443A643e40951";
@@ -465,6 +513,35 @@ const ERC20_ABI = [
   "function allowance(address,address) view returns (uint256)",
 ];
 
+// SaviorStakingV2 ABI (from PR #2, staking-v2/artifacts/SaviorStakingV2.json), the parts the site uses.
+// Differences vs v1: swapExactIn returns net output and checks minOut against NET (after 0.3% fee);
+// adds stake/stakeFor, totalLocked, lastBuyBlock, Staked/Claimed/Swapped events and custom errors.
+const STAKING_V2_ABI = [
+  "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut, uint256 deadline) returns (uint256 net)", // 0xb76e2524
+  "function MIN_STAKE() view returns (uint256)",
+  "function claim(uint256 i)",
+  "function getLocks(address user) view returns ((uint128 amount, uint64 unlockAt)[])",
+  "function globalUnlock() view returns (bool)",
+  "function stake(uint256 amount) returns (uint256 index)",
+  "function totalLocked() view returns (uint256)",
+  "function TREASURY_FEE_BPS() view returns (uint256)",
+  "event Staked(address indexed user, uint256 indexed index, uint256 amount, uint64 unlockAt)",
+  "event Claimed(address indexed user, uint256 indexed index, uint256 amount)",
+  "event Swapped(address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked)",
+  "error Locked()", "error ZeroAmount()", "error BadIndex()", "error NothingToClaim()", "error AmountTooLarge()",
+  "error SameBlock()", "error Bad()", "error BadPoolKey()", "error Expired()", "error BelowMinStake()",
+];
+// Name of a v2 custom error, also when ethers did not decode it (raw revert data nested in the error).
+function v2ErrorName(e) {
+  if (e && e.revert && e.revert.name) return e.revert.name;
+  if (!STAKING_V2_ADDR) return null;
+  const iface = new ethers.Interface(STAKING_V2_ABI);
+  for (const d of [e && e.data, e && e.error && e.error.data, e && e.info && e.info.error && e.info.error.data]) {
+    const hex = typeof d === "string" ? d : d && d.data;
+    if (typeof hex === "string" && hex.startsWith("0x") && hex.length >= 10) { try { return iface.parseError(hex).name; } catch (x) {} }
+  }
+  return null;
+}
 const STAKING_ABI = [
   "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external",
   "function claim(uint256 i) external",
@@ -614,7 +691,7 @@ function refreshContractsDisplay() {
   const entries = [
     ["Token",         TOKEN_ADDR],
     ["Hook",          HOOK_ADDR],
-    ["Staking",       STAKING_ADDR],
+    ...(STAKING_V2_ADDR ? [["Staking (old)", STAKING_V1_ADDR], ["Staking v2", STAKING_V2_ADDR]] : [["Staking", STAKING_ADDR]]),
     ["Pool Manager",  POOL_MANAGER],
   ];
   const box = document.getElementById("contracts-display");
@@ -691,7 +768,7 @@ async function runSwapQuote() {
   outEl.textContent = "...";
   try {
     const isBuy = swapMode === 'buy';
-    const q = await window.SaviorQuote.quote(getReadProvider(), isBuy, amountIn);
+    const [q, route] = await Promise.all([window.SaviorQuote.quote(getReadProvider(), isBuy, amountIn), getSwapRoute(false)]);
     if (seq !== _quoteSeq) return; // a newer input is being quoted
     const slip = BigInt(currentSlipBps);
     const minGross = q.gross * (10000n - slip) / 10000n;           // what the contract checks (pool output)
@@ -702,7 +779,8 @@ async function runSwapQuote() {
     if (isBuy) {
       outEl.textContent = fmtUnits(q.net) + " SAVIOR";
       document.getElementById("immediate-preview").textContent = fmtUnits(q.immediate) + " SAVIOR";
-      document.getElementById("locked-preview").textContent = fmtUnits(q.locked) + " SAVIOR";
+      document.getElementById("locked-preview").textContent = fmtUnits(q.locked) + " SAVIOR"
+        + (route.v2 && q.locked < 1000000n ? " (below 1 SAVIOR, dust lock)" : ""); // v2 MIN_STAKE is 1 SAVIOR; buys still lock, warn only
       document.getElementById("quote-fee").textContent = fmtUnits(q.fee) + " SAVIOR";
       document.getElementById("quote-min").textContent = fmtUnits(minNet) + " SAVIOR";
       lockEl.classList.remove("hidden");
@@ -760,20 +838,21 @@ async function executeSwap() {
       const usdc = new ethers.Contract(USDC_ADDR,
         ["function approve(address,uint256)", "function allowance(address,address) view returns (uint256)"],
         WalletConnector.signer);
-      const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
+      const route = await getSwapRoute(true); // fresh read of the hook before a real swap
+      const allowance = await usdc.allowance(userAddress, route.addr);
       if (allowance < amountIn) {
         showStatus('Approving USDC...', 'info');
-        await (await usdc.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
+        await (await usdc.approve(route.addr, ethers.MaxUint256)).wait();
       }
       let minOut = 1n;
       try {
         const q = await window.SaviorQuote.quote(getReadProvider(), true, amountIn);
-        if (q.gross > 0n) minOut = q.gross * BigInt(10000 - slipBps) / 10000n; // contract checks pool output
+        minOut = window.SaviorQuote.minOut(q, slipBps, route.v2); // v1: pool (gross) output, v2: net output after fee
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending swap...', 'info');
-      const staking = new ethers.Contract(STAKING_ADDR,
-        ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
-      const tx = await staking.swapExactIn(true, amountIn, minOut);
+      const call = buildSwapCall(route, true, amountIn, minOut);
+      const staking = new ethers.Contract(call.to, call.abi, WalletConnector.signer);
+      const tx = await staking.swapExactIn(...call.args);
       showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
       showStatus('Half is in your wallet, half is locked.', 'ok', 'https://explorer.arc.io/tx/' + tx.hash);
@@ -786,20 +865,21 @@ async function executeSwap() {
       const savior = new ethers.Contract(TOKEN_ADDR,
         ["function approve(address,uint256)", "function allowance(address,address) view returns (uint256)"],
         WalletConnector.signer);
-      const allowance = await savior.allowance(userAddress, STAKING_ADDR);
+      const route = await getSwapRoute(true); // fresh read of the hook before a real swap
+      const allowance = await savior.allowance(userAddress, route.addr);
       if (allowance < amountIn) {
         showStatus('Approving SAVIOR...', 'info');
-        await (await savior.approve(STAKING_ADDR, ethers.MaxUint256)).wait();
+        await (await savior.approve(route.addr, ethers.MaxUint256)).wait();
       }
       let minOut = 1n;
       try {
         const q = await window.SaviorQuote.quote(getReadProvider(), false, amountIn);
-        if (q.gross > 0n) minOut = q.gross * BigInt(10000 - slipBps) / 10000n; // contract checks pool output
+        minOut = window.SaviorQuote.minOut(q, slipBps, route.v2); // v1: pool (gross) output, v2: net output after fee
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending sell...', 'info');
-      const staking = new ethers.Contract(STAKING_ADDR,
-        ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
-      const tx = await staking.swapExactIn(false, amountIn, minOut);
+      const call = buildSwapCall(route, false, amountIn, minOut);
+      const staking = new ethers.Contract(call.to, call.abi, WalletConnector.signer);
+      const tx = await staking.swapExactIn(...call.args);
       showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
       showStatus('USDC is in your wallet.', 'ok', 'https://explorer.arc.io/tx/' + tx.hash);
@@ -808,7 +888,12 @@ async function executeSwap() {
     }
   } catch(e) {
     let msg = e.shortMessage || e.reason || e.message || String(e);
-    if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded, increase tolerance.';
+    const rv = v2ErrorName(e); // decoded v2 custom error
+    if (rv === 'Bad') msg = 'Price moved beyond your slippage, or the amount is invalid. Try again or increase tolerance.';
+    else if (rv === 'Expired') msg = 'The swap took longer than 10 minutes to confirm and expired. Nothing was spent, please try again.';
+    else if (rv === 'BelowMinStake') msg = 'Minimum stake in the new contract is 1 SAVIOR.';
+    else if (rv === 'SameBlock') msg = 'Same-block sell not allowed, wait 1 block.';
+    else if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded, increase tolerance.';
     else if (msg.includes('SameBlock')) msg = 'Same-block sell not allowed, wait 1 block.';
     else if (msg.includes('user rejected')) msg = 'Transaction cancelled.';
     else if (msg.includes('insufficient')) msg = 'Insufficient balance.';
@@ -833,12 +918,18 @@ async function refreshStakes() {
   }
   loading.textContent = "Loading..."; loading.classList.remove("hidden");
   try {
-    const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, getReadProvider());
-    const [locks, globalUnlock] = await Promise.all([staking.getLocks(userAddress), staking.globalUnlock()]);
+    // v1 only: the staking contract. v2 active: old (v1) and v2 contracts, read in one batched request.
+    const sources = STAKING_V2_ADDR ? [["v1", STAKING_V1_ADDR], ["v2", STAKING_V2_ADDR]] : [["", STAKING_ADDR]];
+    const reads = await Promise.all(sources.map(async ([src, addr]) => {
+      const c = new ethers.Contract(addr, STAKING_ABI, getReadProvider());
+      const [locks, gu] = await Promise.all([c.getLocks(userAddress), c.globalUnlock()]);
+      return { src, locks, gu };
+    }));
     const now = Math.floor(Date.now() / 1000);
     list.replaceChildren();
     let claimable = 0n, locked = 0n, count = 0;
     const fmt = (v) => Number(ethers.formatUnits(v, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
+    for (const { src, locks, gu: globalUnlock } of reads)
     for (let i = 0; i < locks.length; i++) {
       const amount = BigInt(locks[i].amount);
       if (amount === 0n) continue;
@@ -851,6 +942,7 @@ async function refreshStakes() {
       const progress = matured ? 100 : Math.max(2, Math.min(100, Math.round((1 - remaining / 864000) * 100)));
       const row = document.createElement("div"); row.className = "tr pos-row";
       const c1 = document.createElement("span"); c1.className = "mono"; c1.textContent = "#" + i;
+      if (src) { const tg = document.createElement("span"); tg.className = "src-tag"; tg.textContent = src === "v2" ? "v2" : "Old"; c1.appendChild(tg); }
       const c2 = document.createElement("span"); c2.innerHTML = '<b class="mono"></b><div class="bar"><i></i></div>';
       c2.querySelector("b").textContent = fmt(amount) + " SAVIOR"; c2.querySelector("i").style.width = progress + "%";
       const c3 = document.createElement("span"); c3.className = "mono";
@@ -858,8 +950,8 @@ async function refreshStakes() {
       c3.title = new Date(unlockTs * 1000).toLocaleString("en-US");
       const c4 = document.createElement("span");
       if (matured) {
-        const b = document.createElement("button"); b.className = "btn btn-primary btn-sm"; b.id = "claim-" + i; b.textContent = "Claim";
-        b.onclick = () => claimLock(i); c4.appendChild(b);
+        const b = document.createElement("button"); b.className = "btn btn-primary btn-sm"; b.id = src ? `claim-${src}-${i}` : "claim-" + i; b.textContent = "Claim";
+        b.onclick = () => claimLock(i, src); c4.appendChild(b);
       } else { const t = document.createElement("span"); t.className = "tag warn"; t.textContent = "Locked"; c4.appendChild(t); }
       row.append(c1, c2, c3, c4); list.appendChild(row);
     }
@@ -872,29 +964,31 @@ async function refreshStakes() {
   }
 }
 
-async function claimLock(i) {
+// src: "" (v1 only mode), "v1" (old contract) or "v2". Each claim goes to the contract that holds the lock.
+async function claimLock(i, src = "") {
   if (!WalletConnector?.signer) { toast("error", "Connect your wallet first"); return; }
-  const btn = document.getElementById(`claim-${i}`);
+  const btn = document.getElementById(src ? `claim-${src}-${i}` : `claim-${i}`);
+  const target = src === "v1" ? STAKING_V1_ADDR : src === "v2" ? STAKING_V2_ADDR : STAKING_ADDR;
   if (btn) { btn.disabled = true; btn.textContent = "Claiming..."; }
   const t = toast("pending", "Claim pending", "Confirm in your wallet");
   try {
-    const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, WalletConnector.signer);
+    const staking = new ethers.Contract(target, src === "v2" ? STAKING_V2_ABI : STAKING_ABI, WalletConnector.signer);
     const tx = await staking.claim(i);
     t.update("pending", "Claim pending", "Waiting for confirmation");
     await tx.wait();
     t.update("success", "Claim confirmed", "SAVIOR is in your wallet.", { link: "https://explorer.arc.io/tx/" + tx.hash });
     await refreshStakes();
   } catch (e) {
-    t.update("error", "Claim failed", e.shortMessage || e.reason || e.message, { retry: () => claimLock(i) });
+    t.update("error", "Claim failed", e.shortMessage || e.reason || e.message, { retry: () => claimLock(i, src) });
     if (btn) { btn.disabled = false; btn.textContent = "Claim"; }
   }
 }
 </script>
 
-<script src="config.js"></script>
 <script src="ui.js"></script>
 <script src="quote.js"></script>
 <script src="locks.js"></script>
+<script src="migrate.js"></script>
 <script src="feed.js"></script>
 <script type="module" src="bridge.js"></script>
 </body>
