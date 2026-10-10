@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EEF3F9"/><stop offset="1" stop-color="#CDDDF2"/></linearGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0073E6"/><stop offset="1" stop-color="#8656EF"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#0073E6" stop-opacity=".45"/><stop offset="1" stop-color="#0073E6" stop-opacity="0"/></radialGradient></defs>
+<rect width="480" height="320" rx="24" fill="url(#bg)"/><circle cx="240" cy="160" r="150" fill="url(#glow)"/>
+<g fill="none" stroke="#2F578C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="100" cy="190" r="44" fill="#FFFFFF"/><circle cx="380" cy="190" r="44" fill="url(#g)" stroke="none"/>
+<path d="M144 190C190 70 290 70 336 190" stroke="#0073E6" stroke-width="4" stroke-dasharray="10 8"/><circle cx="240" cy="104" r="22" fill="#0073E6" stroke="none"/><circle cx="240" cy="104" r="15" stroke="#FFFFFF" stroke-opacity=".6"/><text x="240" y="110.16" font-family="DM Sans,Arial" font-weight="700" font-size="17.6" fill="#FFFFFF" stroke="none" text-anchor="middle">$</text>
+<text x="100" y="196" font-family="Space Mono,monospace" font-size="13" fill="#2F578C" stroke="none" text-anchor="middle">CHAIN</text><text x="380" y="196" font-family="Space Mono,monospace" font-size="15" fill="#FFFFFF" stroke="none" text-anchor="middle">ARC</text>
+<path d="M60 270h360" stroke-dasharray="2 8"/></g></svg>

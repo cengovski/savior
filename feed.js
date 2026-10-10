@@ -15,7 +15,7 @@
   let provider, lastBlock = 0, timer = null, seen = new Set(), items = [];
 
   const topicAddr = (t) => "0x" + t.slice(26);
-  const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+  const short = (a) => a.slice(0, 6) + "..." + a.slice(-4);
   const fmt = (v, d) => Number(ethers.formatUnits(v < 0n ? -v : v, d)).toLocaleString(undefined, { maximumFractionDigits: 4 });
 
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -26,36 +26,29 @@
     const list = document.getElementById("feed-list");
     if (!list) return;
     list.replaceChildren();
-    if (!items.length) { list.appendChild(el("div", "text-white/25 text-xs py-4 text-center", `No trades in the last ${(BACKFILL_CHUNKS * CHUNK).toLocaleString()} blocks, new ones appear live`)); return; }
-    for (const it of items) {
-      const row = el("a", "feed-row flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs" + (it.big ? " feed-big" : ""));
+    if (!items.length) { list.appendChild(el("div", "empty", `No trades in the last ${(BACKFILL_CHUNKS * CHUNK).toLocaleString()} blocks, new ones appear live`)); return; }
+    for (const it of items.slice(0, 20)) {
+      const row = el("a", "feed-row" + (it.big ? " feed-big" : ""));
       row.href = `${C.explorer}/tx/${it.tx}`; row.target = "_blank"; row.rel = "noopener";
-      const colors = { BUY: "text-emerald-400", SELL: "text-rose-400", STAKE: "text-amber-400", CLAIM: "text-sky-400" };
-      const left = el("div", "flex items-center gap-2 min-w-0");
-      left.appendChild(el("span", "font-bold w-12 " + (colors[it.kind] || ""), (it.big ? "🐳 " : "") + it.kind));
-      left.appendChild(el("span", "text-white/70 truncate", it.text));
-      const mid = el("div", "flex flex-col min-w-0");
-      mid.appendChild(left);
+      const kind = el("span", "feed-kind k-" + it.kind);
+      if (it.big) kind.innerHTML = '<svg class="ico-16"><use href="#i-bolt"/></svg>';
+      kind.appendChild(document.createTextNode(it.kind));
+      const mid = el("div", "feed-main");
+      mid.appendChild(el("div", null, it.text));
       if (it.locked != null) {
-        const sub = el("span", "text-[11px] text-amber-300/80 pl-14 truncate",
-          `🔒 ${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed"));
-        mid.appendChild(sub);
+        mid.appendChild(el("div", "feed-lock",
+          `${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed")));
         if (it.unlock === undefined && !it._req && window.SaviorLocks && it.who) {
           it._req = true;
           window.SaviorLocks.lockForBuy(it.who, it.locked).then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
         }
       }
-      row.appendChild(mid);
-      row.appendChild(el("span", "text-white/30 font-mono shrink-0", it.who ? short(it.who) : "#" + it.block));
+      row.append(kind, mid, el("span", "feed-who", it.who ? short(it.who) : "#" + it.block));
       list.appendChild(row);
     }
   }
 
-  function toast(msg) {
-    const t = el("div", "feed-toast", msg);
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 6000);
-  }
+  function toast(msg) { if (window.toast) window.toast("big", "Big buy", msg); }
 
   function add(it, live) {
     const key = it.tx + ":" + it.idx;
@@ -64,7 +57,7 @@
     items.push(it);
     items.sort((a, b) => b.block - a.block || b.idx - a.idx);
     items = items.slice(0, MAX_ITEMS);
-    if (live && it.big) toast(`🐳 Big buy: ${it.text}`);
+    if (live && it.big) toast(it.text);
   }
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -95,7 +88,7 @@
             const usdcNum = Number(ethers.formatUnits(a0 < 0n ? -a0 : a0, C.usdcDecimals));
             let locked = null;
             if (buy) { const net = a1 - (a1 * 30n) / 10000n; locked = net / 2n; } // 0.3% treasury fee, then 50% locked
-            add({ kind: buy ? "BUY" : "SELL", text: buy ? `${usdc} USDC → ${sav} SAVIOR` : `${sav} SAVIOR → ${usdc} USDC`,
+            add({ kind: buy ? "BUY" : "SELL", text: buy ? `${usdc} USDC to ${sav} SAVIOR` : `${sav} SAVIOR to ${usdc} USDC`,
                   who: rc.from, tx: hash, block: l.blockNumber, idx: l.index, big: buy && usdcNum >= C.bigBuyUsdc, locked }, live);
           }
           continue; // remaining transfers are the swap's lock split

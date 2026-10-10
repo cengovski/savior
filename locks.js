@@ -113,7 +113,7 @@
     if (!rows.length) { body.appendChild(el("div", "lb-empty", "No active locks found yet.")); return; }
     rows.forEach((r, idx) => {
       const isSoon = r.next && r.next <= soon && r.next > now;
-      const row = el("div", "lb-row" + (isSoon ? " lb-soon" : ""));
+      const row = el("div", "tr lb-row" + (isSoon ? " lb-soon" : ""));
       row.appendChild(el("span", "lb-rank", "#" + (idx + 1)));
       const a = el("a", "lb-addr", short(r.addr)); a.href = C.explorer + "/address/" + r.addr; a.target = "_blank"; a.rel = "noopener";
       row.appendChild(a);
