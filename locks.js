@@ -135,6 +135,7 @@
   // v2 deploy block: binary search on eth_getCode (about 25 cheap calls, once; cached).
   async function v2DeployBlock(head) {
     if (cache2.deployBlock) return cache2.deployBlock;
+    if (C.stakingV2DeployBlock && C.v2 && lc(C.v2) === lc(C.contracts.stakingV2)) { cache2.deployBlock = C.stakingV2DeployBlock; save(); return cache2.deployBlock; }
     let lo = START_BLOCK, hi = head;
     if ((await rpc(() => P().getCode(C.v2, hi))) === "0x") throw new Error("v2 address has no code");
     while (lo < hi) {
