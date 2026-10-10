@@ -258,7 +258,8 @@ const STAKING_IMPL_ABI = ['constructor()'];
 const STAKING_V2_ADDRESS = localStorage.getItem('savior_staking_v2') || '';
 const STAKING_V2_ABI = [
   'constructor(address initialOwner, address saviorToken, address poolManager, address treasury, (address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key)',
-  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) returns (uint256)',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut, uint256 deadline) returns (uint256)',
+  'function MIN_STAKE() view returns (uint256)',
   'function keySet() view returns (bool)',
   'function owner() view returns (address)',
   'function pendingOwner() view returns (address)',

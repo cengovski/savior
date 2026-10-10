@@ -20,9 +20,9 @@ Uniswap v4 on Arc: see `src/ArcAddresses.sol`. The v2 staking contract itself do
 
 ## Buy & lock (swapExactIn) and hook wiring
 
-`swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut)` reproduces the v1 flow observed on an Arc fork trace:
+`swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut, uint256 deadline)` (deadline added after audit D-3, so the selector differs from v1's 0x1d2105ba) reproduces the v1 flow observed on an Arc fork trace:
 pull tokenIn, `PoolManager.unlock`, exact-in swap on the SAVIOR/USDC pool (fee 10000, tickSpacing 200, hook 0xFfcf…60c0),
-0.3% of the output to treasury, on buys the net SAVIOR is split 50% to the buyer and 50% locked for a pseudo-random 5 to 10 days (same formula as v1: 432000 + keccak256(abi.encode(blockhash(n-1), user, grossSwapOut)) % 432001 s).
+0.3% of the output to treasury, on buys the net SAVIOR is split 50% to the buyer and 50% locked for a pseudo-random 5 to 10 days: 432000 + keccak256(abi.encode(blockhash(n-1), user, msg.sender, userLockNonce, globalLockNonce)) % 432001 s. v1 also mixed in the swap output, which let callers grind by picking the amount (audit D-1); that input was removed.
 Selling in the same block as your last buy reverts `SameBlock()`, slippage/zero amount reverts `Bad()` (same selectors as v1).
 
 The hook's `beforeSwap` only accepts swaps whose sender is `hook.stakingContract()` (reverts `OnlyStaking()` 0x3d704762).
@@ -34,3 +34,10 @@ but v1 `claim()` keeps working. Simulate with `STAKING_V2=0x… forge script scr
 Constructor: `(address initialOwner, address savior, address poolManager, address treasury, (address,address,uint24,int24,address) key)`.
 
 Fork tests mock Arc's native-USDC precompiles (0x1800…00 transfer, 0x1800…01 blocklist) locally because foundry's EVM lacks them.
+
+## Audit fixes (/workspace/audit-v2/RAPOR.md)
+- D-1 lock seed without caller-chosen amount (nonces instead). Residual: not secure randomness, a block producer or a caller who only submits in a favourable block can still bias within 5 to 10 days.
+- D-2 `MIN_STAKE = 1e6` (1 SAVIOR, 6 decimals) for `stake`/`stakeFor`; dust spam now costs real SAVIOR (which goes to the victim).
+- D-3 `deadline` on `swapExactIn`, `Expired()` after it.
+- D-4 fork tests `vm.skip` when `ARC_FORK` is unset (shown as skipped, not green).
+- `test/AuditPoC.t.sol`: auditor PoCs; the two exploit PoCs (grind, dust spam) now fail against the fixed code and are rewritten to assert the fix.

@@ -66,13 +66,13 @@ contract ArcForkTest is Test {
 
     function _buy(address who, uint256 usdcIn) internal returns (uint256 net) {
         vm.prank(who);
-        net = st.swapExactIn(true, usdcIn, 0);
+        net = st.swapExactIn(true, usdcIn, 0, block.timestamp);
     }
 
     // ------------------------------------------------------------- on-chain facts
 
-    function test_fork_chainAndCode() public view {
-        if (!forked) return;
+    function test_fork_chainAndCode() public {
+        vm.skip(!forked);
         assertEq(block.chainid, A.CHAIN_ID);
         assertGt(A.STAKING_V1.code.length, 0);
         assertGt(A.POOL_MANAGER.code.length, 0);
@@ -82,8 +82,8 @@ contract ArcForkTest is Test {
         assertEq(IERC20Metadata(A.SAVIOR_TOKEN).decimals(), 6);
     }
 
-    function test_fork_hookState() public view {
-        if (!forked) return;
+    function test_fork_hookState() public {
+        vm.skip(!forked);
         assertEq(hook.owner(), A.DEPLOYER);
         assertEq(hook.stakingContract(), A.STAKING_V1);
         assertEq(hook.poolManager(), A.POOL_MANAGER);
@@ -94,15 +94,15 @@ contract ArcForkTest is Test {
         assertEq(address(uint160(uint256(vm.load(A.SAVIOR_HOOK, bytes32(uint256(1)))))), A.STAKING_V1);
     }
 
-    function test_fork_v1State() public view {
-        if (!forked) return;
+    function test_fork_v1State() public {
+        vm.skip(!forked);
         IStakingV1 v1 = IStakingV1(A.STAKING_V1);
         assertEq(v1.owner(), address(0));
         assertFalse(v1.globalUnlock());
     }
 
     function test_fork_v1EmergencyUnlockGatedByDeployer() public {
-        if (!forked) return;
+        vm.skip(!forked);
         IStakingV1 v1 = IStakingV1(A.STAKING_V1);
         vm.prank(address(0xBEEF));
         vm.expectRevert(bytes4(0x30cd7471)); // NotOwner()
@@ -115,18 +115,18 @@ contract ArcForkTest is Test {
     // ------------------------------------------------------------- hook wiring
 
     function test_fork_setStakingContractOnlyHookOwner() public {
-        if (!forked) return;
+        vm.skip(!forked);
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
         hook.setStakingContract(address(st));
     }
 
     function test_fork_hookGatesSwapsToStakingContract() public {
-        if (!forked) return;
+        vm.skip(!forked);
         // hook.beforeSwap reverts OnlyStaking() (0x3d704762, wrapped by v4 WrappedError) unless sender == stakingContract
         vm.prank(user);
         vm.expectRevert();
-        st.swapExactIn(true, 10e6, 0);
+        st.swapExactIn(true, 10e6, 0, block.timestamp);
         _wireHook();
         _buy(user, 10e6);
         // after re-wiring, v1 can no longer swap (claims still work)
@@ -140,7 +140,7 @@ contract ArcForkTest is Test {
     // ------------------------------------------------------------- end-to-end
 
     function test_fork_e2e_buyLockClaimSell() public {
-        if (!forked) return;
+        vm.skip(!forked);
         _wireHook();
         uint256 treBefore = sav.balanceOf(A.TREASURY);
         uint256 usdcBefore = usdc.balanceOf(user);
@@ -164,7 +164,7 @@ contract ArcForkTest is Test {
         vm.startPrank(user);
         sav.approve(address(st), type(uint256).max);
         vm.expectRevert(SaviorStakingV2.SameBlock.selector);
-        st.swapExactIn(false, 1e6, 0);
+        st.swapExactIn(false, 1e6, 0, block.timestamp);
 
         // lock enforced
         vm.expectRevert(SaviorStakingV2.Locked.selector);
@@ -182,7 +182,7 @@ contract ArcForkTest is Test {
         // sell everything
         vm.roll(block.number + 1);
         uint256 u0 = usdc.balanceOf(user);
-        uint256 out = st.swapExactIn(false, net, 0);
+        uint256 out = st.swapExactIn(false, net, 0, block.timestamp);
         vm.stopPrank();
         assertEq(usdc.balanceOf(user) - u0, out);
         assertEq(sav.balanceOf(user), 0);
@@ -193,15 +193,15 @@ contract ArcForkTest is Test {
     }
 
     function test_fork_e2e_slippage() public {
-        if (!forked) return;
+        vm.skip(!forked);
         _wireHook();
         vm.prank(user);
         vm.expectRevert(SaviorStakingV2.Bad.selector);
-        st.swapExactIn(true, 10e6, type(uint256).max);
+        st.swapExactIn(true, 10e6, type(uint256).max, block.timestamp);
     }
 
     function test_fork_e2e_matchesV1() public {
-        if (!forked) return;
+        vm.skip(!forked);
         // v1 buy on the untouched fork state
         uint256 snap = vm.snapshotState();
         vm.startPrank(user);
@@ -218,11 +218,14 @@ contract ArcForkTest is Test {
         assertEq(net - net / 2, v1Got, "v2 buyer share == v1 buyer share");
         SaviorStakingV2.Lock[] memory v2Locks = st.getLocks(user);
         assertEq(v2Locks[0].amount, v1Locks[0].amount, "same locked amount");
-        assertEq(v2Locks[0].unlockAt, v1Locks[0].unlockAt, "same pseudo-random unlockAt as v1");
+        // D-1: seed hardened, unlockAt no longer equals v1's, but stays in the same 5-10 day window
+        assertGe(v2Locks[0].unlockAt, block.timestamp + 5 days);
+        assertLe(v2Locks[0].unlockAt, block.timestamp + 10 days);
+        assertGe(v1Locks[0].unlockAt, block.timestamp + 5 days);
     }
 
     function test_fork_e2e_emergencyUnlockAll() public {
-        if (!forked) return;
+        vm.skip(!forked);
         _wireHook();
         _buy(user, 10e6);
         _buy(user2, 20e6);
@@ -243,7 +246,7 @@ contract ArcForkTest is Test {
     }
 
     function test_fork_e2e_rescueCannotTouchLocked() public {
-        if (!forked) return;
+        vm.skip(!forked);
         _wireHook();
         _buy(user, 50e6);
         uint256 locked = st.totalLocked();
@@ -263,7 +266,7 @@ contract ArcForkTest is Test {
     }
 
     function test_fork_migration_claimOldStakeNew() public {
-        if (!forked) return;
+        vm.skip(!forked);
         // user has a v1 lock, deployer unlocks v1, user claims and restakes into v2
         vm.startPrank(user);
         usdc.approve(A.STAKING_V1, type(uint256).max);

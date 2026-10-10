@@ -59,7 +59,7 @@ contract SaviorStakingV2Test is Test {
 
     function test_swapZeroReverts() public {
         vm.expectRevert(SaviorStakingV2.Bad.selector);
-        st.swapExactIn(true, 0, 0);
+        st.swapExactIn(true, 0, 0, block.timestamp);
     }
 
     function test_keySet() public view {
@@ -87,7 +87,9 @@ contract SaviorStakingV2Test is Test {
         assertEq(SaviorStakingV2.emergencyUnlockAll.selector, bytes4(0xe20cc079));
         assertEq(SaviorStakingV2.rescue.selector, bytes4(0x7a4e4ecf));
         assertEq(SaviorStakingV2.Locked.selector, bytes4(0x0f2e5b6c));
-        assertEq(SaviorStakingV2.swapExactIn.selector, bytes4(0x1d2105ba));
+        // D-3: deadline added, selector intentionally differs from v1 swapExactIn(bool,uint256,uint256) 0x1d2105ba
+        assertEq(SaviorStakingV2.swapExactIn.selector, bytes4(keccak256("swapExactIn(bool,uint256,uint256,uint256)")));
+        assertTrue(SaviorStakingV2.swapExactIn.selector != bytes4(0x1d2105ba));
         assertEq(SaviorStakingV2.unlockCallback.selector, bytes4(0x91dd7346));
         assertEq(bytes4(keccak256("lastBuyBlock(address)")), bytes4(0x37b28bfd));
         assertEq(bytes4(keccak256("treasury()")), bytes4(0x61d027b3));
@@ -115,6 +117,42 @@ contract SaviorStakingV2Test is Test {
         st.stake(0);
     }
 
+    function test_swapExpiredReverts() public {
+        vm.warp(1000);
+        vm.expectRevert(SaviorStakingV2.Expired.selector);
+        st.swapExactIn(true, 1e6, 0, 999);
+    }
+
+    function test_stakeBelowMinReverts() public {
+        assertEq(st.MIN_STAKE(), 1e6);
+        vm.prank(alice);
+        vm.expectRevert(SaviorStakingV2.BelowMinStake.selector);
+        st.stake(1e6 - 1);
+        vm.prank(alice);
+        vm.expectRevert(SaviorStakingV2.BelowMinStake.selector);
+        st.stakeFor(bob, 1);
+        vm.prank(alice);
+        st.stake(1e6);
+    }
+
+    /// D-1: two stakes in the same block with the same amount get different seeds (nonces), and the lock time
+    /// does not depend on the amount: same state + different amount => same unlockAt.
+    function test_lockSeedIndependentOfAmount() public {
+        vm.roll(500);
+        uint256 snap = vm.snapshotState();
+        vm.prank(alice);
+        st.stake(1e6);
+        uint64 u1 = st.getLocks(alice)[0].unlockAt;
+        vm.revertToState(snap);
+        vm.prank(alice);
+        st.stake(200e6);
+        assertEq(st.getLocks(alice)[0].unlockAt, u1, "amount does not influence lock time");
+        vm.prank(alice);
+        st.stake(200e6);
+        assertEq(st.userLockNonce(alice), 2);
+        assertEq(st.globalLockNonce(), 2);
+    }
+
     function test_stakeFor() public {
         vm.prank(alice);
         st.stakeFor(bob, 10e6);
@@ -123,7 +161,7 @@ contract SaviorStakingV2Test is Test {
     }
 
     function testFuzz_lockWithin5to10Days(uint96 amt, uint32 blk) public {
-        amt = uint96(bound(amt, 1, 1_000e6));
+        amt = uint96(bound(amt, 1e6, 1_000e6));
         vm.roll(uint256(blk) + 2);
         vm.prank(alice);
         st.stake(amt);
@@ -228,7 +266,7 @@ contract SaviorStakingV2Test is Test {
     }
 
     function testFuzz_rescueNeverBelowTotalLocked(uint96 staked, uint96 extra, uint96 take) public {
-        staked = uint96(bound(staked, 1, 1_000e6));
+        staked = uint96(bound(staked, 1e6, 1_000e6));
         tok.mint(alice, staked);
         vm.prank(alice);
         st.stake(staked);
