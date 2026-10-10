@@ -1,7 +1,187 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>$SAVIOR: Arc Mainnet</title>
-<link rel="icon" type="image/svg+xml" href="../logo.svg"/><link rel="apple-touch-icon" href="../apple-touch-icon.png"/>
-<meta http-equiv="refresh" content="0; url=../"/><link rel="canonical" href="../"/>
-<style>body{font-family:system-ui,sans-serif;background:#00011C;color:#FAFAFA;display:flex;min-height:100vh;align-items:center;justify-content:center}a{color:#3898EC}</style>
-</head><body><p>The $SAVIOR site has moved. <a href="../">Open the site</a>.</p></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>$SAVIOR Docs: How it works</title>
+<meta name="description" content="How SAVIOR works on Arc Mainnet: the 50/50 split, fees, locks and claims, bridging USDC, contract addresses and risks."/>
+<link rel="icon" type="image/svg+xml" href="../logo.svg"/>
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png"/>
+<meta name="theme-color" content="#00011C"/>
+<script>
+(function(){var s=null;try{s=localStorage.getItem('savior.theme')}catch(e){}
+var t=s||(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../site.css"/>
+<style>
+.docs{display:grid;gap:40px;padding:48px 0 72px}
+@media(min-width:1024px){.docs{grid-template-columns:220px minmax(0,1fr)}}
+.toc{display:none}
+@media(min-width:1024px){.toc{display:flex;flex-direction:column;gap:10px;position:sticky;top:96px;align-self:start;font-size:14px;color:var(--muted)}.toc a:hover{color:var(--primary)}}
+.doc-sec{scroll-margin-top:80px;margin-bottom:48px}
+.doc-sec h2{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.doc-sec h2 .chip{margin:0}
+.doc-sec p,.doc-sec li{color:var(--muted);font-size:16px;line-height:1.65;max-width:720px}
+.doc-sec p+p{margin-top:10px}
+.doc-sec ul,.doc-sec ol{padding-left:20px;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.doc-sec b{color:var(--text)}
+.doc-sec .card{margin-top:16px;max-width:720px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--border);font-size:15px}
+.kv:first-child{border-top:0}
+.kv span:last-child{font-family:var(--mono);text-align:right}
+.contracts a{word-break:break-all;text-align:right}
+.risk{border-color:color-mix(in srgb,var(--warning) 50%,transparent)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></symbol>
+ <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1.5"/></symbol>
+ <symbol id="i-bridge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-8 15-8 18 0"/><path d="M3 17h18M8 17v-4M16 17v-4M12 17v-6"/></symbol>
+ <symbol id="i-tokenomics" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 6.2"/></symbol>
+ <symbol id="i-vault" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="12" r="4"/><path d="M12 8v1M12 15v1M8 12h1M15 12h1"/></symbol>
+ <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+ <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+ <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+</defs></svg>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a href="../" class="brand"><img src="../logo.svg" alt="$SAVIOR logo" width="32" height="32"/>$SAVIOR</a>
+    <nav class="nav-links" aria-label="Docs sections">
+      <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks</a><a href="#bridge">Bridge</a><a href="#contracts">Contracts</a><a href="#risks">Risks</a>
+    </nav>
+    <div class="nav-right">
+      <span class="pill-net">DOCS</span>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle light or dark mode"><svg class="ico-18"><use href="#i-moon"/></svg></button>
+      <a href="../#swap" class="btn btn-primary">Open app</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 48px">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <span class="hero-pill">Documentation</span>
+    <h1 class="display" style="font-size:clamp(36px,6vw,56px)">How $SAVIOR works</h1>
+    <p class="hero-sub">Everything you need before you swap: the 50/50 split, fees, locks and claims, bridging USDC to Arc, the contracts, and the risks.</p>
+  </div>
+</section>
+
+<main class="container docs">
+  <nav class="toc" aria-label="On this page">
+    <span class="label">On this page</span>
+    <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks and claims</a><a href="#bridge">Bridge</a><a href="#contracts">Contract addresses</a><a href="#risks">Risks</a>
+  </nav>
+  <div>
+    <section id="how" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-swap"/></svg></span>How it works</h2>
+      <p>SAVIOR is a token on <b>Arc Mainnet</b>, the stablecoin-native chain where USDC is the gas token. It trades in a <b>Uniswap V4 pool</b> (SAVIOR / USDC) protected by a custom hook. Swaps go through the <b>SaviorStaking</b> contract, which applies the rules below.</p>
+      <ol>
+        <li>You pay USDC. The pool swaps it for SAVIOR.</li>
+        <li><b>50% of the SAVIOR goes to your wallet right away.</b></li>
+        <li><b>The other 50% is locked</b> in the staking contract for a random 5 to 10 days.</li>
+        <li>When a lock expires, you claim it from the Locks section of the app.</li>
+      </ol>
+      <p>Selling works the other way around: you send SAVIOR and receive USDC. Sells are not locked. Selling in the same block as a buy is not allowed.</p>
+      <div class="card">
+        <div class="kv"><span class="muted">Network</span><span>Arc Mainnet (chain ID 5042)</span></div>
+        <div class="kv"><span class="muted">Gas token</span><span>USDC</span></div>
+        <div class="kv"><span class="muted">Token decimals</span><span>6</span></div>
+        <div class="kv"><span class="muted">Instant share of a buy</span><span>50%</span></div>
+        <div class="kv"><span class="muted">Lock period</span><span>5 to 10 days</span></div>
+      </div>
+    </section>
+
+    <section id="fees" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-tokenomics"/></svg></span>Fees</h2>
+      <p>Every swap pays two fees. The app's estimate already includes both.</p>
+      <div class="card">
+        <div class="kv"><span class="muted">Pool fee (to liquidity providers)</span><span>1%</span></div>
+        <div class="kv"><span class="muted">Hook fee (to the treasury)</span><span>0.3% of the output</span></div>
+        <div class="kv"><span class="muted">Network gas</span><span>paid in USDC, usually cents</span></div>
+      </div>
+      <p style="margin-top:16px"><b>Slippage.</b> The default tolerance is 0.5%. You can pick 0.1%, 0.5%, 1% or a custom value. If the price moves more than that before your swap lands, the swap reverts and you only pay gas. Above 1% the app shows a warning.</p>
+      <p><b>Small pool.</b> Liquidity is still small, so large trades move the price a lot. If an amount is bigger than the pool can fill, the app tells you before you sign.</p>
+    </section>
+
+    <section id="locks" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-lock"/></svg></span>Locks and claims</h2>
+      <p>Each buy creates one lock that holds half of the SAVIOR you bought. Each lock has its own unlock time between 5 and 10 days after the buy.</p>
+      <ul>
+        <li><b>See your locks:</b> connect your wallet and open <a class="link" href="../#locks">My Locked Positions</a>. You will see the amount, a countdown and the status of each lock. Times are shown in your local time zone.</li>
+        <li><b>Claim:</b> when a lock shows <b>Ready</b>, press Claim and confirm in your wallet. The SAVIOR goes straight to your wallet.</li>
+        <li><b>Nothing expires:</b> an unlocked position stays claimable. You do not lose it if you wait.</li>
+        <li><b>Leaderboard:</b> the public Locks Leaderboard shows every wallet's locked total, read directly from the staking contract. Locks unlocking within 24 hours are highlighted.</li>
+      </ul>
+    </section>
+
+    <section id="bridge" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-bridge"/></svg></span>Bridge USDC to Arc</h2>
+      <p>The Bridge section moves native USDC from another chain to Arc with <b>Circle CCTP</b> (Arc is CCTP domain 26). It uses Circle Bridge Kit in your browser. Your wallet signs every step, and no one else holds your funds.</p>
+      <ol>
+        <li><b>Approve:</b> allow USDC to be burned on the source chain.</li>
+        <li><b>Burn on source:</b> the USDC is burned on the source chain.</li>
+        <li><b>Attestation:</b> Circle signs a message confirming the burn.</li>
+        <li><b>Mint on Arc:</b> the same amount of native USDC is minted to your address on Arc.</li>
+      </ol>
+      <p>You need USDC and gas on the source chain, plus a little USDC on Arc to pay for the mint. <b>Fast</b> transfers finish in minutes for a small fee. <b>Standard</b> transfers have no fast fee but wait for source-chain finality. If a transfer stops partway, use <b>Retry last transfer</b>.</p>
+      <p>Supported source chains: Ethereum, Base, Arbitrum, OP Mainnet, Avalanche, Polygon PoS, Linea and Unichain.</p>
+    </section>
+
+    <section id="contracts" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-vault"/></svg></span>Contract addresses</h2>
+      <p>All contracts are on Arc Mainnet. Check addresses on the explorer before you approve anything.</p>
+      <div class="contracts" style="grid-template-columns:minmax(0,1fr);max-width:720px">
+<div><span class="muted">SAVIOR token (6 decimals)</span><a href="https://explorer.arc.io/address/0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3" target="_blank" rel="noopener">0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3</a></div>
+<div><span class="muted">SaviorStaking (swap, lock, claim)</span><a href="https://explorer.arc.io/address/0xBCA651C0A0540a1fCDef066B5476d714431fa525" target="_blank" rel="noopener">0xBCA651C0A0540a1fCDef066B5476d714431fa525</a></div>
+<div><span class="muted">Uniswap V4 hook</span><a href="https://explorer.arc.io/address/0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0" target="_blank" rel="noopener">0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0</a></div>
+<div><span class="muted">Uniswap V4 PoolManager</span><a href="https://explorer.arc.io/address/0x8366a39CC670B4001A1121B8F6A443A643e40951" target="_blank" rel="noopener">0x8366a39CC670B4001A1121B8F6A443A643e40951</a></div>
+<div><span class="muted">USDC on Arc</span><a href="https://explorer.arc.io/address/0x3600000000000000000000000000000000000000" target="_blank" rel="noopener">0x3600000000000000000000000000000000000000</a></div>
+<div><span class="muted">Treasury</span><a href="https://explorer.arc.io/address/0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787" target="_blank" rel="noopener">0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787</a></div>
+<div><span class="muted">CCTP TokenMessengerV2</span><a href="https://explorer.arc.io/address/0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d" target="_blank" rel="noopener">0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d</a></div>
+<div><span class="muted">CCTP MessageTransmitterV2</span><a href="https://explorer.arc.io/address/0x81D40F21F12A8F0E3252Bccb954D722d4c464B64" target="_blank" rel="noopener">0x81D40F21F12A8F0E3252Bccb954D722d4c464B64</a></div>
+      </div>
+      <p style="margin-top:12px">Pool ID: <span class="mono" style="word-break:break-all">0x004d7e7f668a78ea18228d753008ccf0c2b6b9e7c6c03d7a44d7cd954d072ab6</span> (USDC / SAVIOR, fee 10000, tick spacing 200). CCTP addresses verified against <a class="link" href="https://developers.circle.com/cctp/references/contract-addresses" target="_blank" rel="noopener">Circle's documentation</a>.</p>
+    </section>
+
+    <section id="risks" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-bolt"/></svg></span>Risks</h2>
+      <div class="card risk">
+        <p><b>SAVIOR is an experimental meme token. Nothing on this site is financial advice.</b></p>
+        <ul>
+          <li><b>You can lose everything.</b> The price can drop to zero. Only use money you can afford to lose.</li>
+          <li><b>Smart contract risk.</b> The token, hook, staking and bridge contracts can have bugs. They have not been formally audited.</li>
+          <li><b>Locked funds.</b> Half of every buy is locked for 5 to 10 days. You cannot sell locked SAVIOR until you claim it, even if the price falls.</li>
+          <li><b>Low liquidity.</b> The pool is small, so prices move sharply and large sells may not be possible.</li>
+          <li><b>Bridge risk.</b> Bridging relies on Circle CCTP and on the source chain. Delays or outages can hold up a transfer.</li>
+          <li><b>Network risk.</b> Arc is a new network. Public RPC endpoints can be slow or rate-limited, so data in the app may lag.</li>
+          <li><b>Your keys, your responsibility.</b> Never share your seed phrase. Always check what you sign.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="foot-top">
+      <a href="../" class="brand" style="font-size:16px"><img src="../logo.svg" alt="" width="28" height="28" style="width:28px;height:28px"/>$SAVIOR</a>
+      <div class="foot-links"><a href="../">App</a><a href="./">Docs</a><a href="../tokenlist.json" target="_blank">Token list</a><a href="https://github.com/cengovski/savior" target="_blank" rel="noopener">GitHub</a></div>
+    </div>
+    <p class="disclaimer">SAVIOR is an experimental meme token on Arc Mainnet. Nothing here is financial advice. Smart contracts can have bugs and token prices can go to zero. Only use funds you can afford to lose.</p>
+  </div>
+</footer>
+<script>
+function paintThemeBtn(){var t=document.documentElement.getAttribute('data-theme');document.getElementById('theme-btn').innerHTML='<svg class="ico-18"><use href="#i-'+(t==='dark'?'sun':'moon')+'"/></svg>';}
+function toggleTheme(){var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('savior.theme',t)}catch(e){}paintThemeBtn();}
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){if(!localStorage.getItem('savior.theme')){document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');paintThemeBtn();}})}catch(e){}
+paintThemeBtn();
+</script>
+</body>
+</html>

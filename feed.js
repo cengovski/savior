@@ -125,6 +125,7 @@
   async function poll() {
     try {
       const head = await provider.getBlockNumber();
+      if (head === lastBlock) { pollFails = 0; setStatus("Live, block " + head.toLocaleString("en-US")); return schedule(); } // no new block
       if (!lastBlock || head - lastBlock > BACKFILL_CHUNKS * CHUNK) lastBlock = head; // too far behind: jump to live
       while (lastBlock < head) {
         const to = Math.min(head, lastBlock + CHUNK);
@@ -138,8 +139,17 @@
       console.warn("[feed] poll failed", e); pollFails++;
       setStatus(pollFails > 2 ? "Arc network is busy. Showing the last trades we loaded." : "Connection to Arc lost. Reconnecting...", pollFails > 2);
     }
-    timer = setTimeout(poll, pollFails ? Math.min(60000, POLL_MS * 2 ** pollFails) : POLL_MS);
+    schedule();
   }
+  // hidden tab: poll every 60s instead of 8s; exponential backoff with jitter after failures
+  const HIDDEN_POLL_MS = 60000;
+  function schedule() {
+    clearTimeout(timer);
+    let ms = document.hidden ? HIDDEN_POLL_MS : POLL_MS;
+    if (pollFails) ms = Math.min(60000, POLL_MS * 2 ** pollFails);
+    timer = setTimeout(poll, Math.round(ms * (0.85 + Math.random() * 0.3)));
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && provider && lastBlock) { clearTimeout(timer); poll(); } });
 
   async function start() {
     if (typeof ethers === "undefined" || !window.SaviorRPC) return setTimeout(start, 300);

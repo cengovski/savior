@@ -54,6 +54,24 @@
     return l;
   }
 
+  // Multicall3 (deployed on Arc at the canonical address): globalUnlock + getLocks for many wallets in ONE eth_call.
+  const MC3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+  const stakingIface = new ethers.Interface(["function getLocks(address) view returns ((uint128 amount,uint64 unlockAt)[])", "function globalUnlock() view returns (bool)"]);
+  let mc = null;
+  const MC = () => mc || (mc = new ethers.Contract(MC3, ["function aggregate3((address target,bool allowFailure,bytes callData)[] calls) view returns ((bool success,bytes returnData)[])"], P()));
+  async function getLocksMany(addrs) {
+    const calls = [{ target: C.contracts.staking, allowFailure: true, callData: stakingIface.encodeFunctionData("globalUnlock", []) }]
+      .concat(addrs.map((a) => ({ target: C.contracts.staking, allowFailure: true, callData: stakingIface.encodeFunctionData("getLocks", [a]) })));
+    const res = await rpc(() => MC().aggregate3.staticCall(calls));
+    if (res[0].success) globalUnlock = stakingIface.decodeFunctionResult("globalUnlock", res[0].returnData)[0];
+    addrs.forEach((a, i) => {
+      const r = res[i + 1]; if (!r.success) return;
+      const raw = stakingIface.decodeFunctionResult("getLocks", r.returnData)[0];
+      cache.locks[lc(a)] = { t: Date.now(), l: raw.map((x, j) => ({ i: j, amount: x.amount.toString(), unlockAt: Number(x.unlockAt) })) };
+    });
+    save();
+  }
+
   // Incremental scan of SAVIOR transfers; registers buyers as lockers.
   // Pre-scanned snapshot shipped with the site (regenerated occasionally) so first visits only scan new blocks.
   async function loadSeed() {
@@ -143,25 +161,30 @@
   function setStatus(text, retry) {
     const st = $("lb-status"); if (!st) return;
     st.replaceChildren(document.createTextNode(text));
-    if (retry) { const b = el("button", "link", " Retry"); b.onclick = () => refresh(); st.appendChild(b); }
+    if (retry) { const b = el("button", "link", " Retry"); b.onclick = () => refresh(true); st.appendChild(b); }
   }
-  let refreshing = null;
-  function refresh() {
+  let refreshing = null, lastHead = 0;
+  function refresh(force) {
     if (refreshing) return refreshing;
+    if (!force && document.hidden) return Promise.resolve(); // tab hidden: skip, catch up on return
     refreshing = (async () => {
-      let failed = 0;
       setStatus("Updating from Arc...");
-      try { globalUnlock = await rpc(() => S().globalUnlock()); }
-      catch (e) { setStatus("Arc network is busy. Showing last known data.", true); return; } // no RPC reachable: keep what we show
-      // 1) refresh wallets we already know (seed + cache) so real numbers show fast
+      let head;
+      try { head = await rpc(() => P().getBlockNumber()); }
+      catch (e) { setStatus("Arc network is busy. Showing last known data.", true); return; }
+      if (!force && head === lastHead) { setStatus("Updated " + new Date().toLocaleTimeString("en-US")); return; } // no new block: nothing to re-read
+      let failed = 0;
+      // 1) wallets we already know (seed + cache): one Multicall3 call
       const known = Object.keys(cache.wallets);
-      for (const w of known) { try { await getLocks(w, true); } catch (e) { failed++; setStatus("Arc network is busy. Showing last known data.", true); } }
-      if (known.length) showRows();
-      // 2) look for new lockers in blocks after the seed/cache
+      try { if (known.length) { await getLocksMany(known); showRows(); } }
+      catch (e) { failed++; setStatus("Arc network is busy. Showing last known data.", true); return; }
+      // 2) new lockers in blocks after the seed/cache
       try {
         await scan((f) => setStatus("Checking new blocks " + Math.min(100, Math.round(f * 100)) + "%"));
-        for (const w of Object.keys(cache.wallets)) if (!known.includes(w)) { try { await getLocks(w, true); } catch (e) { failed++; } }
+        const fresh = Object.keys(cache.wallets).filter((w) => !known.includes(w));
+        if (fresh.length) await getLocksMany(fresh);
       } catch (e) { console.warn("[locks] scan", e); failed++; }
+      lastHead = head;
       showRows();
       if (failed) setStatus("Arc network is busy. Showing last known data.", true);
       else setStatus("Updated " + new Date().toLocaleTimeString("en-US"));
@@ -175,9 +198,10 @@
     showRows();                 // cached results from a previous visit, instantly
     await loadSeed(); showRows(); // shipped snapshot (first visit)
     if (rows.length) setStatus("Last known data, updating...");
-    refresh();
-    setInterval(render, 30000);   // countdowns
-    setInterval(refresh, 120000); // incremental chain refresh
+    refresh(true);
+    setInterval(render, 30000);   // countdowns (no RPC)
+    setInterval(refresh, 120000); // incremental chain refresh, skipped while hidden or when no new block
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
   }
 
   // For the Live Trades feed: find the lock created by a buy (amount match, newest first).

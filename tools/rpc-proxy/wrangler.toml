@@ -1,0 +1,10 @@
+# PROPOSAL, NOT DEPLOYED. Deploy with: npx wrangler deploy (needs a free Cloudflare account).
+name = "savior-arc-rpc"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+# Optional rate limiting per client IP (Workers Rate Limiting binding, free tier):
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"
+# simple = { limit = 120, period = 60 }

@@ -51,8 +51,59 @@
     return { jsonrpc: "2.0", id: payload.id, result: all };
   }
 
-  // Send one JSON-RPC payload (object or array) with failover. Returns parsed JSON.
+  // ---------- global request budget: token bucket (one token per HTTP request, a batch counts once) ----------
+  const BUCKET_MAX = 8, REFILL_PER_S = 3;
+  let tokens = BUCKET_MAX, lastRefill = Date.now();
+  async function takeToken() {
+    for (;;) {
+      const now = Date.now();
+      tokens = Math.min(BUCKET_MAX, tokens + ((now - lastRefill) / 1000) * REFILL_PER_S); lastRefill = now;
+      if (tokens >= 1) { tokens -= 1; return; }
+      await new Promise((r) => setTimeout(r, Math.ceil(((1 - tokens) / REFILL_PER_S) * 1000)));
+    }
+  }
+  const jitter = (ms) => Math.round(ms * (0.75 + Math.random() * 0.5));
+
+  // ---------- short read cache shared across tabs (localStorage + BroadcastChannel) ----------
+  // Only head-dependent reads at "latest": eth_blockNumber (2s) and eth_call (4s). Logs and receipts are not cached here.
+  const TTL = { eth_blockNumber: 2000, eth_call: 4000 };
+  const mem = new Map();
+  let bc = null; try { bc = new BroadcastChannel("savior-rpc"); bc.onmessage = (e) => { if (e.data && e.data.k) mem.set(e.data.k, e.data.v); }; } catch (e) {}
+  function cacheKey(p) {
+    if (Array.isArray(p) || !TTL[p.method]) return null;
+    if (p.method === "eth_call" && p.params[1] && p.params[1] !== "latest") return null;
+    return p.method + ":" + JSON.stringify(p.params);
+  }
+  function cacheGet(k, method) {
+    let v = mem.get(k);
+    if (!v) { try { v = JSON.parse(localStorage.getItem("savior.rpc." + k) || "null"); } catch (e) {} }
+    return v && Date.now() - v.t < TTL[method] ? v.r : undefined;
+  }
+  function cachePut(k, r) {
+    const v = { t: Date.now(), r }; mem.set(k, v);
+    try { localStorage.setItem("savior.rpc." + k, JSON.stringify(v)); } catch (e) {}
+    try { bc && bc.postMessage({ k, v }); } catch (e) {}
+  }
+  // prune old cache entries once per load
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith("savior.rpc.")) { const v = JSON.parse(localStorage.getItem(k)); if (!v || Date.now() - v.t > 60000) localStorage.removeItem(k); } } } catch (e) {}
+  const inflight = new Map();
+  window.__rpcStats = { http: 0, cached: 0, deduped: 0 };
+
   async function send(payload) {
+    const k = cacheKey(payload);
+    if (k) {
+      const hit = cacheGet(k, payload.method);
+      if (hit !== undefined) { window.__rpcStats.cached++; return { jsonrpc: "2.0", id: payload.id, result: hit }; }
+      if (inflight.has(k)) { window.__rpcStats.deduped++; const j = await inflight.get(k); return { ...j, id: payload.id }; }
+      const pr = sendNet(payload).then((j) => { if (j && j.result !== undefined && !j.error) cachePut(k, j.result); return j; });
+      inflight.set(k, pr);
+      try { return await pr; } finally { inflight.delete(k); }
+    }
+    return sendNet(payload);
+  }
+
+  // Send one JSON-RPC payload (object or array) with failover. Returns parsed JSON.
+  async function sendNet(payload) {
     const methods = (Array.isArray(payload) ? payload : [payload]).map((p) => p.method);
     const needsLogs = methods.includes("eth_getLogs");
     const body = JSON.stringify(payload);
@@ -65,6 +116,7 @@
       for (const i of order) {
         if (state[i].until > Date.now() && round === 0) continue;
         try {
+          await takeToken(); window.__rpcStats.http++;
           const j = await postFor(ENDPOINTS[i], payload, body);
           state[i].fails = 0; state[i].ok++; preferred = i;
           setStatus(i === 0 ? "ok" : "degraded");
@@ -73,10 +125,10 @@
           lastErr = e;
           if (e.skip) continue; // this endpoint can't do this request; it stays healthy for others
           state[i].fails++;
-          state[i].until = Date.now() + Math.min(60000, COOLDOWN_MS * 2 ** Math.min(5, state[i].fails - 1));
+          state[i].until = Date.now() + jitter(Math.min(60000, COOLDOWN_MS * 2 ** Math.min(5, state[i].fails - 1)));
         }
       }
-      await new Promise((r) => setTimeout(r, 800 * (round + 1)));
+      await new Promise((r) => setTimeout(r, jitter(800 * 2 ** round)));
     }
     setStatus("down");
     throw Object.assign(new Error("All Arc RPC endpoints failed: " + (lastErr && lastErr.message)), { code: "SERVER_ERROR" });
@@ -86,8 +138,29 @@
   function provider() {
     if (_provider) return _provider;
     class FailoverProvider extends ethers.JsonRpcProvider {
-      constructor() { super(ENDPOINTS[0].url, 5042, { staticNetwork: ethers.Network.from(5042), batchMaxCount: 1 }); }
-      async _send(payload) { const j = await send(payload); return Array.isArray(j) ? j : [j]; }
+      constructor() { super(ENDPOINTS[0].url, 5042, { staticNetwork: ethers.Network.from(5042), batchMaxCount: 20, batchStallTime: 25 }); }
+      async _send(payload) {
+        const list = Array.isArray(payload) ? payload : [payload];
+        if (list.length === 1) { const j = await send(list[0]); return [j]; }
+        // batch: answer cached parts locally, send the remainder as one JSON-RPC batch (getLogs go alone)
+        const out = [], rest = [];
+        for (const p of list) {
+          const k = cacheKey(p), hit = k && cacheGet(k, p.method);
+          if (k && hit !== undefined) { window.__rpcStats.cached++; out.push({ jsonrpc: "2.0", id: p.id, result: hit }); }
+          else if (p.method === "eth_getLogs") out.push(await send(p));
+          else rest.push(p);
+        }
+        if (rest.length === 1) out.push(await send(rest[0]));
+        else if (rest.length) {
+          const res = await sendNet(rest);
+          for (const r of (Array.isArray(res) ? res : [res])) {
+            out.push(r);
+            const p = rest.find((x) => x.id === r.id), k = p && cacheKey(p);
+            if (k && r.result !== undefined && !r.error) cachePut(k, r.result);
+          }
+        }
+        return out;
+      }
     }
     _provider = new FailoverProvider();
     return _provider;
@@ -95,7 +168,7 @@
 
   window.SaviorRPC = {
     endpoints: ENDPOINTS.map((e) => e.url), provider, send,
-    status: () => status, onStatus: (f) => listeners.push(f),
+    status: () => status, stats: () => window.__rpcStats, onStatus: (f) => listeners.push(f),
     health: () => ENDPOINTS.map((e, i) => ({ url: e.url, ok: state[i].ok, fails: state[i].fails, coolingDown: state[i].until > Date.now() })),
   };
 })();
