@@ -50,6 +50,11 @@
        color:rgba(255,255,255,.4);transition:all .2s}
   .tab.active{background:rgba(59,91,219,.2);color:#fff;border:1px solid rgba(59,91,219,.3)}
   .tab:not(.active):hover{color:rgba(255,255,255,.7)}
+  .feed-row{background:rgba(255,255,255,.03);transition:background .15s}.feed-row:hover{background:rgba(255,255,255,.07)}
+  .feed-big{background:rgba(16,185,129,.15)!important;border:1px solid rgba(16,185,129,.45);box-shadow:0 0 12px rgba(16,185,129,.25)}
+  .feed-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;margin-right:6px;animation:fp 1.6s infinite}
+  @keyframes fp{0%,100%{opacity:1}50%{opacity:.3}}
+  .feed-toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#064e3b;color:#d1fae5;border:1px solid #10b981;padding:10px 14px;border-radius:12px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
   .tab-content{display:none}.tab-content.active{display:block}
   .spin{animation:spin 1s linear infinite}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -163,6 +168,7 @@
       <div class="flex gap-1 mb-5 p-1 bg-white/3 rounded-xl w-fit border border-white/5">
         <div class="tab active" id="tab-swap"   onclick="switchTab('swap')"><i class="fa-solid fa-arrows-rotate text-xs mr-1.5"></i>Swap</div>
         <div class="tab"        id="tab-stakes" onclick="switchTab('stakes')"><i class="fa-solid fa-lock-open text-xs mr-1.5"></i>My Stakes</div>
+        <div class="tab"        id="tab-bridge" onclick="switchTab('bridge')"><i class="fa-solid fa-bridge text-xs mr-1.5"></i>Bridge</div>
         <div class="tab"        id="tab-arc"    onclick="switchTab('arc')"><i class="fa-solid fa-bolt text-xs mr-1.5"></i>About</div>
       </div>
 
@@ -276,6 +282,28 @@
       </div>
 
       <!-- ── About Tab ──────────────────────────────────────────── -->
+      <div id="content-bridge" class="tab-content">
+        <div class="text-sm text-white/60 mb-4">Bridge native USDC from another chain into <b class="text-white/80">Arc</b> with Circle CCTP V2 (Arc domain 26). Your wallet signs every step; no custody, no API key.</div>
+        <div class="glass-inner p-4 mb-3 space-y-3 text-sm">
+          <label class="block"><span class="text-xs text-white/40">From chain</span>
+            <select id="bridge-from" class="input-f w-full mt-1 bg-transparent">
+              <option value="Ethereum">Ethereum</option><option value="Base" selected>Base</option><option value="Arbitrum">Arbitrum</option>
+              <option value="Optimism">OP Mainnet</option><option value="Avalanche">Avalanche</option><option value="Polygon">Polygon PoS</option>
+              <option value="Unichain">Unichain</option><option value="Linea">Linea</option>
+            </select></label>
+          <label class="block"><span class="text-xs text-white/40">Amount (USDC)</span>
+            <input id="bridge-amount" class="input-f w-full mt-1" type="text" inputmode="decimal" placeholder="10.00"></label>
+          <label class="block"><span class="text-xs text-white/40">Recipient on Arc (optional, defaults to your wallet)</span>
+            <input id="bridge-recipient" class="input-f w-full mt-1 font-mono text-xs" type="text" placeholder="0x…"></label>
+          <label class="block"><span class="text-xs text-white/40">Speed</span>
+            <select id="bridge-speed" class="input-f w-full mt-1 bg-transparent"><option value="FAST">Fast (small fee)</option><option value="SLOW">Standard (finality, no fast fee)</option></select></label>
+        </div>
+        <button id="bridge-btn" onclick="SaviorBridge.run()" class="btn-primary flex items-center justify-center gap-2"><i class="fa-solid fa-bridge"></i> Bridge to Arc</button>
+        <button onclick="SaviorBridge.retry()" class="btn-ghost btn-sm mt-2 w-full">Retry last transfer</button>
+        <div id="bridge-log" class="mt-3 text-xs font-mono space-y-1 max-h-56 overflow-y-auto break-all"></div>
+        <div class="mt-3 text-[11px] text-white/30 leading-relaxed">You need USDC + native gas on the source chain, and USDC on Arc (Arc gas is USDC) for the mint step. Powered by Circle Bridge Kit. Arc CCTP: TokenMessengerV2 0x28b5…cf5d, MessageTransmitterV2 0x81D4…4B64 (developers.circle.com).</div>
+      </div>
+
       <div id="content-arc" class="tab-content">
         <div class="space-y-3">
           <div class="glass-inner p-4">
@@ -336,6 +364,15 @@
           <div class="text-xs text-white/55 leading-relaxed">After lock expires, claim from <span class="text-white/75 font-semibold">My Stakes</span> tab</div>
         </div>
       </div>
+    </div>
+
+    <!-- Live feed -->
+    <div class="glass p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-xs font-bold uppercase tracking-widest text-white/30"><span class="feed-dot"></span>Live Trades</div>
+        <div id="feed-status" class="text-[10px] text-white/30">…</div>
+      </div>
+      <div id="feed-list" class="flex flex-col gap-1 max-h-80 overflow-y-auto"></div>
     </div>
 
     <!-- Contracts -->
@@ -699,11 +736,12 @@ async function connectWallet() {
 }
 
 function switchTab(tab) {
-  ["swap","stakes","arc"].forEach(t => {
+  ["swap","stakes","bridge","arc"].forEach(t => {
     document.getElementById(`tab-${t}`).classList.toggle("active", t === tab);
     document.getElementById(`content-${t}`).classList.toggle("active", t === tab);
   });
   if (tab === "stakes" && userAddress) refreshStakes();
+  if (tab === "bridge" && window.SaviorBridge) SaviorBridge.preload();
 }
 
 let swapMode = 'buy'; // 'buy' | 'sell'
@@ -1099,5 +1137,8 @@ async function claimLock(i) {
   }
 }
 </script>
+<script src="config.js"></script>
+<script src="feed.js"></script>
+<script type="module" src="bridge.js"></script>
 </body>
 </html>
