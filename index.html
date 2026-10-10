@@ -516,6 +516,17 @@ const STAKING_V2_ABI = [
   "error Locked()", "error ZeroAmount()", "error BadIndex()", "error NothingToClaim()", "error AmountTooLarge()",
   "error SameBlock()", "error Bad()", "error BadPoolKey()", "error Expired()", "error BelowMinStake()",
 ];
+// Name of a v2 custom error, also when ethers did not decode it (raw revert data nested in the error).
+function v2ErrorName(e) {
+  if (e && e.revert && e.revert.name) return e.revert.name;
+  if (!STAKING_V2_ADDR) return null;
+  const iface = new ethers.Interface(STAKING_V2_ABI);
+  for (const d of [e && e.data, e && e.error && e.error.data, e && e.info && e.info.error && e.info.error.data]) {
+    const hex = typeof d === "string" ? d : d && d.data;
+    if (typeof hex === "string" && hex.startsWith("0x") && hex.length >= 10) { try { return iface.parseError(hex).name; } catch (x) {} }
+  }
+  return null;
+}
 const STAKING_ABI = [
   "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external",
   "function claim(uint256 i) external",
@@ -860,7 +871,7 @@ async function executeSwap() {
     }
   } catch(e) {
     let msg = e.shortMessage || e.reason || e.message || String(e);
-    const rv = e.revert && e.revert.name; // decoded v2 custom error
+    const rv = v2ErrorName(e); // decoded v2 custom error
     if (rv === 'Bad') msg = 'Price moved beyond your slippage, or the amount is invalid. Try again or increase tolerance.';
     else if (rv === 'Expired') msg = 'The swap took longer than 10 minutes to confirm and expired. Nothing was spent, please try again.';
     else if (rv === 'BelowMinStake') msg = 'Minimum stake in the new contract is 1 SAVIOR.';

@@ -29,6 +29,22 @@ R.leaderboard=await p.evaluate(()=>({status:document.getElementById('lb-status')
 await p.waitForTimeout(10000);
 R.feed=await p.evaluate(()=>({status:document.getElementById('feed-status').textContent,rows:[...document.querySelectorAll('#feed-list .feed-row')].slice(0,3).map(r=>r.innerText.replace(/\s+/g,' '))}));
 R.cacheKeys=await p.evaluate(()=>Object.keys(localStorage).filter(k=>/locks|feed/.test(k)));
+// selector of the swap tx just sent
+R.swapSelector=JSON.parse(cast(`rpc eth_getBlockByNumber '"latest"' true`)).transactions.map(t=>t.input.slice(0,10));
+// expired deadline: page clock 20 min behind chain, so deadline = chain time - 10 min
+await p.fill('#swap-amount','1');await p.waitForTimeout(2500);
+await p.evaluate(()=>{window.__dn=Date.now;const off=20*60*1000;Date.now=()=>window.__dn()-off;});
+await p.evaluate(()=>executeSwap());await p.waitForTimeout(4000);
+await p.evaluate(()=>{Date.now=window.__dn});
+R.expired={status:await p.textContent('#swap-status'),toasts:await p.evaluate(()=>[...document.querySelectorAll('.toast')].map(x=>x.innerText.replace(/\s+/g,' ')).slice(-2))};
+// below-min: UI block in the migration card, and the contract revert decoded
+await p.evaluate(()=>{document.getElementById('mig-amount').value='0.5';return SaviorMigrate.stakeNew()});await p.waitForTimeout(800);
+R.belowMinUI=await p.textContent('#mig-status');
+R.belowMinContract=await p.evaluate(async(V2)=>{const c=new ethers.Contract(V2,STAKING_V2_ABI,WalletConnector.signer);
+ try{await c.stake.staticCall(500000n);return 'no revert'}catch(e){return (e.revert&&e.revert.name)||e.shortMessage}},V2);
+// dust-lock warning on a tiny buy estimate
+await p.fill('#swap-amount','0.000005');await p.waitForTimeout(3000);
+R.dustWarning=await p.textContent('#locked-preview');
 // time travel 11 days, claim v2 lock #0 and old lock #0 through the UI claim function
 cast('rpc evm_increaseTime 950400');cast('rpc evm_mine');
 await p.evaluate(()=>refreshStakes());await p.waitForTimeout(1500);

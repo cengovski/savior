@@ -9,7 +9,7 @@
   const $ = (id) => document.getElementById(id);
   const fmt = (v) => Number(ethers.formatUnits(v, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
   const errMsg = (e) => {
-    const n = e && e.revert && e.revert.name;
+    const n = (typeof v2ErrorName === "function" && v2ErrorName(e)) || (e && e.revert && e.revert.name);
     if (n === "BelowMinStake") return "Minimum stake in the new contract is 1 SAVIOR.";
     if (n === "Expired") return "The transaction expired before it was confirmed. Please try again.";
     if (n === "Locked") return "This position is still time-locked.";
