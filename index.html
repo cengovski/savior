@@ -257,6 +257,11 @@
             <span class="text-amber-400 font-semibold" id="locked-preview">-</span>
           </div>
         </div>
+        <div id="quote-details" class="hidden glass-inner px-4 py-3 mb-4 text-xs space-y-1.5">
+          <div class="flex justify-between"><span class="text-white/40">Treasury fee (0.3%)</span><span class="text-white/60" id="quote-fee">-</span></div>
+          <div class="flex justify-between"><span class="text-white/40">Minimum received (slippage <span id="quote-slip">1%</span>)</span><span class="text-white/70 font-semibold" id="quote-min">-</span></div>
+        </div>
+        <div id="quote-error" class="hidden text-xs text-amber-400 mb-3"></div>
 
         <button id="swap-btn" onclick="executeSwap()" class="btn-primary flex items-center justify-center gap-2">
           <i class="fa-solid fa-shield-halved text-sm"></i>Swap via Staking
@@ -755,10 +760,7 @@ async function setPct(pct) {
 function setMaxAmount() { setPct(100); }
 
 
-function onSwapInput() {
-  clearTimeout(quoteTimer);
-  quoteTimer = setTimeout(updateSwapQuote, 400);
-}
+function onSwapInput() { updateSwapQuote(); } // debounced inside updateSwapQuote
 
 function refreshContractsDisplay() {
   const entries = [
@@ -818,37 +820,59 @@ async function fetchQuote(zeroForOne, amountIn) {
   return result.amountOut;
 }
 
-async function updateSwapQuote() {
-  const amt    = parseFloat(document.getElementById("swap-amount").value);
+// Estimate: client-side V4 simulation (quote.js), works without a wallet. Debounced; stale results are dropped.
+let _quoteSeq = 0, _quoteDebounce = null, lastQuote = null;
+function updateSwapQuote() {
+  clearTimeout(_quoteDebounce);
+  _quoteDebounce = setTimeout(runSwapQuote, 350);
+}
+const fmtUnits = (v, d = 2) => Number(ethers.formatUnits(v, 6)).toLocaleString(undefined, { maximumFractionDigits: d });
+async function runSwapQuote() {
+  const seq = ++_quoteSeq;
+  const raw    = (document.getElementById("swap-amount").value || "").trim();
   const outEl  = document.getElementById("savior-out-display");
   const lockEl = document.getElementById("lock-preview");
-  if (!amt || amt <= 0) { outEl.textContent = "-"; lockEl.classList.add("hidden"); return; }
-
+  const detEl  = document.getElementById("quote-details");
+  const errEl  = document.getElementById("quote-error");
+  const reset = (msg) => { outEl.textContent = "-"; lockEl.classList.add("hidden"); detEl.classList.add("hidden");
+    lastQuote = null; errEl.textContent = msg || ""; errEl.classList.toggle("hidden", !msg); };
+  let amountIn;
+  try { amountIn = ethers.parseUnits(raw || "0", 6); } catch (e) { return reset(raw ? "Enter a valid amount (max 6 decimals)." : ""); }
+  if (amountIn <= 0n) return reset("");
+  outEl.textContent = "...";
   try {
-    const amountIn   = BigInt(Math.round(amt * 1e6));
-    // buy = USDC→SAVIOR = zeroForOne=true (currency0=USDC)
-    // sell = SAVIOR→USDC = zeroForOne=false
-    const zeroForOne = swapMode === 'buy';
-    const amountOut  = await fetchQuote(zeroForOne, amountIn);
-    const out        = Number(amountOut) / 1e6;
-
-    if (swapMode === 'buy') {
-      outEl.textContent = out.toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
-      document.getElementById("immediate-preview").textContent =
-        (out * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
-      document.getElementById("locked-preview").textContent =
-        (out * 0.5).toLocaleString(undefined, {maximumFractionDigits: 2}) + " SAVIOR";
+    const isBuy = swapMode === 'buy';
+    const q = await window.SaviorQuote.quote(getReadProvider(), isBuy, amountIn);
+    if (seq !== _quoteSeq) return; // a newer input is being quoted
+    const slip = BigInt(currentSlipBps);
+    const minGross = q.gross * (10000n - slip) / 10000n;           // what the contract checks (pool output)
+    const minNet = q.net * (10000n - slip) / 10000n;
+    lastQuote = { isBuy, amountIn, ...q, minGross };
+    errEl.classList.add("hidden");
+    document.getElementById("quote-slip").textContent = (Number(slip) / 100) + "%";
+    if (isBuy) {
+      outEl.textContent = fmtUnits(q.net) + " SAVIOR";
+      document.getElementById("immediate-preview").textContent = fmtUnits(q.immediate) + " SAVIOR";
+      document.getElementById("locked-preview").textContent = fmtUnits(q.locked) + " SAVIOR";
+      document.getElementById("quote-fee").textContent = fmtUnits(q.fee) + " SAVIOR";
+      document.getElementById("quote-min").textContent = fmtUnits(minNet) + " SAVIOR (" + fmtUnits(minNet - minNet / 2n) + " instant)";
       lockEl.classList.remove("hidden");
     } else {
-      outEl.textContent = out.toLocaleString(undefined, {maximumFractionDigits: 6}) + " USDC";
+      outEl.textContent = fmtUnits(q.net, 6) + " USDC";
+      document.getElementById("quote-fee").textContent = fmtUnits(q.fee, 6) + " USDC";
+      document.getElementById("quote-min").textContent = fmtUnits(minNet, 6) + " USDC";
       lockEl.classList.add("hidden");
     }
-  } catch(e) {
-    outEl.textContent = "-";
-    document.getElementById("lock-preview").classList.add("hidden");
+    detEl.classList.remove("hidden");
+  } catch (e) {
+    if (seq !== _quoteSeq) return;
     console.warn("Quote:", e.shortMessage || e.message);
+    reset(/liquidity/i.test(e.message) ? "Amount is larger than the pool can fill right now." : "Estimate unavailable, please try again.");
   }
 }
+// Read-only RPC for quotes, independent of the wallet's network.
+let _readProvider = null;
+function getReadProvider() { return _readProvider || (_readProvider = new ethers.JsonRpcProvider(RPC, 5042, { staticNetwork: true })); }
 
 // ── Execute Swap (Buy: USDC → SAVIOR) ─────────────────────────────────
 function showStatus(msg, type) {
@@ -887,8 +911,8 @@ async function executeSwap() {
       }
       let minOut = 1n;
       try {
-        const quoted = await fetchQuote(true, amountIn);
-        if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
+        const q = await window.SaviorQuote.quote(getReadProvider(), true, amountIn);
+        if (q.gross > 0n) minOut = q.gross * BigInt(10000 - slipBps) / 10000n; // contract checks pool output
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending swap...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
@@ -912,8 +936,8 @@ async function executeSwap() {
       }
       let minOut = 1n;
       try {
-        const quoted = await fetchQuote(false, amountIn);
-        if (quoted > 0n) minOut = quoted * BigInt(10000 - slipBps) / 10000n;
+        const q = await window.SaviorQuote.quote(getReadProvider(), false, amountIn);
+        if (q.gross > 0n) minOut = q.gross * BigInt(10000 - slipBps) / 10000n; // contract checks pool output
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending sell...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
@@ -1032,6 +1056,7 @@ async function claimLock(i) {
 }
 </script>
 <script src="config.js"></script>
+<script src="quote.js"></script>
 <script src="feed.js"></script>
 <script type="module" src="bridge.js"></script>
 </body>
