@@ -157,6 +157,24 @@ document.documentElement.setAttribute('data-theme',t);})();
     </div>
     <div id="stakes-summary" class="hidden"></div>
 
+    <div id="migrate-card" class="card hidden" style="margin-top:16px">
+      <div class="eyebrow">Staking upgrade</div>
+      <h3 class="h2">Move your old locks to the new staking contract</h3>
+      <p class="sub">The old staking contract is being retired. Step 1: claim your positions from the old contract (they are unlocked for everyone once the migration starts). Step 2: stake the SAVIOR into the new contract. Staking locks it again for a random 5 to 10 days, same as a buy. Nothing is moved without your signature.</p>
+      <div class="grid g3" style="margin:12px 0">
+        <div class="card stat"><div class="label">Old contract, still locked</div><div class="value" id="mig-v1-total">-</div><div class="sub" id="mig-v1-state">-</div></div>
+        <div class="card stat"><div class="label">Wallet SAVIOR</div><div class="value" id="mig-wallet">-</div></div>
+        <div class="card stat"><div class="label">New contract, your locks</div><div class="value" id="mig-v2-total">-</div></div>
+      </div>
+      <div class="field"><div class="field-top"><span class="label">Amount to stake in the new contract (SAVIOR)</span><button class="btn btn-ghost btn-sm" onclick="SaviorMigrate.max()">Max</button></div>
+        <div class="field-row"><input id="mig-amount" type="text" inputmode="decimal" placeholder="0.0" aria-label="Amount of SAVIOR to stake"/></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button id="mig-claim-btn" class="btn btn-primary" onclick="SaviorMigrate.claimAllOld()">1. Claim from old contract</button>
+        <button id="mig-stake-btn" class="btn btn-primary" onclick="SaviorMigrate.stakeNew()">2. Stake in new contract</button>
+      </div>
+      <p class="sub mono" id="mig-status" style="margin-top:8px"></p>
+    </div>
+
     <div class="sub-h">
       <div><div class="eyebrow">Locks leaderboard</div><h3 class="h2">Who is holding for the long run</h3></div>
       <div id="lb-status" class="mono sub">Loading...</div>
@@ -447,7 +465,11 @@ window.WalletConnector = WalletConnector;
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
 const TOKEN_ADDR   = "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3";
-const STAKING_ADDR = "0xBCA651C0A0540a1fCDef066B5476d714431fa525";
+const STAKING_V1_ADDR = "0xBCA651C0A0540a1fCDef066B5476d714431fa525"; // legacy staking (migration source)
+// Set to the deployed SaviorStakingV2 address to switch swaps/claims to v2 and show the migration card.
+// Empty = site behaves exactly as before. Keep in sync with config.js contracts.stakingV2.
+const STAKING_V2_ADDR = "";
+const STAKING_ADDR = STAKING_V2_ADDR || STAKING_V1_ADDR;
 const HOOK_ADDR    = "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0";
 const USDC_ADDR    = "0x3600000000000000000000000000000000000000";
 const POOL_MANAGER = "0x8366a39CC670B4001A1121B8F6A443A643e40951";
@@ -895,6 +917,7 @@ async function claimLock(i) {
 <script src="ui.js"></script>
 <script src="quote.js"></script>
 <script src="locks.js"></script>
+<script src="migrate.js"></script>
 <script src="feed.js"></script>
 <script type="module" src="bridge.js"></script>
 </body>

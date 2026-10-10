@@ -6,7 +6,8 @@ window.SAVIOR_CONFIG = {
   contracts: {
     token:       "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3", // SaviorToken (UUPS proxy), 6 decimals
     hook:        "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0",
-    staking:     "0xBCA651C0A0540a1fCDef066B5476d714431fa525",
+    staking:     "0xBCA651C0A0540a1fCDef066B5476d714431fa525", // v1 (legacy)
+    stakingV2:   "", // SaviorStakingV2, set after deploy (see admin Migration v2 wizard)
     poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
     usdc:        "0x3600000000000000000000000000000000000000",
     treasury:    "0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787",
