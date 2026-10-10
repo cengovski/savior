@@ -161,7 +161,7 @@ document.documentElement.setAttribute('data-theme',t);})();
     <div id="migrate-card" class="card hidden" style="margin-top:16px">
       <div class="eyebrow">Staking upgrade</div>
       <h3 class="h2">Move your old locks to the new staking contract</h3>
-      <p class="sub">The old staking contract is being retired. Step 1: claim your positions from the old contract (they are unlocked for everyone once the migration starts). Step 2: stake the SAVIOR into the new contract. Staking locks it again for a random 5 to 10 days, same as a buy. Nothing is moved without your signature.</p>
+      <p class="sub">The old staking contract is being retired. Step 1: claim your positions from the old contract (they are unlocked for everyone once the migration starts). Step 2: stake the SAVIOR into the new contract. Staking is optional and locks it again for a random 5 to 10 days, same as a buy (minimum 1 SAVIOR). Nothing is moved without your signature.</p>
       <div class="grid g3" style="margin:12px 0">
         <div class="card stat"><div class="label">Old contract, still locked</div><div class="value" id="mig-v1-total">-</div><div class="sub" id="mig-v1-state">-</div></div>
         <div class="card stat"><div class="label">Wallet SAVIOR</div><div class="value" id="mig-wallet">-</div></div>
@@ -471,6 +471,16 @@ const STAKING_V1_ADDR = "0xBCA651C0A0540a1fCDef066B5476d714431fa525"; // legacy 
 // claims/positions/leaderboard/feed read old + v2, and the migration card shows. Empty = exactly as before.
 const STAKING_V2_ADDR = (window.SAVIOR_CONFIG && window.SAVIOR_CONFIG.v2) || ""; // set contracts.stakingV2 in config.js
 const STAKING_ADDR = STAKING_V2_ADDR || STAKING_V1_ADDR;
+// v2 swapExactIn has a 4th `deadline` argument (audit D-3); v1 keeps the 3-argument form.
+const SWAP_DEADLINE_SECS = 600;
+const SWAP_ABI = STAKING_V2_ADDR
+  ? ["function swapExactIn(bool,uint256,uint256,uint256)"]
+  : ["function swapExactIn(bool,uint256,uint256)"];
+function swapArgs(zeroForOne, amountIn, minOut) {
+  return STAKING_V2_ADDR
+    ? [zeroForOne, amountIn, minOut, BigInt(Math.floor(Date.now() / 1000) + SWAP_DEADLINE_SECS)]
+    : [zeroForOne, amountIn, minOut];
+}
 const HOOK_ADDR    = "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0";
 const USDC_ADDR    = "0x3600000000000000000000000000000000000000";
 const POOL_MANAGER = "0x8366a39CC670B4001A1121B8F6A443A643e40951";
@@ -492,7 +502,8 @@ const ERC20_ABI = [
 // Differences vs v1: swapExactIn returns net output and checks minOut against NET (after 0.3% fee);
 // adds stake/stakeFor, totalLocked, lastBuyBlock, Staked/Claimed/Swapped events and custom errors.
 const STAKING_V2_ABI = [
-  "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) returns (uint256 net)",
+  "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut, uint256 deadline) returns (uint256 net)", // 0xb76e2524
+  "function MIN_STAKE() view returns (uint256)",
   "function claim(uint256 i)",
   "function getLocks(address user) view returns ((uint128 amount, uint64 unlockAt)[])",
   "function globalUnlock() view returns (bool)",
@@ -503,7 +514,7 @@ const STAKING_V2_ABI = [
   "event Claimed(address indexed user, uint256 indexed index, uint256 amount)",
   "event Swapped(address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked)",
   "error Locked()", "error ZeroAmount()", "error BadIndex()", "error NothingToClaim()", "error AmountTooLarge()",
-  "error SameBlock()", "error Bad()", "error BadPoolKey()",
+  "error SameBlock()", "error Bad()", "error BadPoolKey()", "error Expired()", "error BelowMinStake()",
 ];
 const STAKING_ABI = [
   "function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) external",
@@ -742,7 +753,8 @@ async function runSwapQuote() {
     if (isBuy) {
       outEl.textContent = fmtUnits(q.net) + " SAVIOR";
       document.getElementById("immediate-preview").textContent = fmtUnits(q.immediate) + " SAVIOR";
-      document.getElementById("locked-preview").textContent = fmtUnits(q.locked) + " SAVIOR";
+      document.getElementById("locked-preview").textContent = fmtUnits(q.locked) + " SAVIOR"
+        + (STAKING_V2_ADDR && q.locked < 1000000n ? " (below 1 SAVIOR, dust lock)" : ""); // v2 MIN_STAKE is 1 SAVIOR; buys still lock, warn only
       document.getElementById("quote-fee").textContent = fmtUnits(q.fee) + " SAVIOR";
       document.getElementById("quote-min").textContent = fmtUnits(minNet) + " SAVIOR";
       lockEl.classList.remove("hidden");
@@ -812,8 +824,8 @@ async function executeSwap() {
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending swap...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
-        STAKING_V2_ADDR ? STAKING_V2_ABI : ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
-      const tx = await staking.swapExactIn(true, amountIn, minOut);
+        STAKING_V2_ADDR ? STAKING_V2_ABI : SWAP_ABI, WalletConnector.signer);
+      const tx = await staking.swapExactIn(...swapArgs(true, amountIn, minOut));
       showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
       showStatus('Half is in your wallet, half is locked.', 'ok', 'https://explorer.arc.io/tx/' + tx.hash);
@@ -838,8 +850,8 @@ async function executeSwap() {
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending sell...', 'info');
       const staking = new ethers.Contract(STAKING_ADDR,
-        STAKING_V2_ADDR ? STAKING_V2_ABI : ["function swapExactIn(bool,uint256,uint256)"], WalletConnector.signer);
-      const tx = await staking.swapExactIn(false, amountIn, minOut);
+        STAKING_V2_ADDR ? STAKING_V2_ABI : SWAP_ABI, WalletConnector.signer);
+      const tx = await staking.swapExactIn(...swapArgs(false, amountIn, minOut));
       showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
       showStatus('USDC is in your wallet.', 'ok', 'https://explorer.arc.io/tx/' + tx.hash);
@@ -850,6 +862,8 @@ async function executeSwap() {
     let msg = e.shortMessage || e.reason || e.message || String(e);
     const rv = e.revert && e.revert.name; // decoded v2 custom error
     if (rv === 'Bad') msg = 'Price moved beyond your slippage, or the amount is invalid. Try again or increase tolerance.';
+    else if (rv === 'Expired') msg = 'The swap took longer than 10 minutes to confirm and expired. Nothing was spent, please try again.';
+    else if (rv === 'BelowMinStake') msg = 'Minimum stake in the new contract is 1 SAVIOR.';
     else if (rv === 'SameBlock') msg = 'Same-block sell not allowed, wait 1 block.';
     else if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded, increase tolerance.';
     else if (msg.includes('SameBlock')) msg = 'Same-block sell not allowed, wait 1 block.';

@@ -12,10 +12,13 @@ The current staking contract has no working admin owner, so it can never be fixe
 2. We unlock every position in the old contract at once. Your locked SAVIOR becomes claimable right away, no matter how much time was left.
 3. You claim from the old contract and, if you want, stake into the new one. The site has a two-step "Move your old locks" card in the Locks section for this.
 
+**Refund for an earlier staking contract**
+One wallet (0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de) had two locks in an earlier staking contract (0xa9bd5fca5efd214fb42a5eddba87ae7e1cca9732). Those tokens were pulled out by the team with the contract's rescue function, which should not have happened. We are refunding the full locked amount, 19,668.018837 SAVIOR, as a direct token transfer from the deployer wallet. It is not staked or locked again. The refund is a separate transaction and will be linked here once sent.
+
 **What you need to do**
 - Open the site, connect your wallet and go to Locks.
 - Click "1. Claim from old contract" and confirm in your wallet.
-- Optional: click "2. Stake in new contract" to lock your SAVIOR again. A new lock lasts a random 5 to 10 days.
+- Optional: click "2. Stake in new contract" to lock your SAVIOR again. A new lock lasts a random 5 to 10 days and the minimum is 1 SAVIOR.
 - You can also just keep the claimed SAVIOR in your wallet. Your tokens stay yours either way.
 
 **Good to know**

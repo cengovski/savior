@@ -4,13 +4,20 @@
   if (typeof STAKING_V2_ADDR === "undefined" || !STAKING_V2_ADDR) return;
   const V1 = STAKING_V1_ADDR, V2 = STAKING_V2_ADDR, TOKEN = TOKEN_ADDR;
   const LOCKS_ABI = ["function getLocks(address) view returns ((uint128 amount,uint64 unlockAt)[])", "function globalUnlock() view returns (bool)", "function claim(uint256)"];
-  const V2_ABI = LOCKS_ABI.concat(["function stake(uint256) returns (uint256)"]);
+  const V2_ABI = LOCKS_ABI.concat(["function stake(uint256) returns (uint256)", "error BelowMinStake()", "error Expired()", "error Locked()", "error ZeroAmount()"]);
   const ERC = ["function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"];
   const $ = (id) => document.getElementById(id);
   const fmt = (v) => Number(ethers.formatUnits(v, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
-  const errMsg = (e) => e.shortMessage || e.reason || e.message || String(e);
+  const errMsg = (e) => {
+    const n = e && e.revert && e.revert.name;
+    if (n === "BelowMinStake") return "Minimum stake in the new contract is 1 SAVIOR.";
+    if (n === "Expired") return "The transaction expired before it was confirmed. Please try again.";
+    if (n === "Locked") return "This position is still time-locked.";
+    return e.shortMessage || e.reason || e.message || String(e);
+  };
   const status = (m) => { $("mig-status").textContent = m; };
   let walletBal = 0n;
+  const MIN_STAKE = 1000000n; // SaviorStakingV2.MIN_STAKE = 1 SAVIOR (6 decimals), audit D-2
 
   async function refresh() {
     const card = $("migrate-card");
@@ -28,7 +35,7 @@
       $("mig-wallet").textContent = fmt(walletBal) + " SAVIOR";
       $("mig-v2-total").textContent = fmt(sum(l2)) + " SAVIOR";
       $("mig-claim-btn").disabled = s1 === 0n;
-      $("mig-stake-btn").disabled = walletBal === 0n;
+      $("mig-stake-btn").disabled = walletBal < MIN_STAKE;
       card.classList.toggle("hidden", s1 === 0n && sum(l2) === 0n && walletBal === 0n);
     } catch (e) { status("Could not load migration data: " + errMsg(e)); card.classList.remove("hidden"); }
   }
@@ -63,6 +70,7 @@
     let amt;
     try { amt = ethers.parseUnits(($("mig-amount").value || "0").trim(), 6); } catch (e) { status("Invalid amount"); return; }
     if (amt <= 0n) { status("Enter an amount"); return; }
+    if (amt < MIN_STAKE) { status("Minimum stake in the new contract is 1 SAVIOR"); return; }
     if (amt > walletBal) { status("Amount is higher than your wallet balance"); return; }
     $("mig-stake-btn").disabled = true;
     try {
