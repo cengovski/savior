@@ -276,6 +276,13 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button class="btn-red" onclick="migUnlockV1()">Simüle Et + Unlock</button>
       <div class="result" id="migUnlockResult">Bekleniyor...</div>
     </div>
+    <div class="card"><h2><span class="step-badge">4</span> İade (Refund) – 0xb311…c7de</h2>
+      <div class="subtitle">Eski staking proxy 0xa9bd…9732'deki kilitleri rescue ile çekilen kullanıcıya iade. Doğrudan <code>SAVIOR.transfer</code> (stakeFor DEĞİL, yeniden kilitlenmez), deployer cüzdanından.<br>
+      Alıcı: <code>0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de</code> · Miktar: <b>19,668.018837 SAVIOR</b> (19668018837, 6 decimals). Migration adımlarından bağımsız, ayrı tx.</div>
+      <div class="warning">⚠️ Alıcı adresi iki kez tam olarak yazılarak onaylanır. Önce eth_call simülasyonu ve deployer bakiye kontrolü yapılır.</div>
+      <button onclick="migRefund()">Kontrol Et + Simüle Et + İade Gönder</button>
+      <div class="result" id="migRefundResult">Bekleniyor...</div>
+    </div>
   </div>
 </div>
 
@@ -1134,6 +1141,38 @@ function setResult(id, msg, cls) {
     } catch(e){ setResult('migVerifyResult','Doğrulama hatası: '+errMsg(e),'err'); return { ok:false, reasons:[errMsg(e)] }; }
   };
 
+  // ── Refund (O-2, Dzengo kararı): direct SAVIOR transfer, fixed recipient/amount ──
+  const REFUND_TO = '0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de';
+  const REFUND_AMOUNT = 19668018837n; // 19,668.018837 SAVIOR (6 decimals)
+  const TOKEN_XFER_ABI = ['function balanceOf(address) view returns (uint256)','function transfer(address,uint256) returns (bool)'];
+  window.migRefund = async function(){
+    const out='migRefundResult';
+    try {
+      const from = await needDeployer();
+      const prev = localStorage.getItem('savior_refund_b311_tx');
+      if (prev && !confirm('UYARI: Bu tarayıcıdan daha önce iade gönderilmiş görünüyor (tx '+prev+'). Explorer\'da kontrol edin. Yine de devam edilsin mi? (çift iade riski)')) { setResult(out,'İptal edildi (önceki iade: '+prev+')','err'); return; }
+      const t = new ethers.Contract(M.SAVIOR, TOKEN_XFER_ABI, signer);
+      const bal = await t.balanceOf(from);
+      const rcpBefore = await t.balanceOf(REFUND_TO);
+      if (bal < REFUND_AMOUNT) throw new Error('Deployer SAVIOR bakiyesi yetersiz: '+ethers.formatUnits(bal,6)+' < '+ethers.formatUnits(REFUND_AMOUNT,6)+' SAVIOR. İade gönderilmedi.');
+      const norm = v => (v||'').trim().toLowerCase();
+      const a1 = prompt('İade alıcısı adresini TAM olarak yazın (1/2):\nBeklenen: '+REFUND_TO);
+      if (norm(a1) !== REFUND_TO.toLowerCase()) throw new Error('1. adres onayı eşleşmedi. İptal.');
+      const a2 = prompt('Alıcı adresini TEKRAR yazın (2/2), kopyalamadan kontrol ederek:');
+      if (norm(a2) !== REFUND_TO.toLowerCase()) throw new Error('2. adres onayı eşleşmedi. İptal.');
+      setResult(out,'Simüle ediliyor (eth_call transfer)...','');
+      const ok = await t.transfer.staticCall(REFUND_TO, REFUND_AMOUNT);
+      if (ok !== true) throw new Error('Simülasyon transfer() true döndürmedi');
+      if (!confirm('Simülasyon OK.\nGönderen: '+from+' (bakiye '+ethers.formatUnits(bal,6)+')\nAlıcı: '+REFUND_TO+'\nMiktar: '+ethers.formatUnits(REFUND_AMOUNT,6)+' SAVIOR\nGönderilsin mi?')) { setResult(out,'İptal edildi','err'); return; }
+      const tx = await t.transfer(REFUND_TO, REFUND_AMOUNT);
+      setResult(out,'Gönderildi: '+tx.hash+'\nOnay bekleniyor...','');
+      await tx.wait();
+      localStorage.setItem('savior_refund_b311_tx', tx.hash);
+      const rcpAfter = await t.balanceOf(REFUND_TO);
+      setResult(out,'✓ İade gönderildi\nTx: '+tx.hash+'\nAlıcı bakiyesi: '+ethers.formatUnits(rcpBefore,6)+' → '+ethers.formatUnits(rcpAfter,6)+' SAVIOR\nExplorer: https://explorer.arc.io/tx/'+tx.hash,'ok');
+    } catch(e){ setResult(out, errMsg(e), 'err'); }
+  };
+
   window.migStatus = async function(){
     setResult('migStatusResult','Okunuyor...','');
     try {
@@ -1170,6 +1209,11 @@ function setResult(id, msg, cls) {
         L.push('=== Bağlı cüzdan '+deployer+' ===');
         L.push('USDC: '+ethers.formatUnits(await usdc.balanceOf(deployer),6)+' | SAVIOR: '+ethers.formatUnits(await sav.balanceOf(deployer),6));
         L.push('deployer mı: '+(deployer.toLowerCase()===M.DEPLOYER.toLowerCase()));
+      }
+      {
+        const sb = await sav.balanceOf(M.DEPLOYER);
+        L.push('=== İade (0xb311…c7de) ===');
+        L.push('alıcı SAVIOR: '+ethers.formatUnits(await sav.balanceOf(REFUND_TO),6)+' | deployer SAVIOR: '+ethers.formatUnits(sb,6)+' / gereken '+ethers.formatUnits(REFUND_AMOUNT,6)+(sb>=REFUND_AMOUNT?' (yeterli)':' (YETERSİZ)'));
       }
       setResult('migStatusResult', L.join('\n'), 'ok');
     } catch(e){ setResult('migStatusResult', errMsg(e), 'err'); }
