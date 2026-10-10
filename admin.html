@@ -174,6 +174,12 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button onclick="mintTokens()">Mint</button>
       <div class="result" id="mintResult">Bekleniyor...</div>
     </div>
+    <div class="card">
+      <h2>Quick: Approve SAVIOR for Staking</h2>
+      <p style="font-size:13px;color:#aaa">Signs one approve(MaxUint256) from your wallet — required after new staking deploy.</p>
+      <button onclick="quickApprove()">Approve SAVIOR &rarr; Staking</button>
+      <div id="approveResult" class="result"></div>
+    </div>
     <div class="card"><h2>Rescue</h2>
       <label>Kontrat</label><input id="rescueContract" placeholder="0x..." value="0xBCA651c0A0540a1fCdEf066B5476d714431fA525">
       <div class="grid2">
@@ -911,6 +917,26 @@ function setResult(id, msg, cls) {
   el.textContent = msg;
   el.className = 'result' + (cls ? ' ' + cls : '');
 }
+
+  async function quickApprove() {
+    const el = document.getElementById('approveResult');
+    try {
+      await loadEthers();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const token = new ethers.Contract(
+        '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3',
+        ['function approve(address,uint256) returns (bool)'],
+        signer
+      );
+      el.className = 'result pending'; el.textContent = 'Waiting for signature...';
+      const tx = await token.approve('0xBCA651c0A0540a1fCdEf066B5476d714431fA525', ethers.MaxUint256);
+      el.textContent = 'Confirming...';
+      await tx.wait();
+      el.className = 'result success';
+      el.innerHTML = '&#10003; Approved MaxUint256 SAVIOR to staking<br>Tx: ' + tx.hash;
+    } catch(e) { el.className='result error'; el.textContent=e.shortMessage||e.message; }
+  }
 </script>
 </body>
 </html>
