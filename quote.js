@@ -96,5 +96,11 @@
     if (isBuy) { const locked = net / 2n; return { gross, fee, net, immediate: net - locked, locked }; }
     return { gross, fee, net };
   }
-  window.SaviorQuote = { quote, simulate, readState, sqrtAtTick };
+  // minOut for swapExactIn. v1 checks it against the GROSS pool output; v2 (SaviorStakingV2) checks the NET output
+  // after the 0.3% treasury fee. Fee and the 50/50 split are identical in v1 and v2, so quote() needs no change.
+  function minOut(q, slipBps) {
+    const base = window.SAVIOR_CONFIG && window.SAVIOR_CONFIG.v2 ? q.net : q.gross;
+    return base > 0n ? (base * BigInt(10000 - slipBps)) / 10000n : 1n;
+  }
+  window.SaviorQuote = { quote, simulate, readState, sqrtAtTick, minOut };
 })();

@@ -280,3 +280,7 @@ img{max-width:100%;display:block}
 html,body{overflow-x:clip}
 .split-row b{white-space:nowrap}
 @media(max-width:639px){.field input,.amount-out{font-size:24px}.split{font-size:13px}}
+.lb-addr-wrap{display:flex;align-items:center;gap:6px;min-width:0}
+.lb-src{font-size:10px;padding:1px 7px}
+.src-tag{font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:999px;padding:1px 7px;color:var(--muted);margin-left:6px;vertical-align:middle}
+@media(max-width:639px){.lb-addr-wrap{grid-area:addr}}

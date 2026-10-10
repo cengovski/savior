@@ -12,6 +12,10 @@
   const CHUNK = 2000, BACKFILL_CHUNKS = 30, POLL_MS = 8000, MAX_ITEMS = 40;
   const lc = (a) => (a || "").toLowerCase();
   const STAKING = lc(C.contracts.staking), PM = lc(C.contracts.poolManager), TREASURY = lc(C.contracts.treasury);
+  // Staking v2: both contracts count as staking; rows are labelled by source only when v2 is active.
+  const V2 = lc(C.v2 || "");
+  const isStaking = (a) => a === STAKING || (V2 && a === V2);
+  const srcOf = (a) => (V2 && a === V2 ? "v2" : "v1");
   let provider, lastBlock = 0, timer = null, seen = new Set(), items = [];
 
   const topicAddr = (t) => "0x" + t.slice(26);
@@ -27,7 +31,7 @@
     if (retry) { const b = el("button", "link", " Retry"); b.onclick = () => { clearTimeout(timer); setStatus("Reconnecting to Arc..."); poll(); }; e.appendChild(b); }
   }
   // cache: last trades survive reloads and show instantly
-  const CACHE_KEY = "savior.feed.v1";
+  const CACHE_KEY = V2 ? "savior.feed.v2." + V2 : "savior.feed.v1"; // v2 mode never mixes with v1-only cache
   let backfillFailed = false, pollFails = 0, lastPollOk = 0, seedScanned = 0;
   function saveCache() {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify({ lastBlock, items: items.map((i) => ({ ...i, _req: undefined, locked: i.locked == null ? null : String(i.locked) })) })); } catch (e) {}
@@ -52,6 +56,7 @@
       const kind = el("span", "feed-kind k-" + it.kind);
       if (it.big) kind.innerHTML = '<svg class="ico-16"><use href="#i-bolt"/></svg>';
       kind.appendChild(document.createTextNode(it.kind));
+      if (V2 && it.src) kind.appendChild(el("span", "src-tag", it.src === "v2" ? "v2" : "Old"));
       const mid = el("div", "feed-main");
       mid.appendChild(el("div", null, it.text));
       if (it.locked != null) {
@@ -59,7 +64,7 @@
           `${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed")));
         if (it.unlock === undefined && !it._req && window.SaviorLocks && it.who) {
           it._req = true;
-          window.SaviorLocks.lockForBuy(it.who, it.locked).then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
+          window.SaviorLocks.lockForBuy(it.who, it.locked, it.src || "v1").then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
         }
       }
       row.append(kind, mid, el("span", "feed-who", it.who ? short(it.who) : "#" + it.block));
@@ -107,7 +112,8 @@
             const usdcNum = Number(ethers.formatUnits(a0 < 0n ? -a0 : a0, C.usdcDecimals));
             let locked = null;
             if (buy) { const net = a1 - (a1 * 30n) / 10000n; locked = net / 2n; } // 0.3% treasury fee, then 50% locked
-            add({ kind: buy ? "BUY" : "SELL", text: buy ? `${usdc} USDC to ${sav} SAVIOR` : `${sav} SAVIOR to ${usdc} USDC`,
+            const src = srcOf(lc(topicAddr(l.topics[2]))); // Swap(id, sender, ...): sender is the staking contract
+            add({ kind: buy ? "BUY" : "SELL", src, text: buy ? `${usdc} USDC to ${sav} SAVIOR` : `${sav} SAVIOR to ${usdc} USDC`,
                   who: rc.from, tx: hash, block: l.blockNumber, idx: l.index, big: buy && usdcNum >= C.bigBuyUsdc, locked }, live);
           }
           continue; // remaining transfers are the swap's lock split
@@ -116,8 +122,8 @@
       for (const l of logs) {
         const f = lc(topicAddr(l.topics[1])), t = lc(topicAddr(l.topics[2]));
         const amt = fmt(BigInt(l.data), C.tokenDecimals);
-        if (t === STAKING && f !== PM) add({ kind: "STAKE", text: `${amt} SAVIOR locked`, who: f, tx: hash, block: l.blockNumber, idx: l.index }, live);
-        else if (f === STAKING && t !== PM && t !== TREASURY) add({ kind: "CLAIM", text: `${amt} SAVIOR claimed`, who: t, tx: hash, block: l.blockNumber, idx: l.index }, live);
+        if (isStaking(t) && f !== PM && !isStaking(f)) add({ kind: "STAKE", src: srcOf(t), text: `${amt} SAVIOR locked`, who: f, tx: hash, block: l.blockNumber, idx: l.index }, live);
+        else if (isStaking(f) && t !== PM && t !== TREASURY && !isStaking(t)) add({ kind: "CLAIM", src: srcOf(f), text: `${amt} SAVIOR claimed`, who: t, tx: hash, block: l.blockNumber, idx: l.index }, live);
       }
     }
   }

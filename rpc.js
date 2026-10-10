@@ -10,6 +10,11 @@
     { url: "https://arc-mainnet.drpc.org", logs: false },   // dRPC free tier: rejects our getLogs ranges
     { url: "https://5042.rpc.thirdweb.com", logs: true, logsMax: 1000 }, // thirdweb: archive logs, max 1000 blocks per request
   ];
+  // Local testing only: ?rpc=http://127.0.0.1:8545 (e.g. an anvil fork) replaces all endpoints on localhost.
+  try {
+    const o = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get("rpc");
+    if (o && /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(o)) ENDPOINTS.splice(0, ENDPOINTS.length, { url: o, logs: true });
+  } catch (e) {}
   const TIMEOUT_MS = 10000, COOLDOWN_MS = 3000; // 429: 3s, doubling per consecutive failure, max 60s
   const state = ENDPOINTS.map(() => ({ until: 0, fails: 0, ok: 0 }));
   let preferred = 0;
