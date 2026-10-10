@@ -802,8 +802,8 @@ async function readContracts() {
     if (sa) {
       const sc=new ethers.Contract(sa,STAKING_ABI,provider);
       lines.push('=== Staking: '+sa+' ===');
-      lines.push('poolKeySet: '+await sc.poolKeySet());
-      lines.push('emergencyUnlocked: '+await sc.emergencyUnlocked());
+      lines.push('keySet: '+await sc.keySet());
+      lines.push('globalUnlock (emergency unlock active): '+await sc.globalUnlock());
     }
     if (ta) {
       const tc=new ethers.Contract(ta,TOKEN_ABI,provider);
