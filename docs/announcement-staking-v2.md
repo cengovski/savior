@@ -15,7 +15,7 @@ The current staking contract has no working admin owner, so it can never be fixe
 **What you need to do**
 - Open the site, connect your wallet and go to Locks.
 - Click "1. Claim from old contract" and confirm in your wallet.
-- Optional: click "2. Stake in new contract" to lock your SAVIOR again. A new lock lasts a random 5 to 10 days.
+- Optional: click "2. Stake in new contract" to lock your SAVIOR again. A new lock lasts a random 5 to 10 days and the minimum is 1 SAVIOR.
 - You can also just keep the claimed SAVIOR in your wallet. Your tokens stay yours either way.
 
 **Good to know**

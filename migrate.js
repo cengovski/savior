@@ -11,6 +11,7 @@
   const errMsg = (e) => e.shortMessage || e.reason || e.message || String(e);
   const status = (m) => { $("mig-status").textContent = m; };
   let walletBal = 0n;
+  const MIN_STAKE = 1000000n; // SaviorStakingV2.MIN_STAKE = 1 SAVIOR (6 decimals), audit D-2
 
   async function refresh() {
     const card = $("migrate-card");
@@ -28,7 +29,7 @@
       $("mig-wallet").textContent = fmt(walletBal) + " SAVIOR";
       $("mig-v2-total").textContent = fmt(sum(l2)) + " SAVIOR";
       $("mig-claim-btn").disabled = s1 === 0n;
-      $("mig-stake-btn").disabled = walletBal === 0n;
+      $("mig-stake-btn").disabled = walletBal < MIN_STAKE;
       card.classList.toggle("hidden", s1 === 0n && sum(l2) === 0n && walletBal === 0n);
     } catch (e) { status("Could not load migration data: " + errMsg(e)); card.classList.remove("hidden"); }
   }
@@ -63,6 +64,7 @@
     let amt;
     try { amt = ethers.parseUnits(($("mig-amount").value || "0").trim(), 6); } catch (e) { status("Invalid amount"); return; }
     if (amt <= 0n) { status("Enter an amount"); return; }
+    if (amt < MIN_STAKE) { status("Minimum stake in the new contract is 1 SAVIOR"); return; }
     if (amt > walletBal) { status("Amount is higher than your wallet balance"); return; }
     $("mig-stake-btn").disabled = true;
     try {
