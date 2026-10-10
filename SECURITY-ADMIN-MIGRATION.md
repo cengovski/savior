@@ -44,3 +44,13 @@ feature branches, and any forks/clones/Vercel build caches.
 - Merge this branch to `main`; remove `admin.html` from `gh-pages`.
 - Deleting old Vercel preview deployments (they still serve /admin.html).
 - History rewrite + force-push (steps above).
+
+## Public vs admin Vercel projects
+- Public project (repo root): root `vercel.json` runs `scripts/build-public.sh`,
+  which copies the static site into `dist/` **excluding `admin/`**, `scripts/`,
+  `*.md`; `outputDirectory: dist`. No root `api/` dir => no functions.
+- Admin project (Root Directory `admin`): uses only `admin/vercel.json`; the root
+  `vercel.json` is not read. Root `.vercelignore` no longer lists `admin/`
+  (it was stripping admin/ from git uploads -> 404).
+- GitHub Pages serves the `gh-pages` branch (separate content; still contains
+  admin.html and docs/admin.html until owner removes them). admin/ is not on it.
