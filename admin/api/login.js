@@ -41,7 +41,8 @@ export default async function handler(req, res) {
 
   const origin = req.headers.origin;
   if (origin) {
-    try { if (new URL(origin).host !== req.headers.host) return send(res, 403, 'Forbidden'); }
+    const hosts = [req.headers['x-forwarded-host'], req.headers.host].filter(Boolean).flatMap(h => String(h).split(',').map(x => x.trim()));
+    try { if (!hosts.includes(new URL(origin).host)) return send(res, 403, 'Forbidden'); }
     catch { return send(res, 403, 'Forbidden'); }
   }
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
