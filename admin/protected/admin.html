@@ -74,8 +74,8 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button onclick="deployStaking()">Staking Deploy Et</button>
       <div class="result" id="stakingResult">Bekleniyor...</div>
     </div>
-    <div class="card"><h2><span class="step-badge">6</span> Wire + Mint 1B SAVIOR</h2>
-      <button onclick="wireAndMint()">Wire &amp; Mint</button>
+    <div class="card"><h2><span class="step-badge">6</span> Wire Hook → Staking</h2>
+      <button onclick="wireHook()">Wire Hook</button>
       <div class="result" id="wireResult">Bekleniyor...</div>
     </div>
     <div class="card"><h2><span class="step-badge">7</span> Pool Initialize</h2>
@@ -141,7 +141,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <div class="result err" style="display:block">⚠ GERİ ALINAMAZ. renounceOwnership() sonrası token üzerinde mint, upgrade (upgradeToAndCall), rescueERC20 ve rescueNative KALICI olarak devre dışı kalır. Hook ayrı bir sözleşmedir (<code>0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0</code>) ve bu işlemden ETKİLENMEZ; sahibi değişmez.</div>
       <label>Onay için RENOUNCE yazın</label><input id="renounceConfirm" placeholder="RENOUNCE" oninput="updateButtons()">
       <button id="btnRenounce" onclick="renounceOwnershipTx()" disabled style="background:#dc2626">Sahipliği bırak</button>
-      <div class="result" id="renounceResult">Dead transferi tamamlanana kadar devre dışı.</div>
+      <div class="result" id="renounceResult">Kural: owner bağlı + balanceOf(dEaD) ≥ 1e15 (1.000.000.000 SAVIOR) + balanceOf(owner) ≤ totalSupply − 1e15 + "RENOUNCE" yazılmış. Koşullar sağlanana kadar devre dışı.</div>
     </div>
     <div class="card"><h2>Adres Yükle</h2>
       <div class="grid3">
@@ -182,7 +182,8 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
     <div class="card"><h2>Rescue</h2>
       <label>Kontrat</label><input id="rescueContract" placeholder="0x..." value="0xBCA651C0A0540a1fCDef066B5476d714431fa525">
       <div class="grid2">
-        <button onclick="rescueNative()">Rescue Native USDC</button>
+        <div><button disabled title="rescueNative() staking kontratında yok">Rescue Native USDC</button>
+          <div class="subtitle" style="color:#f87171">Devre dışı: Arc RPC'den okunan staking bytecode'unda (0xBCA651C0…a525) rescueNative() seçicisi (0xfc82f084) yok; çağrı revert eder. ERC-20 kurtarma için rescue(address,uint256) (0x7a4e4ecf) mevcut.</div></div>
         <div>
           <label>ERC-20 token + miktar</label>
           <input id="rescueToken" placeholder="0x token address">
@@ -453,13 +454,12 @@ async function deployStaking() {
   } catch(e){ setResult('stakingResult',e.message,'err'); }
 }
 
-async function wireAndMint() {
+async function wireHook() {
   setResult('wireResult','İşlem yapılıyor...','');
   try {
     await ensureSigner();
-    if (!hookAddr||!stakingAddr||!tokenAddr) throw new Error('Hook/Staking/Token adresi eksik');
+    if (!hookAddr||!stakingAddr) throw new Error('Hook/Staking adresi eksik');
     const hookC  = new ethers.Contract(hookAddr,  HOOK_ABI,  signer);
-    const tokenC = new ethers.Contract(tokenAddr, TOKEN_ABI, signer);
     // Wire hook → staking (one-time, AlreadySet error = already done)
     let wireHash = 'already set';
     try {
@@ -469,10 +469,7 @@ async function wireAndMint() {
     } catch(e2) {
       if (!e2.message.includes('AlreadySet') && !e2.message.includes('already')) throw e2;
     }
-    // Mint 1B SAVIOR (6 dec)
-    const t2 = await tokenC.mint(deployer, ethers.parseUnits('1000000000', 6), {gasLimit: 200000});
-    await t2.wait();
-    setResult('wireResult','✓ Hook wired + 1B SAVIOR minted\nWire: '+wireHash+'\nMint: '+t2.hash,'ok');
+    setResult('wireResult','✓ Hook wired\nWire: '+wireHash,'ok');
   } catch(e){ setResult('wireResult',e.message,'err'); }
 }
 
@@ -710,6 +707,7 @@ async function updateTreasury() {
 }
 
 async function rescueNative() {
+  setResult('rescueResult','rescueNative() staking kontratında yok — devre dışı','err'); return;
   setResult('rescueResult','...','');
   try {
     await ensureSigner();
@@ -851,7 +849,7 @@ const SAVIOR_TOKEN = '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3';
 const SAVIOR_HOOK  = '0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0';
 const DEAD_ADDR    = '0x000000000000000000000000000000000000dEaD';
 const ARC_RPC      = 'https://rpc.mainnet.arc.io';
-let st = { owner:null, decimals:null, deadBal:0n, deadTxConfirmed:false };
+let st = { owner:null, decimals:null, deadBal:null, ownerBal:null, totalSupply:null, deadTxConfirmed:false };
 
 async function readProvider() {
   await loadEthers();
@@ -863,10 +861,16 @@ function updateDeadPreview(){
   const el=document.getElementById('deadPreview'); if(!el) return;
   try { const v=BigInt(document.getElementById('deadAmount').value); el.textContent = st.decimals==null?'':'= '+ethers.formatUnits(v,st.decimals)+' SAVIOR'; } catch { el.textContent='Geçersiz miktar'; }
 }
+const DEAD_MIN = 1000000000000000n; // 1e15 base units = 1B SAVIOR (6 decimals)
+// Gate: dEaD holds >= 1e15 AND owner holds <= totalSupply - 1e15 (i.e. the 1e15 is no longer with the owner).
+function renounceGateOk(){
+  return st.deadBal!=null && st.ownerBal!=null && st.totalSupply!=null &&
+    st.deadBal >= DEAD_MIN && st.ownerBal <= st.totalSupply - DEAD_MIN;
+}
 function updateButtons(){
   const owner=isOwnerConnected();
   document.getElementById('btnDead').disabled = !owner;
-  const deadDone = st.deadBal>0n || st.deadTxConfirmed;
+  const deadDone = renounceGateOk();
   const typed = document.getElementById('renounceConfirm').value==='RENOUNCE';
   document.getElementById('btnRenounce').disabled = !(owner && deadDone && typed && st.owner!==ethers.ZeroAddress);
 }
@@ -878,13 +882,18 @@ async function refreshStatus(){
     const [owner,ts,dec]=await Promise.all([c.owner(),c.totalSupply(),c.decimals()]);
     st.owner=owner; st.decimals=Number(dec);
     const [ob,db]=await Promise.all([owner===ethers.ZeroAddress?0n:c.balanceOf(owner), c.balanceOf(DEAD_ADDR)]);
-    st.deadBal=db;
+    st.deadBal=db; st.ownerBal=ob; st.totalSupply=ts;
+    let hookOwner;
+    try { hookOwner = await new ethers.Contract(SAVIOR_HOOK,['function owner() view returns (address)'],p).owner(); }
+    catch(e) { hookOwner = 'okunamadı (owner() yok veya revert: '+(e.shortMessage||e.message)+')'; }
     setResult('statusResult',
       'owner(): '+owner+(owner===ethers.ZeroAddress?'  (renounced)':'')+
       '\ndecimals(): '+st.decimals+
       '\ntotalSupply(): '+fmt(ts)+' SAVIOR ('+ts+')'+
       '\nbalanceOf(owner): '+fmt(ob)+' SAVIOR ('+ob+')'+
       '\nbalanceOf(dEaD): '+fmt(db)+' SAVIOR ('+db+')'+
+      '\nHook owner() ('+SAVIOR_HOOK+'): '+hookOwner+
+      '\nRenounce kapısı: '+(renounceGateOk()?'✓ sağlandı':'✗ (dEaD ≥ 1e15 ve owner ≤ totalSupply−1e15 gerekli)')+
       '\nBağlı cüzdan: '+(deployer||'-')+(deployer?(isOwnerConnected()?'  ✓ owner':'  ✗ owner değil'):''),'ok');
     updateDeadPreview(); updateButtons();
   } catch(e){ setResult('statusResult',e.shortMessage||e.message,'err'); }
@@ -918,7 +927,7 @@ async function renounceOwnershipTx(){
   try {
     await ensureSigner(); await refreshStatus();
     if (!isOwnerConnected()) throw new Error('Bağlı cüzdan token owner değil');
-    if (!(st.deadBal>0n || st.deadTxConfirmed)) throw new Error('Önce dead transferi tamamlayın');
+    if (!renounceGateOk()) throw new Error('Kapı sağlanmadı: balanceOf(dEaD) ≥ 1e15 ve balanceOf(owner) ≤ totalSupply − 1e15 olmalı');
     if (document.getElementById('renounceConfirm').value!=='RENOUNCE') throw new Error('Onay için RENOUNCE yazın');
     const c=new ethers.Contract(SAVIOR_TOKEN,TOKEN_ABI,signer);
     await c.renounceOwnership.staticCall();
