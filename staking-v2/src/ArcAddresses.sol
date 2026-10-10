@@ -18,5 +18,8 @@ library ArcAddresses {
     address internal constant SAVIOR_TOKEN = 0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3;
     address internal constant SAVIOR_HOOK = 0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0;
     address internal constant STAKING_V1 = 0xBCA651C0A0540a1fCDef066B5476d714431fa525;
+    address internal constant TREASURY = 0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787;
+    uint24 internal constant POOL_FEE = 10000;
+    int24 internal constant POOL_TICK_SPACING = 200;
     address internal constant DEPLOYER = 0x7185d50557040047A142aEadA95e41C4b31720e7;
 }

@@ -5,6 +5,7 @@ import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBounds} from "./IV4Minimal.sol";
 
 /// @title SaviorStakingV2
 /// @notice Drop-in replacement for the lock/claim part of the live SaviorStaking
@@ -13,8 +14,12 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///         globalUnlock() 0x06aec0ef, emergencyUnlockAll() 0xe20cc079, rescue(address,uint256) 0x7a4e4ecf,
 ///         errors Locked() 0x0f2e5b6c / NotOwner() replaced by OZ OwnableUnauthorizedAccount.
 ///         Lock duration 432000s (5 days) = PUSH3 0x069780 in v1 runtime code.
+///         Buy/sell flow (swapExactIn 0x1d2105ba, unlockCallback 0x91dd7346) reproduces v1 as observed on an
+///         Arc fork trace: pull tokenIn -> PoolManager.unlock -> swap exact-in -> sync/transfer/settle -> take;
+///         0.3% of output to treasury; on buy the net SAVIOR is split 50% to buyer / 50% locked 5 days;
+///         selling in the same block as your last buy reverts SameBlock(); slippage/zero reverts Bad().
 /// @dev No proxy, no upgrade path. Owner set in constructor (Ownable2Step) instead of a hardcoded deployer.
-contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard {
+contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
 
     struct Lock {
@@ -23,8 +28,21 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard {
     }
 
     uint64 public constant LOCK_DURATION = 5 days;
+    uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%, matches v1 trace
 
     IERC20 public immutable savior;
+    IPoolManagerMinimal public immutable poolManager;
+    address public immutable treasury;
+
+    // pool key (immutable, so keySet() is always true)
+    address internal immutable _c0;
+    address internal immutable _c1;
+    uint24 internal immutable _fee;
+    int24 internal immutable _tickSpacing;
+    address internal immutable _hooks;
+    bool internal immutable _saviorIsCurrency1;
+
+    mapping(address => uint64) public lastBuyBlock;
 
     /// @notice once true, every lock is claimable immediately (irreversible).
     bool public globalUnlock;
@@ -45,10 +63,138 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard {
     error AmountTooLarge();
     error ExceedsSurplus();
     error ZeroAddress();
+    error SameBlock();
+    error Bad();
+    error OnlyPoolManager();
+    error BadPoolKey();
 
-    constructor(address initialOwner, IERC20 saviorToken) Ownable(initialOwner) {
-        if (address(saviorToken) == address(0)) revert ZeroAddress();
+    event Swapped(
+        address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked
+    );
+
+    constructor(
+        address initialOwner,
+        IERC20 saviorToken,
+        IPoolManagerMinimal poolManager_,
+        address treasury_,
+        PoolKey memory key_
+    ) Ownable(initialOwner) {
+        if (address(saviorToken) == address(0) || address(poolManager_) == address(0) || treasury_ == address(0)) {
+            revert ZeroAddress();
+        }
+        if (key_.currency0 >= key_.currency1) revert BadPoolKey();
+        if (key_.currency0 != address(saviorToken) && key_.currency1 != address(saviorToken)) revert BadPoolKey();
         savior = saviorToken;
+        poolManager = poolManager_;
+        treasury = treasury_;
+        _c0 = key_.currency0;
+        _c1 = key_.currency1;
+        _fee = key_.fee;
+        _tickSpacing = key_.tickSpacing;
+        _hooks = key_.hooks;
+        _saviorIsCurrency1 = key_.currency1 == address(saviorToken);
+    }
+
+    // ---------------------------------------------------------------- pool views (v1-compatible)
+
+    function key()
+        public
+        view
+        returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)
+    {
+        return (_c0, _c1, _fee, _tickSpacing, _hooks);
+    }
+
+    /// @notice v1 compat (0x788499c0). Key is fixed at construction.
+    function keySet() external pure returns (bool) {
+        return true;
+    }
+
+    function _poolKey() internal view returns (PoolKey memory) {
+        return PoolKey(_c0, _c1, _fee, _tickSpacing, _hooks);
+    }
+
+    // ---------------------------------------------------------------- buy & lock / sell
+
+    /// @notice Exact-input swap through the SAVIOR v4 pool.
+    ///         Buy (tokenIn = quote, tokenOut = SAVIOR): net SAVIOR split 50% to caller, 50% locked for LOCK_DURATION.
+    ///         Sell (tokenIn = SAVIOR): net quote token to caller. 0.3% of output goes to treasury.
+    /// @param zeroForOne v4 direction (currency0 -> currency1). On the live pool currency0 = USDC, so true = buy.
+    /// @param minOut minimum net output (after treasury fee) the caller accepts.
+    function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut)
+        external
+        nonReentrant
+        returns (uint256 net)
+    {
+        if (amountIn == 0 || amountIn > uint256(type(int256).max)) revert Bad();
+        bool isBuy = (zeroForOne == _saviorIsCurrency1);
+        if (isBuy) {
+            lastBuyBlock[msg.sender] = uint64(block.number);
+        } else if (lastBuyBlock[msg.sender] == block.number) {
+            revert SameBlock();
+        }
+        address tokenIn = zeroForOne ? _c0 : _c1;
+        address tokenOut = zeroForOne ? _c1 : _c0;
+
+        uint256 inBefore = IERC20(tokenIn).balanceOf(address(this));
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
+        uint256 received = IERC20(tokenIn).balanceOf(address(this)) - inBefore;
+        if (received == 0) revert Bad();
+
+        uint256 outBefore = IERC20(tokenOut).balanceOf(address(this));
+        poolManager.unlock(abi.encode(zeroForOne, received));
+        uint256 out = IERC20(tokenOut).balanceOf(address(this)) - outBefore;
+        // refund any unswapped input (price-limit partial fill)
+        uint256 leftover = IERC20(tokenIn).balanceOf(address(this)) - inBefore;
+        if (leftover != 0) IERC20(tokenIn).safeTransfer(msg.sender, leftover);
+
+        uint256 fee = out * TREASURY_FEE_BPS / 10_000;
+        net = out - fee;
+        if (net == 0 || net < minOut) revert Bad();
+        if (fee != 0) IERC20(tokenOut).safeTransfer(treasury, fee);
+
+        uint256 locked;
+        if (isBuy) {
+            locked = net / 2;
+            if (locked != 0) {
+                if (locked > type(uint128).max) revert AmountTooLarge();
+                uint64 unlockAt = uint64(block.timestamp) + LOCK_DURATION;
+                uint256 index = _locks[msg.sender].length;
+                _locks[msg.sender].push(Lock(uint128(locked), unlockAt));
+                totalLocked += locked;
+                emit Staked(msg.sender, index, locked, unlockAt);
+            }
+            IERC20(tokenOut).safeTransfer(msg.sender, net - locked);
+        } else {
+            IERC20(tokenOut).safeTransfer(msg.sender, net);
+        }
+        emit Swapped(msg.sender, zeroForOne, received, out, fee, locked);
+    }
+
+    /// @inheritdoc IUnlockCallback
+    function unlockCallback(bytes calldata data) external returns (bytes memory) {
+        if (msg.sender != address(poolManager)) revert OnlyPoolManager();
+        (bool zeroForOne, uint256 amountIn) = abi.decode(data, (bool, uint256));
+        int256 delta = poolManager.swap(
+            _poolKey(),
+            SwapParams({
+                zeroForOne: zeroForOne,
+                amountSpecified: -int256(amountIn),
+                sqrtPriceLimitX96: zeroForOne ? TickMathBounds.MIN_SQRT_PRICE + 1 : TickMathBounds.MAX_SQRT_PRICE - 1
+            }),
+            ""
+        );
+        int128 d0 = int128(delta >> 128);
+        int128 d1 = int128(delta);
+        (address cIn, address cOut) = zeroForOne ? (_c0, _c1) : (_c1, _c0);
+        (int128 dIn, int128 dOut) = zeroForOne ? (d0, d1) : (d1, d0);
+        if (dIn > 0 || dOut <= 0) revert Bad();
+        uint256 pay = uint256(uint128(-dIn));
+        poolManager.sync(cIn);
+        IERC20(cIn).safeTransfer(address(poolManager), pay);
+        poolManager.settle();
+        poolManager.take(cOut, address(this), uint256(uint128(dOut)));
+        return "";
     }
 
     /// @notice Lock `amount` SAVIOR for LOCK_DURATION.
