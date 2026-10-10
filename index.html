@@ -10,7 +10,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={darkMode:'class'}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Sans:wght@400;700&family=Space+Mono&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js" crossorigin="anonymous"></script>
 <script>if(typeof ethers==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"><\/script>')}</script>
@@ -58,6 +58,45 @@
   .feed-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;margin-right:6px;animation:fp 1.6s infinite}
   @keyframes fp{0%,100%{opacity:1}50%{opacity:.3}}
   .feed-toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#064e3b;color:#d1fae5;border:1px solid #10b981;padding:10px 14px;border-radius:12px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+
+  /* Locks leaderboard: follows savior-figma SPEC (dark tokens, DM Sans + Space Mono, card r16 p24) */
+  .lb-section{--bg:#00011C;--surface:#00033E;--surface-2:#031A73;--border:#163756;--text:#FAFAFA;--muted:#ACC6E9;--primary:#3898EC;--accent:#8656EF;--warning:#FFB858;--success:#4FD1A1;font-family:'DM Sans',Inter,sans-serif}
+  .lb-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;color:var(--text)}
+  .lb-head{display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+  .lb-chip{width:44px;height:44px;border-radius:12px;background:var(--surface-2);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .lb-eyebrow{font-family:'Space Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--primary)}
+  .lb-h2{font-size:24px;font-weight:700;line-height:1.2}
+  .lb-status{margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
+  .lb-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+  .lb-stat{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:16px 20px}
+  .lb-stat-warn{border-color:rgba(255,184,88,.45)}
+  .lb-label{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);text-transform:uppercase}
+  .lb-value{font-size:24px;font-weight:700;margin-top:4px}
+  .lb-stat-warn .lb-value{color:var(--warning)}
+  .lb-sub{font-size:13px;color:var(--muted)}
+  .lb-table{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .lb-row{display:grid;grid-template-columns:56px 1.3fr 1.2fr 60px 1.2fr 1.2fr;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--border);font-size:14px;position:relative}
+  .lb-th{border-top:0;background:var(--surface-2);font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--muted)}
+  .lb-rank{font-family:'Space Mono',monospace;color:var(--muted)}
+  .lb-addr{font-family:'Space Mono',monospace;color:var(--primary)}.lb-addr:hover{text-decoration:underline}
+  .lb-amt{font-family:'Space Mono',monospace;font-weight:700}
+  .lb-count{font-family:'Space Mono',monospace}
+  .lb-time{display:flex;flex-direction:column}.lb-time b{font-family:'Space Mono',monospace;font-weight:400}.lb-time small{font-size:11px;color:var(--muted)}
+  .lb-soon{background:rgba(255,184,88,.08);box-shadow:inset 3px 0 0 var(--warning)}
+  .lb-badge{position:absolute;right:12px;top:6px;font-family:'Space Mono',monospace;font-size:10px;color:var(--warning);border:1px solid rgba(255,184,88,.5);border-radius:999px;padding:1px 8px}
+  .lb-empty{padding:24px;text-align:center;color:var(--muted);font-size:14px}
+  .lb-note{margin-top:12px;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
+  @media (max-width:640px){
+    .lb-card{padding:20px}.lb-stats{grid-template-columns:1fr}.lb-status{margin-left:0;width:100%}
+    .lb-th{display:none}
+    .lb-row{grid-template-columns:auto 1fr auto;grid-template-areas:"rank addr amt" "next next count" "last last last";row-gap:6px}
+    .lb-rank{grid-area:rank}.lb-addr{grid-area:addr}.lb-amt{grid-area:amt;text-align:right}.lb-count{grid-area:count;text-align:right}
+    .lb-count::before{content:"Locks: ";color:var(--muted)}
+    .lb-next{grid-area:next}.lb-last{grid-area:last}
+    .lb-time b::before{color:var(--muted);font-family:'DM Sans',sans-serif}
+    .lb-next b::before{content:"Next unlock: "}.lb-last b::before{content:"Last unlock: "}
+    .lb-badge{position:static;grid-column:1/-1;justify-self:start}
+  }
   .tab-content{display:none}.tab-content.active{display:block}
   .spin{animation:spin 1s linear infinite}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -425,6 +464,29 @@
   </div><!-- /sidebar -->
 
 </div><!-- /grid -->
+
+<!-- Locks leaderboard -->
+<section id="locks" class="lb-section max-w-5xl mx-auto px-4 pb-10">
+  <div class="lb-card">
+    <div class="lb-head">
+      <div class="lb-chip"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1.5"/></svg></div>
+      <div>
+        <div class="lb-eyebrow">Locks Leaderboard</div>
+        <h2 class="lb-h2">Who is holding for the long run</h2>
+      </div>
+      <div id="lb-status" class="lb-status">Loading...</div>
+    </div>
+    <div class="lb-stats">
+      <div class="lb-stat"><div class="lb-label">Total locked</div><div class="lb-value" id="lb-total">-</div><div class="lb-sub" id="lb-holders">-</div></div>
+      <div class="lb-stat lb-stat-warn"><div class="lb-label">Unlocking in next 24h</div><div class="lb-value" id="lb-soon">-</div><div class="lb-sub">Highlighted below</div></div>
+    </div>
+    <div class="lb-table" role="table" aria-label="Locks leaderboard">
+      <div class="lb-row lb-th" role="row"><span>Rank</span><span>Wallet</span><span>Total locked</span><span>Locks</span><span>Next unlock</span><span>Last unlock</span></div>
+      <div id="lb-body"></div>
+    </div>
+    <div class="lb-note">Read directly from the staking contract on Arc Mainnet. Amounts in SAVIOR. Times shown in your local time zone.</div>
+  </div>
+</section>
 
 <script>
 /**
@@ -1057,6 +1119,7 @@ async function claimLock(i) {
 </script>
 <script src="config.js"></script>
 <script src="quote.js"></script>
+<script src="locks.js"></script>
 <script src="feed.js"></script>
 <script type="module" src="bridge.js"></script>
 </body>

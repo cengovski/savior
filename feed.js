@@ -34,7 +34,18 @@
       const left = el("div", "flex items-center gap-2 min-w-0");
       left.appendChild(el("span", "font-bold w-12 " + (colors[it.kind] || ""), (it.big ? "🐳 " : "") + it.kind));
       left.appendChild(el("span", "text-white/70 truncate", it.text));
-      row.appendChild(left);
+      const mid = el("div", "flex flex-col min-w-0");
+      mid.appendChild(left);
+      if (it.locked != null) {
+        const sub = el("span", "text-[11px] text-amber-300/80 pl-14 truncate",
+          `🔒 ${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed"));
+        mid.appendChild(sub);
+        if (it.unlock === undefined && !it._req && window.SaviorLocks && it.who) {
+          it._req = true;
+          window.SaviorLocks.lockForBuy(it.who, it.locked).then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
+        }
+      }
+      row.appendChild(mid);
       row.appendChild(el("span", "text-white/30 font-mono shrink-0", it.who ? short(it.who) : "#" + it.block));
       list.appendChild(row);
     }
@@ -58,6 +69,7 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   async function withRetry(fn, tries = 4) {
+    if (window.SaviorLocks) return window.SaviorLocks.rpc(fn); // shared throttled queue with backoff
     for (let i = 0; ; i++) {
       try { return await fn(); }
       catch (e) { if (i >= tries) throw e; await sleep(1500 * 2 ** i); } // public RPC rate-limits (-32005)
@@ -81,8 +93,10 @@
             const buy = a0 < 0n;
             const usdc = fmt(a0, C.usdcDecimals), sav = fmt(a1, C.tokenDecimals);
             const usdcNum = Number(ethers.formatUnits(a0 < 0n ? -a0 : a0, C.usdcDecimals));
+            let locked = null;
+            if (buy) { const net = a1 - (a1 * 30n) / 10000n; locked = net / 2n; } // 0.3% treasury fee, then 50% locked
             add({ kind: buy ? "BUY" : "SELL", text: buy ? `${usdc} USDC → ${sav} SAVIOR` : `${sav} SAVIOR → ${usdc} USDC`,
-                  who: rc.from, tx: hash, block: l.blockNumber, idx: l.index, big: buy && usdcNum >= C.bigBuyUsdc }, live);
+                  who: rc.from, tx: hash, block: l.blockNumber, idx: l.index, big: buy && usdcNum >= C.bigBuyUsdc, locked }, live);
           }
           continue; // remaining transfers are the swap's lock split
         }
