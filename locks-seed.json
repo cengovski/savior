@@ -1,11 +1,11 @@
 {
- "generated": "2026-10-10T19:42:37.701Z",
- "scanned": 25292555,
+ "generated": "2026-10-10T22:25:37.246Z",
+ "scanned": 25311838,
  "wallets": {
   "0x7185d50557040047a142aeada95e41c4b31720e7": 25164492,
   "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": 25291404
  },
- "locksAt": 1791661357702,
+ "locksAt": 1791671137247,
  "locks": {
   "0x7185d50557040047a142aeada95e41c4b31720e7": [
    {
@@ -34,5 +34,12 @@
    "locked": "9804520908",
    "unlock": 1792130814
   }
- ]
+ ],
+ "v2": {
+  "address": "0x8807da96a254b370e1e9ae8d3cc4163d1e2939bb",
+  "deployBlock": 25311674,
+  "scanned": 25311852,
+  "wallets": {},
+  "locks": {}
+ }
 }

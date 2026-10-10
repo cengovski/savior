@@ -4,11 +4,17 @@
   if (typeof STAKING_V2_ADDR === "undefined" || !STAKING_V2_ADDR) return;
   const V1 = STAKING_V1_ADDR, V2 = STAKING_V2_ADDR, TOKEN = TOKEN_ADDR;
   const LOCKS_ABI = ["function getLocks(address) view returns ((uint128 amount,uint64 unlockAt)[])", "function globalUnlock() view returns (bool)", "function claim(uint256)"];
-  const V2_ABI = LOCKS_ABI.concat(["function stake(uint256) returns (uint256)"]);
+  const V2_ABI = LOCKS_ABI.concat(["function stake(uint256) returns (uint256)", "error BelowMinStake()", "error Expired()", "error Locked()", "error ZeroAmount()"]);
   const ERC = ["function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"];
   const $ = (id) => document.getElementById(id);
   const fmt = (v) => Number(ethers.formatUnits(v, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
-  const errMsg = (e) => e.shortMessage || e.reason || e.message || String(e);
+  const errMsg = (e) => {
+    const n = (typeof v2ErrorName === "function" && v2ErrorName(e)) || (e && e.revert && e.revert.name);
+    if (n === "BelowMinStake") return "Minimum stake in the new contract is 1 SAVIOR.";
+    if (n === "Expired") return "The transaction expired before it was confirmed. Please try again.";
+    if (n === "Locked") return "This position is still time-locked.";
+    return e.shortMessage || e.reason || e.message || String(e);
+  };
   const status = (m) => { $("mig-status").textContent = m; };
   let walletBal = 0n;
   const MIN_STAKE = 1000000n; // SaviorStakingV2.MIN_STAKE = 1 SAVIOR (6 decimals), audit D-2
