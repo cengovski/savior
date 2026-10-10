@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Auth is enforced server-side by admin/middleware.js (HttpOnly signed session cookie).
-async function logout(){ await fetch("/api/logout",{method:"POST"}); location.href="/login"; }
+async function logout(){ await fetch("/logout",{method:"POST"}); location.href="/login"; }
 
 function showTab(t) {
   document.querySelectorAll('.tab').forEach(el => {

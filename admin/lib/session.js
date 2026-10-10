@@ -28,7 +28,4 @@ export async function verify(token, secret) {
     return p.exp > Math.floor(Date.now() / 1000) ? p : null;
   } catch { return null; }
 }
-export function getCookie(req, name) {
-  const m = (req.headers.get('cookie') || '').match(new RegExp('(?:^|; )' + name.replace(/[-]/g,'\\-') + '=([^;]*)'));
-  return m ? decodeURIComponent(m[1]) : null;
-}
+

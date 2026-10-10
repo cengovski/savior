@@ -1,15 +1,14 @@
-// Serves the admin panel only after re-verifying the session (defence in
-// depth: the HTML lives outside public/ so it is never a static asset).
+// GET / (rewritten here). Valid session cookie -> admin panel HTML, else -> /login.
+// The HTML lives in protected/ (outside the static output dir) and is bundled
+// into this function via vercel.json functions.includeFiles.
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { verify } from '../lib/session.js';
+import { COOKIE, verify } from '../lib/session.js';
+import { getCookie, send, redirect } from '../lib/http.js';
 
 export default async function handler(req, res) {
-  const m = (req.headers.cookie || '').match(/(?:^|; )__Host-savior_admin=([^;]*)/);
-  const ok = await verify(m ? decodeURIComponent(m[1]) : null, process.env.SESSION_SECRET);
-  if (!ok) { res.statusCode = 302; res.setHeader('Location', '/login'); return res.end(); }
+  const ok = await verify(getCookie(req, COOKIE), process.env.SESSION_SECRET);
+  if (!ok) return redirect(res, '/login');
   const html = await readFile(path.join(process.cwd(), 'protected', 'admin.html'), 'utf8');
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.end(html);
+  send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8' });
 }

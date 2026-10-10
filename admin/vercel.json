@@ -1,10 +1,24 @@
 {
-  "cleanUrls": true,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "outputDirectory": "public",
+  "functions": {
+    "api/panel.js": {
+      "includeFiles": "protected/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/",
       "destination": "/api/panel"
+    },
+    {
+      "source": "/login",
+      "destination": "/api/login"
+    },
+    {
+      "source": "/logout",
+      "destination": "/api/logout"
     }
   ],
   "headers": [
@@ -29,10 +43,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "api/panel.js": {
-      "includeFiles": "protected/**"
-    }
-  }
+  ]
 }
