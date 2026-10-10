@@ -1,10 +1,10 @@
 /**
- * wallet.js — Shared wallet connector
+ * wallet.js, Shared wallet connector
  * Supports: MetaMask, Coinbase, Rainbow, Trust, Brave, any EIP-1193 injected wallet,
- *           and WalletConnect v2 (300+ wallets via QR/deep link)
+ *           and mobile wallets via Reown AppKit (wallet list with deep links, QR on desktop)
  *
  * Usage:
- *   await WalletConnector.connect()   → opens picker modal
+ *   await WalletConnector.connect()   → opens the AppKit modal
  *   WalletConnector.address           → current address or null
  *   WalletConnector.provider          → ethers BrowserProvider
  *   WalletConnector.signer            → ethers Signer
@@ -14,234 +14,110 @@
  */
 
 const ARC_TESTNET_PARAMS = {
-    chainId: '0x13B2', // 5042 — Arc Mainnet
+    chainId: '0x13B2', // 5042, Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-    rpcUrls: ['https://rpc.arc.io'],
+    rpcUrls: ['https://rpc.mainnet.arc.io'],
     blockExplorerUrls: ['https://explorer.arc.io']
 };
 
-const WC_PROJECT_ID = 'b56e18d47c72ab683b10814fe9495694';
+const WC_PROJECT_ID = '35a6cd36c771d9917bc693d762b4f824';
 
 const WalletConnector = (() => {
-    let _provider = null;
-    let _signer   = null;
-    let _address  = null;
-    let _rawProvider = null;
+    // Reown AppKit (vendored ESM, see vendor/README.md) with the ethers adapter.
+    // AppKit lists installed wallets via EIP-6963 in their own "Installed" section, shows a wallet list on
+    // mobile (each entry deep-links to that wallet), and a QR code on desktop.
+    let _appKit = null, _initP = null;
+    let _provider = null, _signer = null, _address = null, _rawProvider = null;
     const _listeners = { connect: [], disconnect: [], accountsChanged: [] };
+    const emit = (ev, d) => (_listeners[ev] || []).forEach(fn => { try { fn(d); } catch (e) { console.error(e); } });
+    const on = (ev, fn) => (_listeners[ev] = _listeners[ev] || []).push(fn);
 
-    function emit(event, data) {
-        (_listeners[event] || []).forEach(fn => { try { fn(data); } catch(e) {} });
-    }
+    const FEATURED = [
+        'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+        '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
+        '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
+        '971e689d0a5be527bac79629b4ee9b925e82208e5168b733496a09c0faed0709', // OKX Wallet
+        'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase / Base
+    ];
 
-    function on(event, fn) { (_listeners[event] = _listeners[event] || []).push(fn); }
-
-    // ── Discover injected wallets via EIP-6963 ────────────────────────
-    function getInjectedWallets() {
-        const wallets = [];
-        // EIP-6963 announced providers
-        if (window.__eip6963Providers) {
-            for (const [, p] of window.__eip6963Providers) wallets.push({ name: p.info.name, icon: p.info.icon, provider: p.provider });
-        }
-        // Legacy window.ethereum (MetaMask compatible)
-        if (window.ethereum && wallets.length === 0) {
-            const name = window.ethereum.isMetaMask ? 'MetaMask' :
-                         window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet' :
-                         window.ethereum.isBraveWallet ? 'Brave Wallet' :
-                         window.ethereum.isTrust ? 'Trust Wallet' : 'Browser Wallet';
-            wallets.push({ name, icon: null, provider: window.ethereum });
-        }
-        // Multi-provider (window.ethereum.providers array)
-        if (window.ethereum?.providers?.length > 0) {
-            wallets.length = 0;
-            for (const p of window.ethereum.providers) {
-                const name = p.isMetaMask ? 'MetaMask' :
-                             p.isCoinbaseWallet ? 'Coinbase Wallet' :
-                             p.isBraveWallet ? 'Brave Wallet' :
-                             p.isTrust ? 'Trust Wallet' : 'Injected Wallet';
-                wallets.push({ name, icon: null, provider: p });
+    async function sync() {
+        const raw = _appKit.getWalletProvider();
+        const acct = _appKit.getAccount && _appKit.getAccount();
+        const addr = acct?.isConnected ? acct.address : null;
+        if (raw && addr) {
+            const changed = raw !== _rawProvider;
+            _rawProvider = raw;
+            _provider = new ethers.BrowserProvider(raw);
+            try { _signer = await _provider.getSigner(); } catch (e) { _signer = null; }
+            const was = _address; _address = addr;
+            if (!was) emit('connect', addr);
+            else if (was.toLowerCase() !== addr.toLowerCase() || changed) emit('accountsChanged', addr);
+            if (Number(_appKit.getChainId && _appKit.getChainId()) !== 5042) {
+                try { await _appKit.switchNetwork(_arc); } catch (e) { console.warn('switch to Arc failed', e); }
             }
-        }
-        return wallets;
-    }
-
-    // EIP-6963 listener
-    window.addEventListener('eip6963:announceProvider', (e) => {
-        if (!window.__eip6963Providers) window.__eip6963Providers = new Map();
-        window.__eip6963Providers.set(e.detail.info.uuid, e.detail);
-    });
-    window.dispatchEvent(new Event('eip6963:requestProvider'));
-
-    // ── Switch / add Arc Mainnet ──────────────────────────────────────
-    async function ensureArcTestnet(rawProvider) {
-        const chainId = await rawProvider.request({ method: 'eth_chainId' });
-        if (chainId === ARC_TESTNET_PARAMS.chainId) return;
-        try {
-            await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_PARAMS.chainId }] });
-        } catch(e) {
-            if (e.code === 4902 || e.code === -32603) {
-                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_PARAMS] });
-            } else throw e;
+        } else if (_address) {
+            _address = null; _provider = null; _signer = null; _rawProvider = null;
+            emit('disconnect');
         }
     }
 
-    // ── Connect with a specific raw provider ─────────────────────────
-    async function connectWithProvider(rawProvider) {
-        await rawProvider.request({ method: 'eth_requestAccounts' });
-        await ensureArcTestnet(rawProvider);
-
-        _rawProvider = rawProvider;
-        _provider    = new ethers.BrowserProvider(rawProvider);
-        _signer      = await _provider.getSigner();
-        _address     = await _signer.getAddress();
-
-        // Watch for account/chain changes
-        rawProvider.on('accountsChanged', async (accounts) => {
-            if (!accounts || accounts.length === 0) { disconnect(); return; }
-            _signer  = await _provider.getSigner();
-            _address = accounts[0];
-            emit('accountsChanged', _address);
-        });
-        rawProvider.on('chainChanged', () => window.location.reload());
-        rawProvider.on('disconnect',   () => disconnect());
-
-        emit('connect', _address);
-        return _address;
-    }
-
-    // ── WalletConnect v2 ──────────────────────────────────────────────
-    async function connectWalletConnect() {
-        // Lazy-load WalletConnect provider from CDN
-        if (!window.EthereumProvider) {
-            await new Promise((resolve, reject) => {
-                const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.3/dist/index.umd.js';
-                s.onload = resolve; s.onerror = reject;
-                document.head.appendChild(s);
+    let _arc = null;
+    function init() {
+        if (_initP) return _initP;
+        _initP = (async () => {
+            const base = document.querySelector('script[data-site-root]')?.dataset.siteRoot || './';
+            const { createAppKit, EthersAdapter, defineChain } = await import(new URL(base + 'vendor/appkit/entry.js', document.baseURI).href);
+            _arc = defineChain({
+                id: 5042, caipNetworkId: 'eip155:5042', chainNamespace: 'eip155', name: 'Arc Mainnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                rpcUrls: { default: { http: ['https://rpc.mainnet.arc.io'] } },
+                blockExplorers: { default: { name: 'Arc Explorer', url: 'https://explorer.arc.io' } },
             });
-        }
-        const wcProvider = await window.EthereumProvider.init({
-            projectId: WC_PROJECT_ID,
-            chains: [5042],
-            optionalChains: [1],
-            rpcMap: { 5042: 'https://rpc.arc.io', 1: 'https://cloudflare-eth.com' },
-            showQrModal: true,
-            qrModalOptions: { themeMode: 'dark' },
-            metadata: {
-                name: '$SAVIOR Protocol',
-                description: 'Fair token distribution on Arc Mainnet',
-                url: window.location.origin,
-                icons: []
-            }
-        });
-        await wcProvider.connect();
-        return connectWithProvider(wcProvider);
+            const siteUrl = location.origin + location.pathname.replace(/[^/]*$/, '');
+            _appKit = createAppKit({
+                adapters: [new EthersAdapter()],
+                networks: [_arc], defaultNetwork: _arc, allowUnsupportedChain: false,
+                projectId: WC_PROJECT_ID,
+                metadata: { name: '$SAVIOR', description: 'Fair token distribution on Arc Mainnet', url: location.origin,
+                            icons: [new URL(base + 'apple-touch-icon.png', siteUrl).href] },
+                featuredWalletIds: FEATURED,
+                enableEIP6963: true, enableInjected: true, enableCoinbase: true,
+                features: { analytics: false, email: false, socials: false, swaps: false, onramp: false, send: false, history: false },
+                themeMode: 'dark',
+            });
+            _appKit.subscribeProviders(() => sync());
+            _appKit.subscribeAccount(() => sync());
+            await sync();
+            return _appKit;
+        })();
+        return _initP;
     }
 
-    // ── Main connect() — shows picker modal ──────────────────────────
+    // Opens the AppKit modal. Resolves with the address once connected, or null if the user closes it.
+    // (No error is thrown on close, so there is no "connection reset" message.)
     async function connect() {
-        return new Promise((resolve, reject) => {
-            const injected = getInjectedWallets();
-            showPickerModal(injected, async (choice) => {
-                try {
-                    let addr;
-                    if (choice === 'wc') {
-                        addr = await connectWalletConnect();
-                    } else {
-                        addr = await connectWithProvider(choice.provider);
-                    }
-                    resolve(addr);
-                } catch(e) {
-                    reject(e);
-                }
-            }, reject);
+        const kit = await init();
+        if (_address) { await kit.open({ view: 'Account' }); return _address; }
+        await kit.open({ view: 'Connect' });
+        return new Promise((resolve) => {
+            const done = (v) => { clearInterval(t); resolve(v); };
+            const t = setInterval(() => {
+                if (_address) done(_address);
+                else if (!kit.getState().open) done(null);
+            }, 400);
         });
     }
 
-    function disconnect() {
-        _provider = null; _signer = null; _address = null; _rawProvider = null;
-        emit('disconnect');
-    }
+    async function disconnect() { if (_appKit) await _appKit.disconnect(); }
 
-    // ── Picker modal UI ───────────────────────────────────────────────
-    function showPickerModal(injected, onPick, onCancel) {
-        // Remove existing modal
-        const existing = document.getElementById('wc-picker-modal');
-        if (existing) existing.remove();
+    // Restore an existing session without opening the modal.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error('AppKit init', e)));
+    else init().catch(e => console.error('AppKit init', e));
 
-        const overlay = document.createElement('div');
-        overlay.id = 'wc-picker-modal';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
-
-        const walletIcons = {
-            'MetaMask':        '🦊',
-            'Coinbase Wallet': '🔵',
-            'Rainbow':         '🌈',
-            'Trust Wallet':    '🛡️',
-            'Brave Wallet':    '🦁',
-            'Browser Wallet':  '🌐',
-        };
-
-        const injectedHTML = injected.map((w, i) => `
-            <button onclick="window.__wcPickerPick(${i})"
-                style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;color:#fff;font-size:15px;font-weight:500;transition:background .15s"
-                onmouseover="this.style.background='rgba(0,82,255,.15)'"
-                onmouseout="this.style.background='rgba(255,255,255,.05)'">
-                <span style="font-size:24px;width:32px;text-align:center">${walletIcons[w.name] || '💼'}</span>
-                <span>${w.name}</span>
-                <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.3);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);border-radius:100px;padding:2px 8px;color:#34d399">Detected</span>
-            </button>`).join('');
-
-        overlay.innerHTML = `
-            <div style="background:#0f1018;border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:28px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-                    <div>
-                        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#fff">Connect Wallet</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">Choose your wallet to connect</div>
-                    </div>
-                    <button onclick="window.__wcPickerCancel()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:50%;width:32px;height:32px;cursor:pointer;color:rgba(255,255,255,.5);font-size:16px;display:flex;align-items:center;justify-content:center">&times;</button>
-                </div>
-
-                ${injected.length > 0 ? `
-                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Installed Wallets</div>
-                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${injectedHTML}</div>` : ''}
-
-                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Other Wallets</div>
-                <button onclick="window.__wcPickerPick('wc')"
-                    style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;cursor:pointer;color:#fff;font-size:15px;font-weight:500;transition:background .15s"
-                    onmouseover="this.style.background='rgba(0,82,255,.15)'"
-                    onmouseout="this.style.background='rgba(255,255,255,.05)'">
-                    <span style="font-size:24px;width:32px;text-align:center">📱</span>
-                    <div style="text-align:left">
-                        <div>WalletConnect</div>
-                        <div style="font-size:11px;color:rgba(255,255,255,.4)">MetaMask Mobile, Trust, Rainbow, 300+ wallets</div>
-                    </div>
-                </button>
-
-                <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.05);font-size:11px;color:rgba(255,255,255,.25);text-align:center">
-                    Connected to Arc Mainnet · USDC gas token
-                </div>
-            </div>`;
-
-        window.__wcPickerPick = (choice) => {
-            overlay.remove();
-            delete window.__wcPickerPick;
-            delete window.__wcPickerCancel;
-            if (choice === 'wc') { onPick('wc'); }
-            else { onPick(injected[choice]); }
-        };
-        window.__wcPickerCancel = () => {
-            overlay.remove();
-            delete window.__wcPickerPick;
-            delete window.__wcPickerCancel;
-            onCancel(new Error('User cancelled'));
-        };
-
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) window.__wcPickerCancel(); });
-        document.body.appendChild(overlay);
-    }
-
-    return { connect, disconnect, on, get address() { return _address; }, get provider() { return _provider; }, get signer() { return _signer; } };
+    return { connect, disconnect, on, init,
+        get address() { return _address; }, get provider() { return _provider; },
+        get signer() { return _signer; }, get rawProvider() { return _rawProvider; }, get appKit() { return _appKit; } };
 })();
 
 window.WalletConnector = WalletConnector;

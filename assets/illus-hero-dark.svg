@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00033E"/><stop offset="1" stop-color="#031A73"/></linearGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3898EC"/><stop offset="1" stop-color="#8656EF"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#3898EC" stop-opacity=".45"/><stop offset="1" stop-color="#3898EC" stop-opacity="0"/></radialGradient></defs>
+<rect width="480" height="320" rx="24" fill="url(#bg)"/><circle cx="240" cy="160" r="150" fill="url(#glow)"/>
+<g fill="none" stroke="#ACC6E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="240" cy="160" rx="190" ry="60" stroke-dasharray="4 8"/><ellipse cx="240" cy="160" rx="130" ry="110" transform="rotate(30 240 160)" stroke="#3898EC" stroke-opacity=".6"/>
+<circle cx="240" cy="160" r="62" fill="url(#g)" stroke="none"/><circle cx="240" cy="160" r="55" stroke="#FFFFFF" stroke-opacity=".6"/><text x="240" y="177.36" font-family="DM Sans,Arial" font-weight="700" font-size="49.6" fill="#FFFFFF" stroke="none" text-anchor="middle">S</text><circle cx="70" cy="140" r="8" fill="#8656EF" stroke="none"/><circle cx="400" cy="200" r="6" fill="#3898EC" stroke="none"/><circle cx="330" cy="60" r="5" fill="#4FD1A1" stroke="none"/>
+<path d="M240 40v20M240 260v20M120 160h-20M380 160h-20" stroke="#3898EC"/></g></svg>

@@ -1,0 +1,45 @@
+{
+ "generated": "2026-10-10T22:25:37.246Z",
+ "scanned": 25311838,
+ "wallets": {
+  "0x7185d50557040047a142aeada95e41c4b31720e7": 25164492,
+  "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": 25291404
+ },
+ "locksAt": 1791671137247,
+ "locks": {
+  "0x7185d50557040047a142aeada95e41c4b31720e7": [
+   {
+    "i": 0,
+    "amount": "9804530625",
+    "unlockAt": 1792289644
+   }
+  ],
+  "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": [
+   {
+    "i": 0,
+    "amount": "9804520908",
+    "unlockAt": 1792130814
+   }
+  ]
+ },
+ "trades": [
+  {
+   "kind": "BUY",
+   "text": "0.1 USDC to 19,668.046 SAVIOR",
+   "who": "0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de",
+   "tx": "0xadf23a7f5f84e2bdf112b0f6fab768f10f87d0f6fa4fe970c2353ac4ccbbf211",
+   "block": 25291404,
+   "idx": 11,
+   "big": false,
+   "locked": "9804520908",
+   "unlock": 1792130814
+  }
+ ],
+ "v2": {
+  "address": "0x8807da96a254b370e1e9ae8d3cc4163d1e2939bb",
+  "deployBlock": 25311674,
+  "scanned": 25311852,
+  "wallets": {},
+  "locks": {}
+ }
+}

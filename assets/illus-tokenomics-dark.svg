@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00033E"/><stop offset="1" stop-color="#031A73"/></linearGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3898EC"/><stop offset="1" stop-color="#8656EF"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#3898EC" stop-opacity=".45"/><stop offset="1" stop-color="#3898EC" stop-opacity="0"/></radialGradient></defs>
+<rect width="480" height="320" rx="24" fill="url(#bg)"/><circle cx="240" cy="160" r="150" fill="url(#glow)"/>
+<g fill="none" stroke="#ACC6E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M200 70A90 90 0 0 1 200 250" stroke="#3898EC" stroke-width="30" stroke-linecap="butt"/>
+<path d="M200 250A90 90 0 0 1 200 70" stroke="#8656EF" stroke-width="30" stroke-linecap="butt"/>
+<text x="200" y="168" font-family="DM Sans,Arial" font-weight="700" font-size="28" fill="#ACC6E9" stroke="none" text-anchor="middle">50/50</text>
+<rect x="330" y="110" width="16" height="16" rx="4" fill="#3898EC" stroke="none"/><text x="354" y="123" font-family="Space Mono,monospace" font-size="13" fill="#ACC6E9" stroke="none">INSTANT</text>
+<rect x="330" y="190" width="16" height="16" rx="4" fill="#8656EF" stroke="none"/><text x="354" y="203" font-family="Space Mono,monospace" font-size="13" fill="#ACC6E9" stroke="none">LOCKED</text></g></svg>
