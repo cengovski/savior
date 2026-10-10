@@ -124,6 +124,25 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
 
   <!-- MANAGE -->
   <div class="section" id="tab-manage">
+    <div class="card" id="ownershipCard"><h2>Token Status &amp; Ownership</h2>
+      <p class="subtitle">Token <code>0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3</code> &middot; Arc Mainnet (5042). Tüm işlemler sizin cüzdanınızla tarayıcıda imzalanır.</p>
+      <button onclick="refreshStatus()">Durumu Yenile</button>
+      <div class="result" id="statusResult">Bekleniyor...</div>
+
+      <h2 style="margin-top:20px">1) Dead adrese gönder</h2>
+      <div class="result err" style="display:block">⚠ transfer() token yakmaz: totalSupply AZALMAZ. Tokenlar 0x000000000000000000000000000000000000dEaD adresinde kalıcı olarak kilitlenir. Geri alınamaz.</div>
+      <label>Hedef</label><input id="deadTo" value="0x000000000000000000000000000000000000dEaD" readonly>
+      <label>Miktar (ham, 6 decimals; 1e15 = 1.000.000.000 SAVIOR)</label><input id="deadAmount" value="1000000000000000" oninput="updateDeadPreview()">
+      <div class="subtitle" id="deadPreview"></div>
+      <button id="btnDead" onclick="sendToDead()" disabled>Dead adrese gönder</button>
+      <div class="result" id="deadResult">Bekleniyor...</div>
+
+      <h2 style="margin-top:20px">2) Sahipliği bırak (renounceOwnership)</h2>
+      <div class="result err" style="display:block">⚠ GERİ ALINAMAZ. renounceOwnership() sonrası token üzerinde mint, upgrade (upgradeToAndCall), rescueERC20 ve rescueNative KALICI olarak devre dışı kalır. Hook ayrı bir sözleşmedir (<code>0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0</code>) ve bu işlemden ETKİLENMEZ; sahibi değişmez.</div>
+      <label>Onay için RENOUNCE yazın</label><input id="renounceConfirm" placeholder="RENOUNCE" oninput="updateButtons()">
+      <button id="btnRenounce" onclick="renounceOwnershipTx()" disabled style="background:#dc2626">Sahipliği bırak</button>
+      <div class="result" id="renounceResult">Dead transferi tamamlanana kadar devre dışı.</div>
+    </div>
     <div class="card"><h2>Adres Yükle</h2>
       <div class="grid3">
         <div><label>Token</label><input id="mgmtToken" placeholder="0x..."></div>
@@ -153,15 +172,6 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <label>Yeni Treasury</label><input id="newTreasury" placeholder="0x...">
       <button onclick="updateTreasury()">Güncelle</button>
       <div class="result" id="treasuryResult">Bekleniyor...</div>
-    </div>
-    <div class="card"><h2>Token Mint</h2>
-      <label>Token Proxy</label><input id="mintToken" placeholder="0x...">
-      <div class="grid2">
-        <div><label>Alıcı</label><input id="mintTo" placeholder="0x..."></div>
-        <div><label>Miktar (6-dec ham)</label><input id="mintAmount" value="1000000000000000"></div>
-      </div>
-      <button onclick="mintTokens()">Mint</button>
-      <div class="result" id="mintResult">Bekleniyor...</div>
     </div>
     <div class="card">
       <h2>Quick: Approve SAVIOR for Staking</h2>
@@ -266,7 +276,12 @@ const TOKEN_ABI = [
   'function mint(address to, uint256 amount)',
   'function approve(address spender, uint256 amount) returns (bool)',
   'function balanceOf(address) view returns (uint256)',
-  'function rescue(address token, uint256 amount)',
+  'function rescueERC20(address token, uint256 amount)',
+  'function owner() view returns (address)',
+  'function totalSupply() view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function renounceOwnership()',
   'function rescueNative()',
   'function upgradeToAndCall(address,bytes)',
 ];
@@ -300,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!localStorage.getItem('savior_token'))   localStorage.setItem('savior_token',   tokenAddr);
   if (!localStorage.getItem('savior_hook'))     localStorage.setItem('savior_hook',     hookAddr);
   if (!localStorage.getItem('savior_staking'))  localStorage.setItem('savior_staking',  stakingAddr);
-  if (tokenAddr)   { ['mgmtToken','mintToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; }); }
+  if (tokenAddr)   { ['mgmtToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; }); }
   if (stakingAddr) { const el=document.getElementById('upgradeProxy'); if(el) el.value=stakingAddr; }
 });
 
@@ -355,6 +370,7 @@ async function connectWallet() {
     deployer = await signer.getAddress();
     const bal = await provider.getBalance(deployer);
     setResult('walletInfo', deployer + '\nBalance: ' + ethers.formatEther(bal) + ' USDC', 'ok');
+    refreshStatus();
   } catch(e) { setResult('walletInfo', e.message, 'err'); }
 }
 
@@ -368,7 +384,7 @@ async function deployToken() {
     tokenAddr = await deployProxy(implAddr, initData,'SaviorToken proxy');
     setResult('tokenResult','✓ Token: '+tokenAddr,'ok');
     localStorage.setItem('savior_token', tokenAddr);
-    ['mgmtToken','mintToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; });
+    ['mgmtToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; });
   } catch(e){ setResult('tokenResult',e.message,'err'); }
 }
 
@@ -693,19 +709,6 @@ async function updateTreasury() {
   } catch(e){ setResult('treasuryResult',e.message,'err'); }
 }
 
-async function mintTokens() {
-  setResult('mintResult','...','');
-  try {
-    await ensureSigner();
-    const t=document.getElementById('mintToken').value;
-    const to=document.getElementById('mintTo').value;
-    const am=BigInt(document.getElementById('mintAmount').value);
-    const c=new ethers.Contract(t,TOKEN_ABI,signer);
-    const tx=await c.mint(to,am); await tx.wait();
-    setResult('mintResult','✓ Mint\nTx: '+tx.hash,'ok');
-  } catch(e){ setResult('mintResult',e.message,'err'); }
-}
-
 async function rescueNative() {
   setResult('rescueResult','...','');
   try {
@@ -840,6 +843,96 @@ async function deployProxy(impl, initData, label) {
   const data = PROXY_BC + encoded.slice(2);
   return await deployBytecode(data, label);
 }
+
+
+// ── Token status / dead transfer / renounce ─────────────────────────────
+// Addresses from deployments/arc-mainnet.json (branch add-contracts).
+const SAVIOR_TOKEN = '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3';
+const SAVIOR_HOOK  = '0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0';
+const DEAD_ADDR    = '0x000000000000000000000000000000000000dEaD';
+const ARC_RPC      = 'https://rpc.mainnet.arc.io';
+let st = { owner:null, decimals:null, deadBal:0n, deadTxConfirmed:false };
+
+async function readProvider() {
+  await loadEthers();
+  return provider || new ethers.JsonRpcProvider(ARC_RPC, ARC_CHAIN_ID);
+}
+function fmt(v){ return st.decimals==null ? v.toString() : ethers.formatUnits(v, st.decimals); }
+function isOwnerConnected(){ return !!(deployer && st.owner && deployer.toLowerCase()===st.owner.toLowerCase()); }
+function updateDeadPreview(){
+  const el=document.getElementById('deadPreview'); if(!el) return;
+  try { const v=BigInt(document.getElementById('deadAmount').value); el.textContent = st.decimals==null?'':'= '+ethers.formatUnits(v,st.decimals)+' SAVIOR'; } catch { el.textContent='Geçersiz miktar'; }
+}
+function updateButtons(){
+  const owner=isOwnerConnected();
+  document.getElementById('btnDead').disabled = !owner;
+  const deadDone = st.deadBal>0n || st.deadTxConfirmed;
+  const typed = document.getElementById('renounceConfirm').value==='RENOUNCE';
+  document.getElementById('btnRenounce').disabled = !(owner && deadDone && typed && st.owner!==ethers.ZeroAddress);
+}
+async function refreshStatus(){
+  setResult('statusResult','Okunuyor...','');
+  try {
+    const p=await readProvider();
+    const c=new ethers.Contract(SAVIOR_TOKEN,TOKEN_ABI,p);
+    const [owner,ts,dec]=await Promise.all([c.owner(),c.totalSupply(),c.decimals()]);
+    st.owner=owner; st.decimals=Number(dec);
+    const [ob,db]=await Promise.all([owner===ethers.ZeroAddress?0n:c.balanceOf(owner), c.balanceOf(DEAD_ADDR)]);
+    st.deadBal=db;
+    setResult('statusResult',
+      'owner(): '+owner+(owner===ethers.ZeroAddress?'  (renounced)':'')+
+      '\ndecimals(): '+st.decimals+
+      '\ntotalSupply(): '+fmt(ts)+' SAVIOR ('+ts+')'+
+      '\nbalanceOf(owner): '+fmt(ob)+' SAVIOR ('+ob+')'+
+      '\nbalanceOf(dEaD): '+fmt(db)+' SAVIOR ('+db+')'+
+      '\nBağlı cüzdan: '+(deployer||'-')+(deployer?(isOwnerConnected()?'  ✓ owner':'  ✗ owner değil'):''),'ok');
+    updateDeadPreview(); updateButtons();
+  } catch(e){ setResult('statusResult',e.shortMessage||e.message,'err'); }
+}
+async function sendToDead(){
+  setResult('deadResult','...','');
+  try {
+    await ensureSigner(); await refreshStatus();
+    if (!isOwnerConnected()) throw new Error('Bağlı cüzdan token owner değil');
+    const to=ethers.getAddress(document.getElementById('deadTo').value);
+    if (to===ethers.ZeroAddress) throw new Error('address(0) hedef olarak engellendi');
+    if (to!==ethers.getAddress(DEAD_ADDR)) throw new Error('Hedef yalnızca dEaD olabilir');
+    const amount=BigInt(document.getElementById('deadAmount').value);
+    if (amount<=0n) throw new Error('Miktar > 0 olmalı');
+    const c=new ethers.Contract(SAVIOR_TOKEN,TOKEN_ABI,signer);
+    // eth_call simulation first
+    setResult('deadResult','Simülasyon (eth_call)...','');
+    await c.transfer.staticCall(to,amount);
+    if(!confirm('Simülasyon başarılı.\n'+fmt(amount)+' SAVIOR → '+to+'\ntotalSupply AZALMAZ. Geri alınamaz. Devam?')) { setResult('deadResult','İptal edildi',''); return; }
+    const tx=await c.transfer(to,amount);
+    setResult('deadResult','Gönderildi: '+tx.hash+'\nOnay bekleniyor...','');
+    const rc=await tx.wait();
+    if (rc.status!==1) throw new Error('Tx başarısız: '+tx.hash);
+    st.deadTxConfirmed=true;
+    setResult('deadResult','✓ Dead transfer onaylandı\nTx: '+tx.hash+'\nBlock: '+rc.blockNumber,'ok');
+    await refreshStatus();
+  } catch(e){ setResult('deadResult',e.shortMessage||e.message,'err'); }
+}
+async function renounceOwnershipTx(){
+  setResult('renounceResult','...','');
+  try {
+    await ensureSigner(); await refreshStatus();
+    if (!isOwnerConnected()) throw new Error('Bağlı cüzdan token owner değil');
+    if (!(st.deadBal>0n || st.deadTxConfirmed)) throw new Error('Önce dead transferi tamamlayın');
+    if (document.getElementById('renounceConfirm').value!=='RENOUNCE') throw new Error('Onay için RENOUNCE yazın');
+    const c=new ethers.Contract(SAVIOR_TOKEN,TOKEN_ABI,signer);
+    await c.renounceOwnership.staticCall();
+    if(!confirm('SON UYARI: renounceOwnership() geri alınamaz.\nmint / upgrade / rescueERC20 / rescueNative kalıcı olarak kapanır.\nHook ('+SAVIOR_HOOK+') etkilenmez.\nDevam?')) { setResult('renounceResult','İptal edildi',''); return; }
+    const tx=await c.renounceOwnership();
+    setResult('renounceResult','Gönderildi: '+tx.hash+'\nOnay bekleniyor...','');
+    const rc=await tx.wait();
+    if (rc.status!==1) throw new Error('Tx başarısız: '+tx.hash);
+    setResult('renounceResult','✓ Sahiplik bırakıldı\nTx: '+tx.hash,'ok');
+    await refreshStatus();
+  } catch(e){ setResult('renounceResult',e.shortMessage||e.message,'err'); }
+}
+if (window.ethereum && window.ethereum.on) window.ethereum.on('accountsChanged', a => { deployer=a[0]?ethers.getAddress(a[0]):null; signer=null; if(deployer) provider.getSigner().then(s=>{signer=s;refreshStatus();}); else updateButtons(); });
+window.addEventListener('load', () => refreshStatus());
 
 async function ensureSigner() {
   await loadEthers();
