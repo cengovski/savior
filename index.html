@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>$SAVIOR — Arc Mainnet</title>
+<title>$SAVIOR: Arc Mainnet</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg"/>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={darkMode:'class'}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -82,6 +85,8 @@
                      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
                      color:#fff;outline:none;text-align:center}
   .slip-custom-input:focus{border-color:rgba(59,91,219,.5)}
+  .slip-custom-input.slip-active{background:rgba(59,91,219,.2);border-color:rgba(59,91,219,.7);color:#74c0fc}
+  .slip-custom-input.slip-invalid{border-color:rgba(244,63,94,.7)}
   .pct-btn{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;
            background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
            color:rgba(255,255,255,.35);cursor:pointer;transition:all .15s}
@@ -98,7 +103,7 @@
 <nav class="nav-blur sticky top-0 z-50 px-4 py-3">
   <div class="max-w-5xl mx-auto flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/30">S</div>
+      <img src="logo.svg" alt="$SAVIOR logo" width="36" height="36" class="w-9 h-9 rounded-xl shadow-lg shadow-blue-500/30"/>
       <div>
         <span class="font-black text-base tracking-tight">$SAVIOR</span>
         <span class="ml-2 badge bg-blue-500/15 text-blue-400 border border-blue-500/20">ARC MAINNET</span>
@@ -157,7 +162,7 @@
                 <button onclick="setSlippage(500)" class="slip-btn" data-bps="500">5%</button>
               </div>
               <input id="slip-custom" type="number" min="0.01" max="50" step="0.01" placeholder="Custom %"
-                class="slip-custom-input w-full" oninput="onSlipCustom()"/>
+                class="slip-custom-input w-full" oninput="onSlipCustom()" onchange="onSlipCustom()"/>
               <div class="mt-2 text-xs text-white/30">Current: <span id="slip-label" class="text-white/60 font-semibold">1.00%</span></div>
             </div>
           </div>
@@ -193,8 +198,8 @@
             <span>You pay</span>
             <span class="cursor-pointer" onclick="setMaxAmount()">
               Balance:
-              <span id="usdc-balance" class="text-white/60">—</span><span id="usdc-bal-ticker" class="text-white/40"> USDC</span>
-              <span id="savior-wallet-balance" class="text-white/60 hidden">—</span><span id="savior-bal-ticker" class="text-white/40 hidden"> SAVIOR</span>
+              <span id="usdc-balance" class="text-white/60">-</span><span id="usdc-bal-ticker" class="text-white/40"> USDC</span>
+              <span id="savior-wallet-balance" class="text-white/60 hidden">-</span><span id="savior-bal-ticker" class="text-white/40 hidden"> SAVIOR</span>
             </span>
           </div>
           <div class="flex items-center gap-3">
@@ -229,7 +234,7 @@
             <span id="receive-token-label" class="text-white/40">$SAVIOR</span>
           </div>
           <div class="flex items-center gap-3">
-            <div class="input-f flex-1 text-white/50 text-lg" id="savior-out-display">—</div>
+            <div class="input-f flex-1 text-white/50 text-lg" id="savior-out-display">-</div>
             <div id="receive-token-pill" class="savior-pill">
               <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>
               <span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>
@@ -244,11 +249,11 @@
           <div class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-wide">Estimated split</div>
           <div class="flex justify-between text-sm mb-1">
             <span class="text-white/50">Instant (50%)</span>
-            <span class="text-emerald-400 font-semibold" id="immediate-preview">—</span>
+            <span class="text-emerald-400 font-semibold" id="immediate-preview">-</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-white/50">Locked 5–10 days (50%)</span>
-            <span class="text-amber-400 font-semibold" id="locked-preview">—</span>
+            <span class="text-amber-400 font-semibold" id="locked-preview">-</span>
           </div>
         </div>
 
@@ -272,11 +277,11 @@
         <div id="stakes-summary" class="hidden mt-4 glass-inner p-4 text-sm">
           <div class="flex justify-between mb-2">
             <span class="text-white/40">Total locked</span>
-            <span id="total-locked-display" class="text-amber-400 font-bold">—</span>
+            <span id="total-locked-display" class="text-amber-400 font-bold">-</span>
           </div>
           <div class="flex justify-between">
             <span class="text-white/40">Claimable now</span>
-            <span id="claimable-display" class="text-emerald-400 font-bold">—</span>
+            <span id="claimable-display" class="text-emerald-400 font-bold">-</span>
           </div>
         </div>
       </div>
@@ -310,7 +315,7 @@
             <div class="font-semibold text-sm text-blue-300 mb-1.5 flex items-center gap-2">
               <i class="fa-solid fa-circle-dollar-sign"></i>USDC is the gas token on Arc
             </div>
-            <div class="text-xs text-white/45 leading-relaxed">Arc is a Layer 2 blockchain where USDC is the native gas token. You pay fees in USDC — no ETH needed. The same USDC balance covers gas and token swaps.</div>
+            <div class="text-xs text-white/45 leading-relaxed">Arc is a Layer 2 blockchain where USDC is the native gas token. You pay fees in USDC, no ETH needed. The same USDC balance covers gas and token swaps.</div>
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-purple-300 mb-1.5 flex items-center gap-2">
@@ -326,9 +331,9 @@
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-amber-300 mb-1.5 flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved"></i>Emergency unlock (admin)
+              <i class="fa-solid fa-shield-halved"></i>Emergency unlock
             </div>
-            <div class="text-xs text-white/45 leading-relaxed">Only the admin can trigger <code class="text-blue-400">emergencyUnlockAll()</code>. This sets <code class="text-blue-400">globalUnlock=true</code> permanently — all locked positions become instantly claimable. Cannot be reversed.</div>
+            <div class="text-xs text-white/45 leading-relaxed">Only the contract owner can trigger <code class="text-blue-400">emergencyUnlockAll()</code>. This sets <code class="text-blue-400">globalUnlock=true</code> permanently, all locked positions become instantly claimable. Cannot be reversed.</div>
           </div>
         </div>
       </div>
@@ -417,7 +422,7 @@
 
 <script>
 /**
- * wallet.js — Shared wallet connector
+ * wallet.js, Shared wallet connector
  * Supports: MetaMask, Coinbase, Rainbow, Trust, Brave, any EIP-1193 injected wallet,
  *           and WalletConnect v2 (300+ wallets via QR/deep link)
  *
@@ -432,7 +437,7 @@
  */
 
 const ARC_TESTNET_PARAMS = {
-    chainId: '0x13B2', // 5042 — Arc Mainnet
+    chainId: '0x13B2', // 5042, Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
     rpcUrls: ['https://rpc.arc.io'],
@@ -556,7 +561,7 @@ const WalletConnector = (() => {
         return connectWithProvider(wcProvider);
     }
 
-    // ── Main connect() — shows picker modal ──────────────────────────
+    // ── Main connect(), shows picker modal ──────────────────────────
     async function connect() {
         return new Promise((resolve, reject) => {
             const injected = getInjectedWallets();
@@ -694,7 +699,7 @@ const STAKING_ABI = [
   "function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)",
 ];
 
-// V4 Quoter — use HOOK_ADDR, NOT staking
+// V4 Quoter, use HOOK_ADDR, NOT staking
 const QUOTER_ABI = [
   "function quoteExactInputSingle((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks, bool zeroForOne, uint128 exactAmount, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)",
 ];
@@ -787,7 +792,7 @@ function setSwapMode(mode) {
     // Load SAVIOR wallet balance
     loadSaviorWalletBalance();
   }
-  document.getElementById('savior-out-display').textContent = '—';
+  document.getElementById('savior-out-display').textContent = '-';
   onSwapInput();
 }
 
@@ -820,23 +825,35 @@ function toggleSlipPanel() {
 
 let currentSlipBps = 100;
 
+function renderSlippage(isCustom) {
+  const bps = currentSlipBps;
+  const txt = (bps/100).toFixed(bps%100===0?0:2) + '%';
+  document.getElementById('slip-label').textContent = (bps/100).toFixed(2) + '%' + (isCustom ? ' (custom)' : '');
+  const sb = document.getElementById('slip-badge'); if (sb) sb.textContent = txt;
+  document.querySelectorAll('.slip-btn').forEach(b => {
+    b.classList.toggle('slip-active', !isCustom && parseInt(b.dataset.bps) === bps);
+  });
+  const ci = document.getElementById('slip-custom');
+  ci.classList.toggle('slip-active', !!isCustom);
+}
+
 function setSlippage(bps) {
   currentSlipBps = bps;
-  document.getElementById('slip-label').textContent = (bps/100).toFixed(2) + '%';
-  const sb = document.getElementById('slip-badge'); if(sb) sb.textContent = (bps/100).toFixed(bps%100===0?0:2)+'%';
-  document.querySelectorAll('.slip-btn').forEach(b => {
-    b.classList.toggle('slip-active', parseInt(b.dataset.bps) === bps);
-  });
   document.getElementById('slip-custom').value = '';
+  document.getElementById('slip-custom').classList.remove('slip-invalid');
+  renderSlippage(false);
   updateSwapQuote();
 }
 
 function onSlipCustom() {
-  const v = parseFloat(document.getElementById('slip-custom').value);
-  if (!v || v <= 0 || v > 50) return;
-  currentSlipBps = Math.round(v * 100);
-  document.getElementById('slip-label').textContent = v.toFixed(2) + '%';
-  document.querySelectorAll('.slip-btn').forEach(b => b.classList.remove('slip-active'));
+  const ci = document.getElementById('slip-custom');
+  if (ci.value.trim() === '') { ci.classList.remove('slip-invalid'); return; }
+  const v = parseFloat(ci.value);
+  const ok = Number.isFinite(v) && v > 0 && v <= 50;
+  ci.classList.toggle('slip-invalid', !ok);
+  if (!ok) return;
+  currentSlipBps = Math.max(1, Math.round(v * 100));
+  renderSlippage(true);
   updateSwapQuote();
 }
 
@@ -899,7 +916,7 @@ async function updateUSDCBalance() {
   } catch(e) { console.warn("Balance error", e); }
 }
 
-// Hardcoded pool key — _key() is pure in contract, no onchain read needed
+// Hardcoded pool key, _key() is pure in contract, no onchain read needed
 const POOL_KEY = {
   currency0:   USDC_ADDR,   // 0x3600...
   currency1:   TOKEN_ADDR,  // 0xe406...  SAVIOR
@@ -928,7 +945,7 @@ async function updateSwapQuote() {
   const amt    = parseFloat(document.getElementById("swap-amount").value);
   const outEl  = document.getElementById("savior-out-display");
   const lockEl = document.getElementById("lock-preview");
-  if (!amt || amt <= 0) { outEl.textContent = "—"; lockEl.classList.add("hidden"); return; }
+  if (!amt || amt <= 0) { outEl.textContent = "-"; lockEl.classList.add("hidden"); return; }
 
   try {
     const amountIn   = BigInt(Math.round(amt * 1e6));
@@ -950,7 +967,7 @@ async function updateSwapQuote() {
       lockEl.classList.add("hidden");
     }
   } catch(e) {
-    outEl.textContent = "—";
+    outEl.textContent = "-";
     document.getElementById("lock-preview").classList.add("hidden");
     console.warn("Quote:", e.shortMessage || e.message);
   }
@@ -1033,8 +1050,8 @@ async function executeSwap() {
     }
   } catch(e) {
     let msg = e.shortMessage || e.reason || e.message || String(e);
-    if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded — increase tolerance.';
-    else if (msg.includes('SameBlock')) msg = 'Same-block sell not allowed — wait 1 block.';
+    if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded, increase tolerance.';
+    else if (msg.includes('SameBlock')) msg = 'Same-block sell not allowed, wait 1 block.';
     else if (msg.includes('user rejected')) msg = 'Transaction cancelled.';
     else if (msg.includes('insufficient')) msg = 'Insufficient balance.';
     showStatus(msg, 'err');

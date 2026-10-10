@@ -1,4 +1,4 @@
-// feed.js — live $SAVIOR transaction feed, read-only, browser-only (ethers v6 global, public RPC, no keys).
+// feed.js, live $SAVIOR transaction feed, read-only, browser-only (ethers v6 global, public RPC, no keys).
 // Sources:
 //  - PoolManager Swap (decoded from receipts of txs that move SAVIOR through the PoolManager)(bytes32 indexed id, address indexed sender, int128 amount0, int128 amount1, uint160, uint128, int24, uint24)
 //    filtered to the SAVIOR pool id. currency0 = USDC, currency1 = SAVIOR; amounts are the swapper's deltas,
@@ -26,7 +26,7 @@
     const list = document.getElementById("feed-list");
     if (!list) return;
     list.replaceChildren();
-    if (!items.length) { list.appendChild(el("div", "text-white/25 text-xs py-4 text-center", `No trades in the last ${(BACKFILL_CHUNKS * CHUNK).toLocaleString()} blocks — new ones appear live`)); return; }
+    if (!items.length) { list.appendChild(el("div", "text-white/25 text-xs py-4 text-center", `No trades in the last ${(BACKFILL_CHUNKS * CHUNK).toLocaleString()} blocks, new ones appear live`)); return; }
     for (const it of items) {
       const row = el("a", "feed-row flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs" + (it.big ? " feed-big" : ""));
       row.href = `${C.explorer}/tx/${it.tx}`; row.target = "_blank"; row.rel = "noopener";

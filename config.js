@@ -1,4 +1,4 @@
-// config.js — public, non-secret configuration (mirrors deployments/arc-mainnet.json on add-contracts).
+// config.js, public, non-secret configuration (mirrors deployments/arc-mainnet.json on add-contracts).
 window.SAVIOR_CONFIG = {
   chainId: 5042,
   rpc: "https://rpc.mainnet.arc.io",
@@ -17,7 +17,7 @@ window.SAVIOR_CONFIG = {
   usdcDecimals: 6, // ERC-20 interface of Arc USDC (native gas uses 18)
   // Buys >= this many USDC are highlighted. Override with ?bigbuy=NN
   bigBuyUsdc: Number(new URLSearchParams(location.search).get("bigbuy")) || 50,
-  // Circle CCTP V2 — Arc mainnet. Verified 2026-10-10 against
+  // Circle CCTP V2, Arc mainnet. Verified 2026-10-10 against
   // https://developers.circle.com/cctp/references/contract-addresses (Mainnet tables)
   // and the chain definition shipped in @circle-fin/bridge-kit@1.15.2. Bridge Kit uses these internally;
   // listed here for display/reference only.

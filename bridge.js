@@ -1,4 +1,4 @@
-// bridge.js — USDC → Arc via Circle CCTP V2 using Circle Bridge Kit. No API key, no backend:
+// bridge.js, USDC → Arc via Circle CCTP V2 using Circle Bridge Kit. No API key, no backend:
 // the user's injected wallet signs approve+burn on the source chain and the mint on Arc;
 // attestation comes from Circle's public Iris API (handled inside Bridge Kit).
 let kitMod = null;
@@ -33,7 +33,7 @@ async function runBridge() {
       try {
         const name = p?.method || p?.name || p?.action || "step";
         const v = p?.values || p;
-        log(`• ${name}${v?.state ? " — " + v.state : ""}${v?.txHash ? " — " + v.txHash : ""}`);
+        log(`• ${name}${v?.state ? ", " + v.state : ""}${v?.txHash ? ", " + v.txHash : ""}`);
       } catch (_) {}
     });
     const to = { adapter, chain: "Arc" };
@@ -48,7 +48,7 @@ async function runBridge() {
     window.lastBridgeResult = res;
     for (const s of res.steps || []) log(`✓ ${s.name}: ${s.state}${explorerLink(s) ? " " + explorerLink(s) : ""}`, s.state === "error" ? "text-rose-400" : "text-emerald-400");
     log(`Result: ${res.state}`, res.state === "success" ? "text-emerald-400 font-bold" : "text-amber-400 font-bold");
-    if (res.state !== "success") log("Transfer is not complete. Funds are not lost: burned USDC can be minted later — keep this page open and press Bridge → Retry, or use kit.retry(window.lastBridgeResult).", "text-amber-300");
+    if (res.state !== "success") log("Transfer is not complete. Funds are not lost: burned USDC can be minted later, keep this page open and press Bridge → Retry, or use kit.retry(window.lastBridgeResult).", "text-amber-300");
   } catch (e) {
     console.error("[bridge]", e);
     log("Error: " + (e.shortMessage || e.message || String(e)), "text-rose-400");

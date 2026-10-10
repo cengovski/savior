@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>$SAVIOR — Arc Mainnet</title>
+<title>$SAVIOR: Arc Mainnet</title>
+<link rel="icon" type="image/svg+xml" href="../logo.svg"/>
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={darkMode:'class'}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -80,7 +83,7 @@
 <nav class="nav-blur sticky top-0 z-50 px-4 py-3">
   <div class="max-w-5xl mx-auto flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/30">S</div>
+      <img src="../logo.svg" alt="$SAVIOR logo" width="36" height="36" class="w-9 h-9 rounded-xl shadow-lg shadow-blue-500/30"/>
       <div>
         <span class="font-black text-base tracking-tight">$SAVIOR</span>
         <span class="ml-2 badge bg-blue-500/15 text-blue-400 border border-blue-500/20">ARC MAINNET</span>
@@ -138,7 +141,7 @@
         <div class="input-wrap mb-2">
           <div class="flex justify-between text-xs text-white/35 mb-2">
             <span>You pay</span>
-            <span>Balance: <span id="usdc-balance" class="text-white/60">—</span> USDC</span>
+            <span>Balance: <span id="usdc-balance" class="text-white/60">-</span> USDC</span>
           </div>
           <div class="flex items-center gap-3">
             <input id="swap-amount" class="input-f flex-1" type="number" min="0.000001" step="any"
@@ -164,7 +167,7 @@
             <span class="text-white/40">$SAVIOR</span>
           </div>
           <div class="flex items-center gap-3">
-            <div class="input-f flex-1 text-white/50 text-lg" id="savior-out-display">—</div>
+            <div class="input-f flex-1 text-white/50 text-lg" id="savior-out-display">-</div>
             <div class="savior-pill">
               <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-black">S</div>
               <span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">$SAVIOR</span>
@@ -188,11 +191,11 @@
           <div class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-wide">Estimated split</div>
           <div class="flex justify-between text-sm mb-1">
             <span class="text-white/50">Instant (50%)</span>
-            <span class="text-emerald-400 font-semibold" id="immediate-preview">—</span>
+            <span class="text-emerald-400 font-semibold" id="immediate-preview">-</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-white/50">Locked 5–10 days (50%)</span>
-            <span class="text-amber-400 font-semibold" id="locked-preview">—</span>
+            <span class="text-amber-400 font-semibold" id="locked-preview">-</span>
           </div>
         </div>
 
@@ -202,7 +205,7 @@
 
         <div id="pool-key-warning" class="hidden mt-3 text-xs text-amber-400 bg-amber-400/8 border border-amber-400/20 rounded-xl p-3 flex items-start gap-2">
           <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
-          <span>Pool not initialized yet. Admin must initialize the V4 pool first.</span>
+          <span>Pool not initialized yet. Trading opens once the V4 pool is live.</span>
         </div>
       </div>
 
@@ -219,11 +222,11 @@
         <div id="stakes-summary" class="hidden mt-4 glass-inner p-4 text-sm">
           <div class="flex justify-between mb-2">
             <span class="text-white/40">Total locked</span>
-            <span id="total-locked-display" class="text-amber-400 font-bold">—</span>
+            <span id="total-locked-display" class="text-amber-400 font-bold">-</span>
           </div>
           <div class="flex justify-between">
             <span class="text-white/40">Claimable now</span>
-            <span id="claimable-display" class="text-emerald-400 font-bold">—</span>
+            <span id="claimable-display" class="text-emerald-400 font-bold">-</span>
           </div>
         </div>
       </div>
@@ -235,7 +238,7 @@
             <div class="font-semibold text-sm text-blue-300 mb-1.5 flex items-center gap-2">
               <i class="fa-solid fa-circle-dollar-sign"></i>USDC is the gas token on Arc
             </div>
-            <div class="text-xs text-white/45 leading-relaxed">Arc is a Layer 2 blockchain where USDC is the native gas token. You pay fees in USDC — no ETH needed. The same USDC balance covers gas and token swaps.</div>
+            <div class="text-xs text-white/45 leading-relaxed">Arc is a Layer 2 blockchain where USDC is the native gas token. You pay fees in USDC, no ETH needed. The same USDC balance covers gas and token swaps.</div>
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-purple-300 mb-1.5 flex items-center gap-2">
@@ -251,9 +254,9 @@
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-amber-300 mb-1.5 flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved"></i>Emergency unlock (admin)
+              <i class="fa-solid fa-shield-halved"></i>Emergency unlock
             </div>
-            <div class="text-xs text-white/45 leading-relaxed">Only the admin can trigger <code class="text-blue-400">emergencyUnlockAll()</code>. This sets <code class="text-blue-400">globalUnlock=true</code> permanently — all locked positions become instantly claimable. Cannot be reversed.</div>
+            <div class="text-xs text-white/45 leading-relaxed">Only the contract owner can trigger <code class="text-blue-400">emergencyUnlockAll()</code>. This sets <code class="text-blue-400">globalUnlock=true</code> permanently, all locked positions become instantly claimable. Cannot be reversed.</div>
           </div>
         </div>
       </div>
@@ -333,7 +336,7 @@
 
 <script>
 /**
- * wallet.js — Shared wallet connector
+ * wallet.js, Shared wallet connector
  * Supports: MetaMask, Coinbase, Rainbow, Trust, Brave, any EIP-1193 injected wallet,
  *           and WalletConnect v2 (300+ wallets via QR/deep link)
  *
@@ -348,7 +351,7 @@
  */
 
 const ARC_TESTNET_PARAMS = {
-    chainId: '0x13B2', // 5042 — Arc Mainnet
+    chainId: '0x13B2', // 5042, Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
     rpcUrls: ['https://rpc.arc.io'],
@@ -472,7 +475,7 @@ const WalletConnector = (() => {
         return connectWithProvider(wcProvider);
     }
 
-    // ── Main connect() — shows picker modal ──────────────────────────
+    // ── Main connect(), shows picker modal ──────────────────────────
     async function connect() {
         return new Promise((resolve, reject) => {
             const injected = getInjectedWallets();
@@ -723,7 +726,7 @@ async function updateSwapQuote(){
   const outEl=document.getElementById('savior-out-display');
   const lockEl=document.getElementById('lock-preview');
   const warnEl=document.getElementById('pool-key-warning');
-  if(!amt||amt<=0){outEl.textContent='—';lockEl.classList.add('hidden');return;}
+  if(!amt||amt<=0){outEl.textContent='-';lockEl.classList.add('hidden');return;}
 
   if(STAKING_ADDR&&ethers.isAddress(STAKING_ADDR)){
     try{
@@ -731,7 +734,7 @@ async function updateSwapQuote(){
       const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
       const pks=await staking.keySet();
       warnEl.classList.toggle('hidden',pks);
-      if(!pks){outEl.textContent='—';lockEl.classList.add('hidden');return;}
+      if(!pks){outEl.textContent='-';lockEl.classList.add('hidden');return;}
     }catch(e){}
   }
 
@@ -753,12 +756,12 @@ async function updateSwapQuote(){
     document.getElementById('immediate-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
     document.getElementById('locked-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
     lockEl.classList.remove('hidden');
-  }catch(e){outEl.textContent='—';lockEl.classList.add('hidden');}
+  }catch(e){outEl.textContent='-';lockEl.classList.add('hidden');}
 }
 
 async function executeSwap(){
   if(!WalletConnector?.signer){alert('Connect wallet first');return;}
-  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured. Check admin panel.');return;}
+  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured.');return;}
   const amt=parseFloat(document.getElementById('swap-amount').value);
   if(!amt||amt<=0){alert('Enter a valid amount');return;}
   const slippagePct=parseFloat(document.getElementById('slippage-range').value||'100')/100;
@@ -768,9 +771,9 @@ async function executeSwap(){
   try{
     const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
     const pks=await staking.keySet();
-    if(!pks){alert('Pool not initialized yet. Admin must set up the V4 pool first.');return;}
+    if(!pks){alert('Pool not initialized yet.');return;}
 
-    // USDC is ERC-20 (6 decimals) on Arc — must approve staking to spend
+    // USDC is ERC-20 (6 decimals) on Arc, must approve staking to spend
     const amountIn=BigInt(Math.round(amt*1e6));
     const usdc=new ethers.Contract(USDC_ADDR,
       ['function approve(address,uint256) returns(bool)',
@@ -812,8 +815,8 @@ async function executeSwap(){
     const raw=e.reason||e.shortMessage||e.message||String(e);
     let msg=raw;
     if(raw.includes('OnlyStaking'))msg='Hook: only staking contract can swap.';
-    else if(raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
-    else if(raw.includes('Slippage'))msg='Slippage too high — try higher slippage tolerance.';
+    else if(raw.includes('PoolNotInitialized'))msg='Pool not initialized yet.';
+    else if(raw.includes('Slippage'))msg='Slippage too high, try higher slippage tolerance.';
     else if(raw.includes('SameBlock'))msg='Cannot sell in same block as buy.';
     else if(raw.includes('ZeroAmount'))msg='Amount must be greater than 0.';
     console.error('Swap error full:',e);
@@ -836,7 +839,7 @@ async function refreshStakes(){
       staking.getLocks(userAddress), staking.globalUnlock()
     ]);
     const now=Math.floor(Date.now()/1000);
-    // New struct: {uint128 amount, uint64 unlockAt} — amount=0 means claimed
+    // New struct: {uint128 amount, uint64 unlockAt}, amount=0 means claimed
     const active=locks.filter(l=>Number(l.amount)>0);
     if(active.length===0){
       document.getElementById('stakes-loading').textContent='No active locks. Swap to start staking.';

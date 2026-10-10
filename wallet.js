@@ -1,5 +1,5 @@
 /**
- * wallet.js — Shared wallet connector
+ * wallet.js, Shared wallet connector
  * Supports: MetaMask, Coinbase, Rainbow, Trust, Brave, any EIP-1193 injected wallet,
  *           and WalletConnect v2 (300+ wallets via QR/deep link)
  *
@@ -14,7 +14,7 @@
  */
 
 const ARC_TESTNET_PARAMS = {
-    chainId: '0x13B2', // 5042 — Arc Mainnet
+    chainId: '0x13B2', // 5042, Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
     rpcUrls: ['https://rpc.arc.io'],
@@ -138,7 +138,7 @@ const WalletConnector = (() => {
         return connectWithProvider(wcProvider);
     }
 
-    // ── Main connect() — shows picker modal ──────────────────────────
+    // ── Main connect(), shows picker modal ──────────────────────────
     async function connect() {
         return new Promise((resolve, reject) => {
             const injected = getInjectedWallets();
