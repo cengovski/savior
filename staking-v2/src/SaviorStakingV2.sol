@@ -13,10 +13,11 @@ import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBound
 ///         from on-chain bytecode: claim(uint256) 0x379607f5, getLocks(address) 0x719f3089,
 ///         globalUnlock() 0x06aec0ef, emergencyUnlockAll() 0xe20cc079, rescue(address,uint256) 0x7a4e4ecf,
 ///         errors Locked() 0x0f2e5b6c / NotOwner() replaced by OZ OwnableUnauthorizedAccount.
-///         Lock duration 432000s (5 days) = PUSH3 0x069780 in v1 runtime code.
+///         Lock duration = 432000 + keccak256(abi.encode(blockhash(n-1), user, seed)) % 432001 seconds,
+///         i.e. pseudo-random 5 to 10 days (PUSH3 0x069780 / 0x069781 + BLOCKHASH in v1 runtime code).
 ///         Buy/sell flow (swapExactIn 0x1d2105ba, unlockCallback 0x91dd7346) reproduces v1 as observed on an
 ///         Arc fork trace: pull tokenIn -> PoolManager.unlock -> swap exact-in -> sync/transfer/settle -> take;
-///         0.3% of output to treasury; on buy the net SAVIOR is split 50% to buyer / 50% locked 5 days;
+///         0.3% of output to treasury; on buy the net SAVIOR is split 50% to buyer / 50% locked 5-10 days;
 ///         selling in the same block as your last buy reverts SameBlock(); slippage/zero reverts Bad().
 /// @dev No proxy, no upgrade path. Owner set in constructor (Ownable2Step) instead of a hardcoded deployer.
 contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
@@ -27,7 +28,8 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint64 unlockAt;
     }
 
-    uint64 public constant LOCK_DURATION = 5 days;
+    uint64 public constant LOCK_DURATION = 5 days; // minimum lock
+    uint64 public constant MAX_EXTRA_LOCK = 5 days; // + up to 5 days pseudo-random (v1 parity)
     uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%, matches v1 trace
 
     IERC20 public immutable savior;
@@ -117,7 +119,7 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     // ---------------------------------------------------------------- buy & lock / sell
 
     /// @notice Exact-input swap through the SAVIOR v4 pool.
-    ///         Buy (tokenIn = quote, tokenOut = SAVIOR): net SAVIOR split 50% to caller, 50% locked for LOCK_DURATION.
+    ///         Buy (tokenIn = quote, tokenOut = SAVIOR): net SAVIOR split 50% to caller, 50% locked for 5-10 days.
     ///         Sell (tokenIn = SAVIOR): net quote token to caller. 0.3% of output goes to treasury.
     /// @param zeroForOne v4 direction (currency0 -> currency1). On the live pool currency0 = USDC, so true = buy.
     /// @param minOut minimum net output (after treasury fee) the caller accepts.
@@ -158,7 +160,7 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
             locked = net / 2;
             if (locked != 0) {
                 if (locked > type(uint128).max) revert AmountTooLarge();
-                uint64 unlockAt = uint64(block.timestamp) + LOCK_DURATION;
+                uint64 unlockAt = _unlockAt(msg.sender, out); // v1 seeds with gross swap output
                 uint256 index = _locks[msg.sender].length;
                 _locks[msg.sender].push(Lock(uint128(locked), unlockAt));
                 totalLocked += locked;
@@ -197,7 +199,7 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         return "";
     }
 
-    /// @notice Lock `amount` SAVIOR for LOCK_DURATION.
+    /// @notice Lock `amount` SAVIOR for 5-10 days (same pseudo-random schedule as buys).
     function stake(uint256 amount) external nonReentrant returns (uint256 index) {
         return _stake(msg.sender, amount);
     }
@@ -215,11 +217,18 @@ contract SaviorStakingV2 is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint256 received = savior.balanceOf(address(this)) - before; // fee-on-transfer safe
         if (received == 0) revert ZeroAmount();
         if (received > type(uint128).max) revert AmountTooLarge();
-        uint64 unlockAt = uint64(block.timestamp) + LOCK_DURATION;
+        uint64 unlockAt = _unlockAt(user, received);
         index = _locks[user].length;
         _locks[user].push(Lock(uint128(received), unlockAt));
         totalLocked += received;
         emit Staked(user, index, received, unlockAt);
+    }
+
+    /// @dev v1 parity. Not secure randomness (block producer can bias it); only spreads unlocks over 5-10 days.
+    function _unlockAt(address user, uint256 seed) internal view returns (uint64) {
+        uint256 r =
+            uint256(keccak256(abi.encode(blockhash(block.number - 1), user, seed))) % (uint256(MAX_EXTRA_LOCK) + 1);
+        return uint64(block.timestamp + LOCK_DURATION + r);
     }
 
     /// @notice Claim lock `i`. Reverts Locked() before unlockAt unless globalUnlock.

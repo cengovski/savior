@@ -103,7 +103,8 @@ contract SaviorStakingV2Test is Test {
         SaviorStakingV2.Lock[] memory ls = st.getLocks(alice);
         assertEq(ls.length, 1);
         assertEq(ls[0].amount, 100e6);
-        assertEq(ls[0].unlockAt, block.timestamp + 5 days);
+        assertGe(ls[0].unlockAt, block.timestamp + 5 days);
+        assertLe(ls[0].unlockAt, block.timestamp + 10 days);
         assertEq(st.totalLocked(), 100e6);
         assertEq(tok.balanceOf(address(st)), 100e6);
     }
@@ -121,10 +122,20 @@ contract SaviorStakingV2Test is Test {
         assertEq(st.getLocks(alice).length, 0);
     }
 
+    function testFuzz_lockWithin5to10Days(uint96 amt, uint32 blk) public {
+        amt = uint96(bound(amt, 1, 1_000e6));
+        vm.roll(uint256(blk) + 2);
+        vm.prank(alice);
+        st.stake(amt);
+        uint256 u = st.getLocks(alice)[0].unlockAt;
+        assertGe(u, block.timestamp + 5 days);
+        assertLe(u, block.timestamp + 10 days);
+    }
+
     function test_lockEnforced() public {
         vm.prank(alice);
         st.stake(100e6);
-        vm.warp(block.timestamp + 5 days - 1);
+        vm.warp(st.getLocks(alice)[0].unlockAt - 1);
         vm.prank(alice);
         vm.expectRevert(SaviorStakingV2.Locked.selector);
         st.claim(0);
@@ -133,7 +144,7 @@ contract SaviorStakingV2Test is Test {
     function test_claimAfterUnlock() public {
         vm.prank(alice);
         st.stake(100e6);
-        vm.warp(block.timestamp + 5 days);
+        vm.warp(block.timestamp + 10 days);
         vm.prank(alice);
         st.claim(0);
         assertEq(tok.balanceOf(alice), 1_000e6);
@@ -211,7 +222,7 @@ contract SaviorStakingV2Test is Test {
         st.rescue(address(tok), 7e6);
         vm.stopPrank();
         assertEq(tok.balanceOf(address(st)), st.totalLocked());
-        vm.warp(block.timestamp + 5 days);
+        vm.warp(block.timestamp + 10 days);
         vm.prank(alice);
         st.claim(0);
     }

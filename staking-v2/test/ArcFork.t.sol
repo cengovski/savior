@@ -152,7 +152,8 @@ contract ArcForkTest is Test {
         SaviorStakingV2.Lock[] memory ls = st.getLocks(user);
         assertEq(ls.length, 1);
         assertEq(ls[0].amount, locked, "50% locked");
-        assertEq(ls[0].unlockAt, block.timestamp + 5 days);
+        assertGe(ls[0].unlockAt, block.timestamp + 5 days);
+        assertLe(ls[0].unlockAt, block.timestamp + 10 days);
         assertEq(st.totalLocked(), locked);
         uint256 fee = sav.balanceOf(A.TREASURY) - treBefore;
         assertApproxEqAbs(fee, (net + fee) * 30 / 10_000, 1, "0.3% treasury fee");
@@ -170,7 +171,10 @@ contract ArcForkTest is Test {
         st.claim(0);
 
         // claim after lock
-        vm.warp(block.timestamp + 5 days);
+        vm.warp(ls[0].unlockAt - 1);
+        vm.expectRevert(SaviorStakingV2.Locked.selector);
+        st.claim(0);
+        vm.warp(ls[0].unlockAt);
         st.claim(0);
         assertEq(sav.balanceOf(user), net);
         assertEq(st.totalLocked(), 0);
@@ -205,10 +209,16 @@ contract ArcForkTest is Test {
         IStakingV1(A.STAKING_V1).swapExactIn(true, 10e6, 0);
         vm.stopPrank();
         uint256 v1Got = sav.balanceOf(user);
+        (bool ok, bytes memory ret) = A.STAKING_V1.staticcall(abi.encodeWithSignature("getLocks(address)", user));
+        require(ok);
+        SaviorStakingV2.Lock[] memory v1Locks = abi.decode(ret, (SaviorStakingV2.Lock[]));
         vm.revertToState(snap);
         _wireHook();
         uint256 net = _buy(user, 10e6);
         assertEq(net - net / 2, v1Got, "v2 buyer share == v1 buyer share");
+        SaviorStakingV2.Lock[] memory v2Locks = st.getLocks(user);
+        assertEq(v2Locks[0].amount, v1Locks[0].amount, "same locked amount");
+        assertEq(v2Locks[0].unlockAt, v1Locks[0].unlockAt, "same pseudo-random unlockAt as v1");
     }
 
     function test_fork_e2e_emergencyUnlockAll() public {

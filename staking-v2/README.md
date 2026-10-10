@@ -22,7 +22,7 @@ Uniswap v4 on Arc: see `src/ArcAddresses.sol`. The v2 staking contract itself do
 
 `swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut)` reproduces the v1 flow observed on an Arc fork trace:
 pull tokenIn, `PoolManager.unlock`, exact-in swap on the SAVIOR/USDC pool (fee 10000, tickSpacing 200, hook 0xFfcf…60c0),
-0.3% of the output to treasury, on buys the net SAVIOR is split 50% to the buyer and 50% locked for 5 days.
+0.3% of the output to treasury, on buys the net SAVIOR is split 50% to the buyer and 50% locked for a pseudo-random 5 to 10 days (same formula as v1: 432000 + keccak256(abi.encode(blockhash(n-1), user, grossSwapOut)) % 432001 s).
 Selling in the same block as your last buy reverts `SameBlock()`, slippage/zero amount reverts `Bad()` (same selectors as v1).
 
 The hook's `beforeSwap` only accepts swaps whose sender is `hook.stakingContract()` (reverts `OnlyStaking()` 0x3d704762).

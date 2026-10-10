@@ -257,7 +257,9 @@ const STAKING_IMPL_ABI = ['constructor()'];
 // SaviorStakingV2 (staking-v2/src/SaviorStakingV2.sol). Address configurable via localStorage 'savior_staking_v2'; not deployed yet.
 const STAKING_V2_ADDRESS = localStorage.getItem('savior_staking_v2') || '';
 const STAKING_V2_ABI = [
-  'constructor(address initialOwner, address saviorToken)',
+  'constructor(address initialOwner, address saviorToken, address poolManager, address treasury, (address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key)',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut) returns (uint256)',
+  'function keySet() view returns (bool)',
   'function owner() view returns (address)',
   'function pendingOwner() view returns (address)',
   'function globalUnlock() view returns (bool)',
