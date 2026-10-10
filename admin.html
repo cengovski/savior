@@ -486,10 +486,8 @@ async function deployStaking() {
     const TREASURY = document.getElementById('stakingTreasury')?.value?.trim() || '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
     tokenAddr = tokenAddr || localStorage.getItem('savior_token') || '';
     if (!tokenAddr) throw new Error('Deploy Token first (Step 1) or refresh page');
-    const iface = new ethers.Interface(['function initialize(address)']);
-    const initData = iface.encodeFunctionData('initialize',[deployer]);
-    const implAddr = await deployBytecode(STAKING_BC,'SaviorStaking impl');
-    stakingAddr = await deployProxy(implAddr, initData,'SaviorStaking proxy');
+    // Non-upgradeable: deploy directly, no proxy
+    stakingAddr = await deployBytecode(STAKING_BC, 'SaviorStaking');
     ['mgmtStaking','upgradeProxy','emergencyProxy','treasuryProxy','infoStaking','liqStaking','remLiqStaking'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value=stakingAddr;
     });
