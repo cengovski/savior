@@ -20,6 +20,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js" crossorigin="anonymous"></script>
 <script>if(typeof ethers==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"><\/script>')}</script>
+<script src="rpc.js"></script>
 <link rel="stylesheet" href="site.css"/>
 </head>
 <body>
@@ -540,7 +541,7 @@ async function loadSaviorWalletBalance() {
       ["function balanceOf(address) view returns (uint256)"], getReadProvider());
     const bal = await savior.balanceOf(userAddress);
     const el = document.getElementById('savior-wallet-balance');
-    if (el) el.textContent = (Number(bal) / 1e6).toLocaleString(undefined, {maximumFractionDigits: 2});
+    if (el) el.textContent = (Number(bal) / 1e6).toLocaleString("en-US", {maximumFractionDigits: 2});
   } catch(e) { console.error('savior balance', e); }
 }
 
@@ -629,7 +630,7 @@ function refreshContractsDisplay() {
 
 function getProvider() {
   if (WalletConnector?.provider) return WalletConnector.provider;
-  return new ethers.JsonRpcProvider(RPC);
+  return getReadProvider();
 }
 
 async function updateUSDCBalance() {
@@ -638,7 +639,7 @@ async function updateUSDCBalance() {
     const usdc = new ethers.Contract(USDC_ADDR, ERC20_ABI, getProvider());
     const bal  = await usdc.balanceOf(userAddress);
     document.getElementById("usdc-balance").textContent =
-      (Number(bal) / 1e6).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:4});
+      (Number(bal) / 1e6).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:4});
   } catch(e) { console.warn("Balance error", e); }
 }
 
@@ -673,7 +674,8 @@ function updateSwapQuote() {
   clearTimeout(_quoteDebounce);
   _quoteDebounce = setTimeout(runSwapQuote, 350);
 }
-const fmtUnits = (v, d = 2) => Number(ethers.formatUnits(v, 6)).toLocaleString(undefined, { maximumFractionDigits: d });
+const fmtUnits = (v, d = 2) => Number(ethers.formatUnits(v, 6)).toLocaleString("en-US", { maximumFractionDigits: d });
+let lastShown = null;
 async function runSwapQuote() {
   const seq = ++_quoteSeq;
   const raw    = (document.getElementById("swap-amount").value || "").trim();
@@ -711,16 +713,24 @@ async function runSwapQuote() {
       lockEl.classList.add("hidden");
     }
     detEl.classList.remove("hidden");
+    lastShown = { raw, mode: swapMode, text: outEl.textContent };
   } catch (e) {
     if (seq !== _quoteSeq) return;
     console.warn("Quote:", e.shortMessage || e.message);
-    reset(/liquidity/i.test(e.message) ? "Amount is larger than the pool can fill right now." : "Estimate unavailable, please try again.");
+    if (/liquidity/i.test(e.message)) return reset("Amount is larger than the pool can fill right now.");
+    // network trouble: keep the last estimate for the same input visible and offer a retry
+    const same = lastShown && lastShown.raw === raw && lastShown.mode === swapMode;
+    if (same) outEl.textContent = lastShown.text; else outEl.textContent = "-";
+    if (!same) { lockEl.classList.add("hidden"); detEl.classList.add("hidden"); }
+    errEl.replaceChildren(document.createTextNode(same ? "Arc network is busy. Showing the last estimate. " : "Arc network is busy, the estimate could not load. "));
+    const rb = document.createElement("button"); rb.className = "link"; rb.textContent = "Retry"; rb.onclick = () => runSwapQuote(); errEl.appendChild(rb);
+    errEl.classList.remove("hidden");
   }
 }
 // Read-only RPC for quotes, independent of the wallet's network.
 let _readProvider = null;
 window.getReadProvider = getReadProvider;
-function getReadProvider() { return _readProvider || (_readProvider = new ethers.JsonRpcProvider(RPC, 5042, { staticNetwork: true })); }
+function getReadProvider() { return _readProvider || (_readProvider = window.SaviorRPC.provider()); } // failover across public Arc RPCs
 
 // ── Execute Swap (Buy: USDC → SAVIOR) ─────────────────────────────────
 let _swapToast = null;
@@ -828,7 +838,7 @@ async function refreshStakes() {
     const now = Math.floor(Date.now() / 1000);
     list.replaceChildren();
     let claimable = 0n, locked = 0n, count = 0;
-    const fmt = (v) => Number(ethers.formatUnits(v, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const fmt = (v) => Number(ethers.formatUnits(v, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
     for (let i = 0; i < locks.length; i++) {
       const amount = BigInt(locks[i].amount);
       if (amount === 0n) continue;
@@ -845,7 +855,7 @@ async function refreshStakes() {
       c2.querySelector("b").textContent = fmt(amount) + " SAVIOR"; c2.querySelector("i").style.width = progress + "%";
       const c3 = document.createElement("span"); c3.className = "mono";
       c3.textContent = matured ? "Ready" : `in ${d}d ${h}h ${m}m`;
-      c3.title = new Date(unlockTs * 1000).toLocaleString();
+      c3.title = new Date(unlockTs * 1000).toLocaleString("en-US");
       const c4 = document.createElement("span");
       if (matured) {
         const b = document.createElement("button"); b.className = "btn btn-primary btn-sm"; b.id = "claim-" + i; b.textContent = "Claim";

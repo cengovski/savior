@@ -16,17 +16,36 @@
 
   const topicAddr = (t) => "0x" + t.slice(26);
   const short = (a) => a.slice(0, 6) + "..." + a.slice(-4);
-  const fmt = (v, d) => Number(ethers.formatUnits(v < 0n ? -v : v, d)).toLocaleString(undefined, { maximumFractionDigits: 4 });
+  const fmt = (v, d) => Number(ethers.formatUnits(v < 0n ? -v : v, d)).toLocaleString("en-US", { maximumFractionDigits: 4 });
 
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
-  function setStatus(s) { const e = document.getElementById("feed-status"); if (e) e.textContent = s; }
+  // Plain-English status line, with an optional Retry button.
+  function setStatus(s, retry) {
+    const e = document.getElementById("feed-status"); if (!e) return;
+    e.replaceChildren(document.createTextNode(s));
+    if (retry) { const b = el("button", "link", " Retry"); b.onclick = () => { clearTimeout(timer); setStatus("Reconnecting to Arc..."); poll(); }; e.appendChild(b); }
+  }
+  // cache: last trades survive reloads and show instantly
+  const CACHE_KEY = "savior.feed.v1";
+  let backfillFailed = false, pollFails = 0;
+  function saveCache() {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ lastBlock, items: items.map((i) => ({ ...i, _req: undefined, locked: i.locked == null ? null : String(i.locked) })) })); } catch (e) {}
+  }
+  function loadItems(list) {
+    for (const it of list || []) add({ ...it, locked: it.locked == null ? null : BigInt(it.locked), _req: false }, false);
+  }
 
   function render() {
     const list = document.getElementById("feed-list");
     if (!list) return;
     list.replaceChildren();
-    if (!items.length) { list.appendChild(el("div", "empty", `No trades in the last ${(BACKFILL_CHUNKS * CHUNK).toLocaleString()} blocks, new ones appear live`)); return; }
+    if (!items.length) {
+      list.appendChild(el("div", "empty", backfillFailed
+        ? "Could not load recent trades because the Arc network is busy. New trades will appear here automatically."
+        : `No trades in the last ${(BACKFILL_CHUNKS * CHUNK).toLocaleString("en-US")} blocks. New ones appear here live.`));
+      return;
+    }
     for (const it of items.slice(0, 20)) {
       const row = el("a", "feed-row" + (it.big ? " feed-big" : ""));
       row.href = `${C.explorer}/tx/${it.tx}`; row.target = "_blank"; row.rel = "noopener";
@@ -37,7 +56,7 @@
       mid.appendChild(el("div", null, it.text));
       if (it.locked != null) {
         mid.appendChild(el("div", "feed-lock",
-          `${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed")));
+          `${fmt(it.locked, C.tokenDecimals)} locked` + (it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed")));
         if (it.unlock === undefined && !it._req && window.SaviorLocks && it.who) {
           it._req = true;
           window.SaviorLocks.lockForBuy(it.who, it.locked).then((l) => { it.unlock = l ? l.unlockAt : null; render(); }).catch(() => { it._req = false; });
@@ -106,36 +125,53 @@
   async function poll() {
     try {
       const head = await provider.getBlockNumber();
+      if (!lastBlock || head - lastBlock > BACKFILL_CHUNKS * CHUNK) lastBlock = head; // too far behind: jump to live
       while (lastBlock < head) {
         const to = Math.min(head, lastBlock + CHUNK);
         await fetchRange(lastBlock + 1, to, true);
         lastBlock = to;
       }
-      render();
-      setStatus("live, block " + head.toLocaleString());
-    } catch (e) { console.warn("[feed] poll failed", e); setStatus("reconnecting…"); }
-    timer = setTimeout(poll, POLL_MS);
+      pollFails = 0;
+      render(); saveCache();
+      setStatus("Live, block " + head.toLocaleString("en-US"));
+    } catch (e) {
+      console.warn("[feed] poll failed", e); pollFails++;
+      setStatus(pollFails > 2 ? "Arc network is busy. Showing the last trades we loaded." : "Connection to Arc lost. Reconnecting...", pollFails > 2);
+    }
+    timer = setTimeout(poll, pollFails ? Math.min(60000, POLL_MS * 2 ** pollFails) : POLL_MS);
   }
 
   async function start() {
-    if (typeof ethers === "undefined") return setTimeout(start, 300);
+    if (typeof ethers === "undefined" || !window.SaviorRPC) return setTimeout(start, 300);
     if (!document.getElementById("feed-list")) return;
-    provider = new ethers.JsonRpcProvider(C.rpc, C.chainId, { staticNetwork: true });
-    setStatus("loading history…");
-    try {
-      const head = await provider.getBlockNumber();
-      lastBlock = head;
-      // ?feedfrom=<block> (debug): backfill starting from a specific block instead of the head
-      const ff = Number(new URLSearchParams(location.search).get("feedfrom"));
-      const top = ff > 0 && ff < head ? ff + (BACKFILL_CHUNKS * CHUNK) / 2 : head;
-      for (let i = 0; i < BACKFILL_CHUNKS && items.length < 12; i++) {
-        const to = top - i * CHUNK;
-        await fetchRange(to - CHUNK + 1, to, false);
-        if (i % 5 === 4) { render(); setStatus(`scanning history… ${((i + 1) * CHUNK).toLocaleString()} blocks`); }
-        await sleep(400);
-      }
-    } catch (e) { console.warn("[feed] backfill failed", e); }
-    render();
+    provider = window.SaviorRPC.provider(); // failover across public Arc RPCs
+    // 1) instant: trades from a previous visit, else the shipped snapshot
+    let cached = null; try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch (e) {}
+    if (cached && cached.items && cached.items.length) { loadItems(cached.items); lastBlock = cached.lastBlock || 0; }
+    else {
+      try { const r = await fetch(new URL("locks-seed.json", document.baseURI), { cache: "no-cache" }); if (r.ok) { const sd = await r.json(); loadItems(sd.trades); } } catch (e) {}
+    }
+    if (items.length) { render(); setStatus("Showing recent trades, connecting to Arc..."); }
+    else setStatus("Loading recent trades...");
+    // 2) backfill only when we have no fresh history
+    if (!lastBlock) {
+      try {
+        const head = await provider.getBlockNumber();
+        lastBlock = head;
+        const ff = Number(new URLSearchParams(location.search).get("feedfrom"));
+        const top = ff > 0 && ff < head ? ff + (BACKFILL_CHUNKS * CHUNK) / 2 : head;
+        let found = 0, chunkFails = 0;
+        for (let i = 0; i < BACKFILL_CHUNKS && found < 12; i++) {
+          const to = top - i * CHUNK, before = items.length;
+          try { await fetchRange(to - CHUNK + 1, to, false); }
+          catch (e) { if (++chunkFails >= 2) throw e; } // skip one bad chunk, give up after two
+          found += items.length - before;
+          if (i % 5 === 4) { render(); setStatus(`Loading trade history: ${((i + 1) * CHUNK).toLocaleString("en-US")} blocks checked`); }
+          await sleep(400);
+        }
+      } catch (e) { console.warn("[feed] backfill failed", e); backfillFailed = true; lastBlock = 0; }
+    }
+    render(); saveCache();
     poll();
   }
 

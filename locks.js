@@ -10,7 +10,7 @@
   const lc = (a) => (a || "").toLowerCase();
   const STAKING = lc(C.contracts.staking), PM = lc(C.contracts.poolManager);
   let provider = null, staking = null;
-  const P = () => provider || (provider = new ethers.JsonRpcProvider(C.rpc, C.chainId, { staticNetwork: true, batchMaxCount: 1 }));
+  const P = () => provider || (provider = window.SaviorRPC.provider()); // failover across public Arc RPCs
   const S = () => staking || (staking = new ethers.Contract(C.contracts.staking,
     ["function getLocks(address) view returns ((uint128 amount,uint64 unlockAt)[])", "function globalUnlock() view returns (bool)"], P()));
 
@@ -25,7 +25,8 @@
         try { return await fn(); }
         catch (e) {
           const msg = String(e && (e.shortMessage || e.message) || "");
-          if (i >= 5 || !/429|rate|limit|coalesce|timeout|network|fetch/i.test(msg)) throw e;
+          // the shared provider already fails over across endpoints; only retry a little on top
+          if (i >= 2 || !/429|rate|limit|coalesce|timeout|network|fetch|endpoints failed/i.test(msg)) throw e;
           await sleep(Math.min(15000, 1000 * 2 ** i) + Math.random() * 300);
         }
       }
@@ -62,8 +63,11 @@
       const seed = await r.json();
       if (seed.scanned > cache.scanned) {
         for (const [w, b] of Object.entries(seed.wallets || {})) cache.wallets[w] = Math.max(cache.wallets[w] || 0, b);
-        cache.scanned = seed.scanned; save();
+        cache.scanned = seed.scanned;
       }
+      // seed lock snapshot: used only where we have nothing newer
+      for (const [w, l] of Object.entries(seed.locks || {})) if (!cache.locks[w] || cache.locks[w].t < (seed.locksAt || 0)) cache.locks[w] = { t: seed.locksAt || 0, l };
+      save();
     } catch (e) {}
   }
 
@@ -71,7 +75,6 @@
   function scan(onProgress) {
     if (scanning) return scanning;
     scanning = (async () => {
-      await loadSeed();
       const head = await rpc(() => P().getBlockNumber());
       for (let from = cache.scanned + 1; from <= head; from += CHUNK) {
         const to = Math.min(head, from + CHUNK - 1);
@@ -90,7 +93,7 @@
   // ---------- UI ----------
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const fmt = (v) => Number(ethers.formatUnits(BigInt(v), C.tokenDecimals)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmt = (v) => Number(ethers.formatUnits(BigInt(v), C.tokenDecimals)).toLocaleString("en-US", { maximumFractionDigits: 0 });
   const short = (a) => a.slice(0, 6) + "..." + a.slice(-4);
   function countdown(ts) {
     let s = ts - Math.floor(Date.now() / 1000);
@@ -98,7 +101,7 @@
     const d = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60);
     return (d ? d + "d " : "") + h + "h " + m + "m";
   }
-  const dateStr = (ts) => new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const dateStr = (ts) => new Date(ts * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   let rows = [], globalUnlock = false;
 
   function render() {
@@ -127,43 +130,51 @@
     });
   }
 
-  async function refresh() {
-    const st = $("lb-status");
-    try {
-      st.textContent = "Scanning chain...";
-      await scan((f) => { st.textContent = "Scanning chain " + Math.min(100, Math.round(f * 100)) + "%"; });
-      try { globalUnlock = await rpc(() => S().globalUnlock()); } catch (e) {}
-      const now = Math.floor(Date.now() / 1000), soon = now + 86400;
-      const wallets = Object.keys(cache.wallets);
-      const out = [];
-      for (let i = 0; i < wallets.length; i++) {
-        st.textContent = "Reading locks " + (i + 1) + "/" + wallets.length;
-        const l = (await getLocks(wallets[i])).filter((x) => BigInt(x.amount) > 0n);
-        if (!l.length) continue;
-        const total = l.reduce((s, x) => s + BigInt(x.amount), 0n);
-        const times = l.map((x) => x.unlockAt).sort((a, b) => a - b);
-        const future = times.filter((t) => t > now);
-        const soonAmt = l.filter((x) => x.unlockAt > now && x.unlockAt <= soon).reduce((s, x) => s + BigInt(x.amount), 0n);
-        out.push({ addr: wallets[i], total, count: l.length, next: future[0] || times[0], lastU: times[times.length - 1], soonAmt });
-      }
-      rows = out.sort((a, b) => (b.total > a.total ? 1 : b.total < a.total ? -1 : 0));
-      render();
-      st.textContent = "Updated " + new Date().toLocaleTimeString();
-    } catch (e) { console.warn("[locks]", e); st.textContent = "Could not load locks, retrying soon"; }
-  }
-
-  function start() {
-    if (typeof ethers === "undefined") return setTimeout(start, 300);
-    if (!$("lb-body")) return;
-    // show cached results immediately
+  function rowsFromCache() {
     const now = Math.floor(Date.now() / 1000);
-    rows = Object.entries(cache.locks).map(([addr, c]) => {
+    return Object.entries(cache.locks).map(([addr, c]) => {
       const l = c.l.filter((x) => BigInt(x.amount) > 0n); if (!l.length) return null;
       const times = l.map((x) => x.unlockAt).sort((a, b) => a - b);
       return { addr, total: l.reduce((s, x) => s + BigInt(x.amount), 0n), count: l.length, next: times.find((t) => t > now) || times[0], lastU: times[times.length - 1],
         soonAmt: l.filter((x) => x.unlockAt > now && x.unlockAt <= now + 86400).reduce((s, x) => s + BigInt(x.amount), 0n) };
-    }).filter(Boolean).sort((a, b) => (b.total > a.total ? 1 : -1));
-    render();
+    }).filter(Boolean).sort((a, b) => (b.total > a.total ? 1 : b.total < a.total ? -1 : 0));
+  }
+  function showRows() { rows = rowsFromCache(); render(); }
+  function setStatus(text, retry) {
+    const st = $("lb-status"); if (!st) return;
+    st.replaceChildren(document.createTextNode(text));
+    if (retry) { const b = el("button", "link", " Retry"); b.onclick = () => refresh(); st.appendChild(b); }
+  }
+  let refreshing = null;
+  function refresh() {
+    if (refreshing) return refreshing;
+    refreshing = (async () => {
+      let failed = 0;
+      setStatus("Updating from Arc...");
+      try { globalUnlock = await rpc(() => S().globalUnlock()); }
+      catch (e) { setStatus("Arc network is busy. Showing last known data.", true); return; } // no RPC reachable: keep what we show
+      // 1) refresh wallets we already know (seed + cache) so real numbers show fast
+      const known = Object.keys(cache.wallets);
+      for (const w of known) { try { await getLocks(w, true); } catch (e) { failed++; setStatus("Arc network is busy. Showing last known data.", true); } }
+      if (known.length) showRows();
+      // 2) look for new lockers in blocks after the seed/cache
+      try {
+        await scan((f) => setStatus("Checking new blocks " + Math.min(100, Math.round(f * 100)) + "%"));
+        for (const w of Object.keys(cache.wallets)) if (!known.includes(w)) { try { await getLocks(w, true); } catch (e) { failed++; } }
+      } catch (e) { console.warn("[locks] scan", e); failed++; }
+      showRows();
+      if (failed) setStatus("Arc network is busy. Showing last known data.", true);
+      else setStatus("Updated " + new Date().toLocaleTimeString("en-US"));
+    })().finally(() => { refreshing = null; });
+    return refreshing;
+  }
+
+  async function start() {
+    if (typeof ethers === "undefined" || !window.SaviorRPC) return setTimeout(start, 300);
+    if (!$("lb-body")) return;
+    showRows();                 // cached results from a previous visit, instantly
+    await loadSeed(); showRows(); // shipped snapshot (first visit)
+    if (rows.length) setStatus("Last known data, updating...");
     refresh();
     setInterval(render, 30000);   // countdowns
     setInterval(refresh, 120000); // incremental chain refresh
@@ -178,5 +189,5 @@
   }
 
   window.SaviorLocks = { getLocks, lockForBuy, refresh, rpc };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(start, 1500)); else setTimeout(start, 1500);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();

@@ -111,18 +111,18 @@
   async function stats() {
     if (typeof ethers === "undefined" || !window.SaviorQuote) return setTimeout(stats, 500);
     try {
-      const p = window.getReadProvider ? window.getReadProvider() : new ethers.JsonRpcProvider(window.SAVIOR_CONFIG.rpc, 5042, { staticNetwork: true });
+      const p = window.SaviorRPC.provider();
       const run = (fn) => (window.SaviorLocks ? window.SaviorLocks.rpc(fn) : fn());
       const st = await run(() => window.SaviorQuote.readState(p));
       // sqrtPriceX96 = sqrt(SAVIOR/USDC); USDC per SAVIOR = (2^96/sqrtP)^2; both 6 decimals
       const x = Number((1n << 96n) * 1000000n / st.sqrtP) / 1e6;
-      $("pool-price").textContent = (x * x * 1e6).toLocaleString(undefined, { maximumFractionDigits: 4 }) + " USDC";
+      $("pool-price").textContent = (x * x * 1e6).toLocaleString("en-US", { maximumFractionDigits: 4 }) + " USDC";
       const tok = new ethers.Contract(window.SAVIOR_CONFIG.contracts.token, ["function totalSupply() view returns (uint256)"], p);
       const sup = await run(() => tok.totalSupply());
       const n = Number(ethers.formatUnits(sup, 6));
-      $("tok-supply").textContent = n.toLocaleString(undefined, { notation: "compact", maximumFractionDigits: 2 });
-      $("tok-supply").title = n.toLocaleString() + " SAVIOR";
-    } catch (e) { console.warn("stats", e); }
+      $("tok-supply").textContent = n.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 2 });
+      $("tok-supply").title = n.toLocaleString("en-US") + " SAVIOR";
+    } catch (e) { console.warn("stats", e); setTimeout(stats, 30000); } // keep last value, try again later
   }
 
   document.addEventListener("DOMContentLoaded", () => { applyTheme(currentTheme(), false); watchBridge(); setTimeout(stats, 800); });
