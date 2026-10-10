@@ -299,9 +299,13 @@ let provider, signer, deployer;
 let tokenAddr, hookImplAddr, hookAddr, stakingAddr;
 // Restore from localStorage on page load
 document.addEventListener('DOMContentLoaded', () => {
-  tokenAddr   = localStorage.getItem('savior_token')   || '';
-  hookAddr    = localStorage.getItem('savior_hook')    || '';
-  stakingAddr = localStorage.getItem('savior_staking') || '';
+  tokenAddr   = localStorage.getItem('savior_token')   || '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3';
+  hookAddr    = localStorage.getItem('savior_hook')    || '0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0';
+  stakingAddr = localStorage.getItem('savior_staking') || '0xA9Bd5FCa5EFD214fB42A5eDdbA87ae7E1ccA9732';
+  // Persist defaults so subsequent steps find them
+  if (!localStorage.getItem('savior_token'))   localStorage.setItem('savior_token',   tokenAddr);
+  if (!localStorage.getItem('savior_hook'))     localStorage.setItem('savior_hook',     hookAddr);
+  if (!localStorage.getItem('savior_staking'))  localStorage.setItem('savior_staking',  stakingAddr);
   if (tokenAddr)   { ['mgmtToken','mintToken','infoToken'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=tokenAddr; }); }
   if (stakingAddr) { const el=document.getElementById('upgradeProxy'); if(el) el.value=stakingAddr; }
 });
