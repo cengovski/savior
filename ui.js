@@ -115,7 +115,8 @@
       const run = (fn) => (window.SaviorLocks ? window.SaviorLocks.rpc(fn) : fn());
       const st = await run(() => window.SaviorQuote.readState(p));
       // sqrtPriceX96 = sqrt(SAVIOR/USDC); USDC per SAVIOR = (2^96/sqrtP)^2; both 6 decimals
-      const x = Number((1n << 96n) * 1000000n / st.sqrtP) / 1e6;
+      // (if a fresh pool sorts SAVIOR first, sqrtP = sqrt(USDC/SAVIOR) instead)
+      const x = window.SAVIOR_CONFIG.saviorIsCurrency0 ? Number(st.sqrtP * 1000000n / (1n << 96n)) / 1e6 : Number((1n << 96n) * 1000000n / st.sqrtP) / 1e6;
       $("pool-price").textContent = (x * x * 1e6).toLocaleString("en-US", { maximumFractionDigits: 4 }) + " USDC";
       const tok = new ethers.Contract(window.SAVIOR_CONFIG.contracts.token, ["function totalSupply() view returns (uint256)"], p);
       const sup = await run(() => tok.totalSupply());

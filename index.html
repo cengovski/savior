@@ -450,7 +450,7 @@ window.WalletConnector = WalletConnector;
 
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
-const TOKEN_ADDR   = "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3";
+const TOKEN_ADDR   = window.SAVIOR_CONFIG.contracts.token; // live: 0xe4065efC...cAf3; fresh mode: SaviorTokenV2
 const STAKING_V1_ADDR = "0xBCA651C0A0540a1fCDef066B5476d714431fa525"; // retired staking contract (no longer read)
 // v2 switch: set contracts.stakingV2 in config.js (single source of truth). Swaps then go to v2,
 // claims/positions/leaderboard/feed read old + v2, and the migration card shows. Empty = exactly as before.
@@ -464,6 +464,7 @@ const SWAP_DEADLINE_SECS = 600;
 let _swapRoute = null;
 async function getSwapRoute(force) {
   if (!STAKING_V2_ADDR) return { addr: STAKING_V1_ADDR, v2: false };
+  if (window.SAVIOR_CONFIG.freshActive) return { addr: STAKING_V2_ADDR, v2: true, fresh: true }; // fresh hook binds this staking immutably
   if (!force && _swapRoute && Date.now() - _swapRoute.t < 30000) return _swapRoute;
   try {
     const hook = new ethers.Contract("0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0", ["function stakingContract() view returns (address)"], getReadProvider());
@@ -481,7 +482,7 @@ function buildSwapCall(route, zeroForOne, amountIn, minOut) {
   return { to: route.addr, abi, args, data: new ethers.Interface(abi).encodeFunctionData("swapExactIn", args) };
 }
 window.SaviorSwap = { getSwapRoute, buildSwapCall };
-const HOOK_ADDR    = "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0";
+const HOOK_ADDR    = window.SAVIOR_CONFIG.contracts.hook; // live: 0xFfcf2eF8...60c0
 const USDC_ADDR    = "0x3600000000000000000000000000000000000000";
 const POOL_MANAGER = "0x8366a39CC670B4001A1121B8F6A443A643e40951";
 const QUOTER_ADDR  = "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94";
@@ -515,6 +516,7 @@ const STAKING_V2_ABI = [
   "event Swapped(address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked)",
   "error Locked()", "error ZeroAmount()", "error BadIndex()", "error NothingToClaim()", "error AmountTooLarge()",
   "error SameBlock()", "error Bad()", "error BadPoolKey()", "error Expired()", "error BelowMinStake()",
+  "error ZeroMinOut()", "error TooEarly()", "error RevealWindowClosed()", "error AlreadyRevealed()", "error LowGas()", // SaviorStakingFresh
 ];
 // Name of a v2 custom error, also when ethers did not decode it (raw revert data nested in the error).
 function v2ErrorName(e) {
@@ -676,7 +678,8 @@ function refreshContractsDisplay() {
   const entries = [
     ["Token",         TOKEN_ADDR],
     ["Hook",          HOOK_ADDR],
-    ...(STAKING_V2_ADDR ? [["Staking v2", STAKING_V2_ADDR], ["Staking (retired)", STAKING_V1_ADDR]] : [["Staking", STAKING_ADDR]]),
+    ...(window.SAVIOR_CONFIG.freshActive ? [["Staking", STAKING_V2_ADDR], ...(window.SAVIOR_CONFIG.fresh.distributor ? [["Lucky NFT distributor", window.SAVIOR_CONFIG.fresh.distributor]] : [])]
+      : STAKING_V2_ADDR ? [["Staking v2", STAKING_V2_ADDR], ["Staking (retired)", STAKING_V1_ADDR]] : [["Staking", STAKING_ADDR]]),
     ["Pool Manager",  POOL_MANAGER],
   ];
   const box = document.getElementById("contracts-display");
@@ -707,8 +710,8 @@ async function updateUSDCBalance() {
 
 // Hardcoded pool key, _key() is pure in contract, no onchain read needed
 const POOL_KEY = {
-  currency0:   USDC_ADDR,   // 0x3600...
-  currency1:   TOKEN_ADDR,  // 0xe406...  SAVIOR
+  currency0:   window.SAVIOR_CONFIG.saviorIsCurrency0 ? TOKEN_ADDR : USDC_ADDR, // live: USDC 0x3600...
+  currency1:   window.SAVIOR_CONFIG.saviorIsCurrency0 ? USDC_ADDR : TOKEN_ADDR, // live: SAVIOR 0xe406...
   fee:         10000,
   tickSpacing: 200,
   hooks:       HOOK_ADDR,
@@ -835,12 +838,15 @@ async function executeSwap() {
         minOut = window.SaviorQuote.minOut(q, slipBps, route.v2); // v1: pool (gross) output, v2: net output after fee
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending swap...', 'info');
-      const call = buildSwapCall(route, true, amountIn, minOut);
+      const call = buildSwapCall(route, !window.SAVIOR_CONFIG.saviorIsCurrency0, amountIn, minOut); // buy
       const staking = new ethers.Contract(call.to, call.abi, WalletConnector.signer);
       const tx = await staking.swapExactIn(...call.args);
       showStatus('Waiting for confirmation...', 'info');
       await tx.wait();
-      showStatus('Half is in your wallet, half is locked.', 'ok', 'https://explorer.arc.io/tx/' + tx.hash);
+      showStatus(window.SAVIOR_CONFIG.freshActive
+        ? 'Half is in your wallet, half is locked for 10 days (default). Reveal it in My Stakes within ~70 min: it can drop to 5-10 days' + (amt >= 10 ? ' and has a 5% Lucky NFT chance.' : '.')
+        : 'Half is in your wallet, half is locked.', 'ok', 'https://explorer.arc.io/tx/' + tx.hash);
+      if (window.SaviorFresh) window.SaviorFresh.refreshStakes();
       refreshStakes();
       await updateUSDCBalance(); if(swapMode==="sell") await loadSaviorWalletBalance();
 
@@ -862,7 +868,7 @@ async function executeSwap() {
         minOut = window.SaviorQuote.minOut(q, slipBps, route.v2); // v1: pool (gross) output, v2: net output after fee
       } catch(e) { console.warn('quote failed, minOut=1', e); }
       showStatus('Sending sell...', 'info');
-      const call = buildSwapCall(route, false, amountIn, minOut);
+      const call = buildSwapCall(route, !!window.SAVIOR_CONFIG.saviorIsCurrency0, amountIn, minOut); // sell
       const staking = new ethers.Contract(call.to, call.abi, WalletConnector.signer);
       const tx = await staking.swapExactIn(...call.args);
       showStatus('Waiting for confirmation...', 'info');
@@ -876,6 +882,7 @@ async function executeSwap() {
     const rv = v2ErrorName(e); // decoded v2 custom error
     if (rv === 'Bad') msg = 'Price moved beyond your slippage, or the amount is invalid. Try again or increase tolerance.';
     else if (rv === 'Expired') msg = 'The swap took longer than 10 minutes to confirm and expired. Nothing was spent, please try again.';
+    else if (rv === 'ZeroMinOut') msg = 'Minimum received is zero. Enter a larger amount or lower the slippage.';
     else if (rv === 'BelowMinStake') msg = 'Minimum stake in the new contract is 1 SAVIOR.';
     else if (rv === 'SameBlock') msg = 'Same-block sell not allowed, wait 1 block.';
     else if (msg.includes('Slippage') || msg.includes('slippage')) msg = 'Slippage exceeded, increase tolerance.';
@@ -890,6 +897,7 @@ async function executeSwap() {
 
 // ── My Stakes ─────────────────────────────────────────────────────────
 async function refreshStakes() {
+  if (window.SaviorFresh) return window.SaviorFresh.refreshStakes(); // fresh start: paginated reads + lock reveal
   const loading = document.getElementById("stakes-loading");
   const list = document.getElementById("stakes-list");
   const setStats = (locked, claimable, count) => {
@@ -974,6 +982,7 @@ async function claimLock(i, src = "") {
 <script src="quote.js"></script>
 <script src="locks.js"></script>
 <script src="feed.js"></script>
+<script src="fresh.js"></script>
 <script type="module" src="bridge.js"></script>
 </body>
 </html>

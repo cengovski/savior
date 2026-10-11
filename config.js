@@ -23,6 +23,15 @@ window.SAVIOR_CONFIG = {
   // https://developers.circle.com/cctp/references/contract-addresses (Mainnet tables)
   // and the chain definition shipped in @circle-fin/bridge-kit@1.15.2. Bridge Kit uses these internally;
   // listed here for display/reference only.
+  // FRESH START (new token + hook + pool, SaviorStakingFresh with lock reveal, Lucky NFT). NOT DEPLOYED YET.
+  // PLACEHOLDERS: leave empty until deployed. While token, hook or staking is empty the site behaves exactly as today.
+  fresh: {
+    token:       "", // PLACEHOLDER: SaviorTokenV2
+    hook:        "", // PLACEHOLDER: SaviorHookFresh
+    staking:     "", // PLACEHOLDER: SaviorStakingFresh
+    distributor: "", // PLACEHOLDER: LuckyDistributor (optional; empty hides the Lucky NFT card)
+    deployBlock: 0,  // PLACEHOLDER: block of the FreshDeployer.deploy tx (start of the Staked event scan)
+  },
   cctp: {
     domain: 26,
     tokenMessengerV2:     "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
@@ -46,4 +55,31 @@ window.SAVIOR_CONFIG = {
   C.v1Retired = !!C.v2;
   C.stakingSources = C.v1Retired ? [{ id: "v2", label: "", address: C.v2 }] : C.v2 ? [{ id: "v1", label: "Old", address: C.contracts.staking }, { id: "v2", label: "v2", address: C.v2 }]
                           : [{ id: "v1", label: "", address: C.contracts.staking }];
+})(window.SAVIOR_CONFIG);
+
+// Fresh-start switch. Active only when fresh.token, fresh.hook and fresh.staking are valid non-zero addresses.
+// Then the site uses the new token/pool/staking and only the fresh staking contract (old v1/v2 are not read).
+// Local testing only (localhost): ?fresh=token,hook,staking,distributor,deployBlock (e.g. an anvil fork, with ?rpc=).
+(function (C) {
+  const ok = (a) => /^0x[0-9a-fA-F]{40}$/.test(a || "") && !/^0x0{40}$/i.test(a);
+  const f = Object.assign({}, C.fresh);
+  const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const q = local && new URLSearchParams(location.search).get("fresh");
+  if (q) { const [token, hook, staking, distributor, deployBlock] = q.split(","); Object.assign(f, { token, hook, staking, distributor, deployBlock: Number(deployBlock) || 0 }); }
+  C.freshActive = !!(ok(f.token) && ok(f.hook) && ok(f.staking));
+  if (!C.freshActive) return;
+  C.legacy = { contracts: Object.assign({}, C.contracts), poolId: C.poolId };
+  C.fresh = Object.assign(f, { distributor: ok(f.distributor) ? f.distributor : "" });
+  C.contracts.token = f.token;
+  C.contracts.hook = f.hook;
+  C.contracts.stakingV2 = f.staking;
+  C.contracts.stakingV2DeployBlock = f.deployBlock || 0;
+  C.v2 = f.staking;
+  C.v1Retired = true;
+  C.stakingSources = [{ id: "v2", label: "", address: f.staking }];
+  // Pool ordering: currency0 is the lower address. Live pool: USDC is currency0.
+  C.saviorIsCurrency0 = BigInt(f.token) < BigInt(C.contracts.usdc);
+  const [c0, c1] = C.saviorIsCurrency0 ? [f.token, C.contracts.usdc] : [C.contracts.usdc, f.token];
+  C.poolId = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
+    ["address", "address", "uint24", "int24", "address"], [c0, c1, 10000, 200, f.hook]));
 })(window.SAVIOR_CONFIG);
