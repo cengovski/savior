@@ -194,7 +194,7 @@ img{max-width:100%;display:block}
 .feed-row{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--r-input);background:var(--surface);border:1px solid var(--border);font-size:14px}
 .feed-row:hover{border-color:var(--primary)}
 .feed-kind{font-family:var(--mono);font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:4px}
-.k-BUY{color:var(--success)}.k-SELL{color:var(--danger)}.k-STAKE{color:var(--warning)}.k-CLAIM{color:var(--primary)}
+.k-BUY{color:var(--success)}.k-SELL{color:var(--danger)}.k-STAKE{color:var(--warning)}.k-CLAIM{color:var(--primary)}.k-REVEAL{color:var(--accent)}.k-LUCKY{color:var(--accent)}
 .feed-main{min-width:0}.feed-main div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .feed-lock{font-size:12px;color:var(--warning)}
 .feed-who{font-family:var(--mono);font-size:12px;color:var(--muted)}
@@ -288,3 +288,26 @@ html,body{overflow-x:clip}
 .lb-src{font-size:10px;padding:1px 7px}
 .src-tag{font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:999px;padding:1px 7px;color:var(--muted);margin-left:6px;vertical-align:middle}
 @media(max-width:639px){.lb-addr-wrap{grid-area:addr}}
+
+/* Fresh start: lock reveal states, Reveal all, Lucky NFT */
+.lb-badges{position:absolute;right:12px;top:6px;display:flex;gap:6px}
+.lb-badges .lb-badge{position:static}
+.lb-badge.lb-pending{color:var(--primary);border-color:color-mix(in srgb,var(--primary) 50%,transparent)}
+.lb-badge.lb-claimable{color:var(--success);border-color:color-mix(in srgb,var(--success) 50%,transparent)}
+@media(max-width:639px){.lb-badges{position:static;grid-column:1/-1;justify-self:start;flex-wrap:wrap}}
+.reveal-box{margin-top:8px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--primary) 40%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--primary) 6%,transparent)}
+.reveal-box .btn{margin-top:6px}
+.reveal-cd{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.reveal-warn{display:flex;gap:8px;align-items:flex-start;margin:0 0 12px;padding:10px 12px;border-radius:12px;font-size:13px;border:1px solid color-mix(in srgb,var(--warning) 45%,transparent);background:color-mix(in srgb,var(--warning) 8%,transparent)}
+.lock-state{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:1px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.lock-state.pending{color:var(--primary);border-color:color-mix(in srgb,var(--primary) 50%,transparent)}
+.lock-state.ready{color:var(--success);border-color:color-mix(in srgb,var(--success) 50%,transparent)}
+.lucky-chip{font-family:var(--mono);font-size:10px;border-radius:999px;padding:1px 7px;margin-left:6px;color:#fff;background:linear-gradient(135deg,#3898EC,#8656EF);white-space:nowrap}
+.nft-card{margin-top:16px}
+.nft-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.nft-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:12px}
+.reveal-all{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.pos-reveal{min-width:0}
+.reveal-box .btn{white-space:normal;text-align:left;max-width:100%}
+@media(max-width:639px){.pos-row .pos-reveal{grid-column:1/-1;order:5}.reveal-box .btn{width:100%;justify-content:center;text-align:center}}
+.lucky-chip-row{margin-left:0;display:inline-block;margin-top:4px}

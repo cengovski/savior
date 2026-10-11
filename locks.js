@@ -43,7 +43,8 @@
   // ---------- cache ----------
   let cache = { scanned: START_BLOCK - 1, wallets: {}, txFrom: {}, locks: {} };
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); if (c && c.wallets) cache = Object.assign(cache, c); } catch (e) {}
-  const V2_KEY = V2 ? "savior.locks.v2." + V2 : null;
+  const FRESH = !!C.freshActive; // fresh start: SaviorStakingFresh (paginated views, lock reveal)
+  const V2_KEY = V2 ? (FRESH ? "savior.locks.fresh." : "savior.locks.v2.") + V2 : null;
   let cache2 = { scanned: 0, deployBlock: 0, wallets: {}, locks: {} };
   if (V2_KEY) try { const c = JSON.parse(localStorage.getItem(V2_KEY) || "null"); if (c && c.wallets) cache2 = Object.assign(cache2, c); } catch (e) {}
   const save = () => {
@@ -62,7 +63,7 @@
     const st = store(src);
     const c = st.locks[addr];
     if (!force && c && Date.now() - c.t < LOCK_TTL_MS) return c.l;
-    if (src === "v2") { await getLocksMany([], [addr]); return st.locks[addr] ? st.locks[addr].l : []; }
+    if (src === "v2") { await getLocksMany([], [addr]); return st.locks[addr] ? st.locks[addr].l : []; } // fresh: paginated
     const raw = await rpc(() => S().getLocks(addr));
     const l = raw.map((x, i) => ({ i, amount: x.amount.toString(), unlockAt: Number(x.unlockAt) }));
     cache.locks[addr] = { t: Date.now(), l }; save();
@@ -75,7 +76,42 @@
   let mc = null;
   const MC = () => mc || (mc = new ethers.Contract(MC3, ["function aggregate3((address target,bool allowFailure,bytes callData)[] calls) view returns ((bool success,bytes returnData)[])"], P()));
   // addrs: v1 wallets; addrs2: v2 wallets (only when v2 is active). Everything goes in ONE aggregate3 call.
+  // Fresh staking: ONLY the paginated views (lockCount + getLocks(user, offset, limit)), never the unbounded ones.
+  const freshIface = new ethers.Interface([
+    "function lockCount(address) view returns (uint256)",
+    "function getLocks(address user, uint256 offset, uint256 limit) view returns ((uint128 amount,uint64 createdAt,uint64 unlockAt,bool isPending,uint64 targetBlock,uint64 revealDeadlineBlock,bool revealableNow)[])",
+    "function globalUnlock() view returns (bool)",
+  ]);
+  const PAGE = 200; // MAX_PAGE
+  const freshLock = (x, k) => ({ i: k, amount: x.amount.toString(), unlockAt: Number(x.unlockAt), createdAt: Number(x.createdAt),
+    pending: x.isPending, target: Number(x.targetBlock), deadline: Number(x.revealDeadlineBlock), revealable: x.revealableNow });
+  async function getLocksFresh(addrs) {
+    const agg = (calls) => rpc(() => MC().aggregate3.staticCall(calls));
+    const call = (fn, args) => ({ target: C.v2, allowFailure: true, callData: freshIface.encodeFunctionData(fn, args) });
+    // round 1: globalUnlock + per wallet lockCount and the first page, one Multicall3 call
+    const res = await agg([call("globalUnlock", [])].concat(addrs.flatMap((a) => [call("lockCount", [a]), call("getLocks", [a, 0, PAGE])])));
+    if (res[0].success) gu.v2 = freshIface.decodeFunctionResult("globalUnlock", res[0].returnData)[0];
+    const more = [];
+    addrs.forEach((a, k) => {
+      const c = res[1 + 2 * k], l = res[2 + 2 * k]; if (!c.success || !l.success) return;
+      const n = Number(freshIface.decodeFunctionResult("lockCount", c.returnData)[0]);
+      const page = freshIface.decodeFunctionResult("getLocks", l.returnData)[0].map((x, j) => freshLock(x, j));
+      cache2.locks[lc(a)] = { t: Date.now(), l: page, block: lastHead };
+      for (let off = PAGE; off < n; off += PAGE) more.push([a, off]);
+    });
+    // further pages (wallets with more than 200 locks), batched as well
+    for (let s = 0; s < more.length; s += 50) {
+      const chunk = more.slice(s, s + 50);
+      const r2 = await agg(chunk.map(([a, off]) => call("getLocks", [a, off, PAGE])));
+      chunk.forEach(([a, off], j) => { if (!r2[j].success) return;
+        const page = freshIface.decodeFunctionResult("getLocks", r2[j].returnData)[0].map((x, q) => freshLock(x, off + q));
+        cache2.locks[lc(a)].l.push(...page); });
+    }
+    save();
+  }
+
   async function getLocksMany(addrs, addrs2 = []) {
+    if (FRESH) return getLocksFresh(addrs2);
     const jobs = V1_ON ? [{ src: "v1", gu: true }].concat(addrs.map((a) => ({ src: "v1", a }))) : [];
     if (V2) jobs.push({ src: "v2", gu: true }, ...addrs2.map((a) => ({ src: "v2", a })));
     const calls = jobs.map((j) => ({ target: SRC[j.src], allowFailure: true,
@@ -136,7 +172,8 @@
   // v2 deploy block: binary search on eth_getCode (about 25 cheap calls, once; cached).
   async function v2DeployBlock(head) {
     if (cache2.deployBlock) return cache2.deployBlock;
-    if (C.stakingV2DeployBlock && C.v2 && lc(C.v2) === lc(C.contracts.stakingV2)) { cache2.deployBlock = C.stakingV2DeployBlock; save(); return cache2.deployBlock; }
+    const DB = C.contracts.stakingV2DeployBlock; // hardcoded (live v2 or fresh deploy block)
+    if (DB && C.v2 && lc(C.v2) === lc(C.contracts.stakingV2)) { cache2.deployBlock = DB; save(); return cache2.deployBlock; }
     let lo = START_BLOCK, hi = head;
     if ((await rpc(() => P().getCode(C.v2, hi))) === "0x") throw new Error("v2 address has no code");
     while (lo < hi) {
@@ -153,7 +190,7 @@
     scanning2 = (async () => {
       const head = await rpc(() => P().getBlockNumber());
       if (!cache2.scanned) cache2.scanned = (await v2DeployBlock(head)) - 1;
-      const topic = ethers.id("Staked(address,uint256,uint256,uint64)");
+      const topic = FRESH ? ethers.id("Staked(address,uint256,uint256,uint64,uint64,uint64,uint64)") : ethers.id("Staked(address,uint256,uint256,uint64)");
       for (let from = cache2.scanned + 1; from <= head; from += CHUNK) {
         const to = Math.min(head, from + CHUNK - 1);
         const logs = await rpc(() => P().getLogs({ address: C.v2, topics: [topic], fromBlock: from, toBlock: to }));
@@ -200,7 +237,14 @@
       const nx = el("span", "lb-time lb-next"); nx.appendChild(el("b", null, (V2 ? r.allUnlocked : globalUnlock) ? "Unlocked" : countdown(r.next))); nx.appendChild(el("small", null, dateStr(r.next)));
       const ls = el("span", "lb-time lb-last"); ls.appendChild(el("b", null, (V2 ? r.allUnlocked : globalUnlock) ? "Unlocked" : countdown(r.lastU))); ls.appendChild(el("small", null, dateStr(r.lastU)));
       row.appendChild(nx); row.appendChild(ls);
-      if (isSoon) row.appendChild(el("span", "lb-badge", "Unlocking in 24h"));
+      if (!FRESH) { if (isSoon) row.appendChild(el("span", "lb-badge", "Unlocking in 24h")); }
+      else {
+        const bw = el("span", "lb-badges");
+        if (r.claimableCount) bw.appendChild(el("span", "lb-badge lb-claimable", "Claimable"));
+        if (isSoon) bw.appendChild(el("span", "lb-badge", "Unlocking in 24h"));
+        if (r.pendingCount) bw.appendChild(el("span", "lb-badge lb-pending", r.pendingCount === r.count ? "Pending reveal" : r.pendingCount + " pending reveal"));
+        if (bw.childNodes.length) row.appendChild(bw);
+      }
       body.appendChild(row);
     });
   }
@@ -221,7 +265,8 @@
     for (const src of V1_ON ? ["v1", "v2"] : ["v2"]) for (const [addr, c] of Object.entries(store(src).locks)) {
       const l = c.l.filter((x) => BigInt(x.amount) > 0n); if (!l.length) continue;
       const r = by[addr] || (by[addr] = { addr, locks: [], srcs: new Set() });
-      r.srcs.add(src); l.forEach((x) => r.locks.push({ ...x, open: gu[src] || x.unlockAt <= now }));
+      // a pending lock (not revealed yet, window open or not yet open) never counts as unlocked
+      r.srcs.add(src); l.forEach((x) => r.locks.push({ ...x, open: !isPendingLive(x) && (gu[src] || x.unlockAt <= now) }));
     }
     return Object.values(by).map((r) => {
       const times = r.locks.map((x) => x.unlockAt).sort((a, b) => a - b);
@@ -229,8 +274,16 @@
       return { addr: r.addr, total: r.locks.reduce((s, x) => s + BigInt(x.amount), 0n), count: r.locks.length,
         next: pending[0] || times[0], lastU: times[times.length - 1], allUnlocked: !pending.length,
         srcLabel: V1_ON ? (r.srcs.size === 2 ? "Old + v2" : r.srcs.has("v2") ? "v2" : "Old") : "",
-        soonAmt: r.locks.filter((x) => !x.open && x.unlockAt <= now + 86400).reduce((s, x) => s + BigInt(x.amount), 0n) };
-    }).sort((a, b) => (b.total > a.total ? 1 : b.total < a.total ? -1 : 0));
+        soonAmt: r.locks.filter((x) => !x.open && !isPendingLive(x) && x.unlockAt <= now + 86400).reduce((s, x) => s + BigInt(x.amount), 0n),
+        pendingCount: r.locks.filter(isPendingLive).length, claimableCount: r.locks.filter((x) => x.open).length };
+    }).map((r) => Object.assign(r, { group: r.claimableCount ? 0 : r.pendingCount === r.count ? 2 : 1 }))
+      // fresh: claimable first, then waiting, then pending; within a group by total locked
+      .sort((a, b) => (FRESH && a.group !== b.group ? a.group - b.group : b.total > a.total ? 1 : b.total < a.total ? -1 : 0));
+  }
+  // Fresh lock still pending reveal: window not closed yet (closed window = final 10 days, treated as waiting).
+  function isPendingLive(x) {
+    if (!x.pending) return false;
+    return !(lastHead && x.deadline && lastHead > x.deadline);
   }
   function showRows() { rows = rowsFromCache(); render(); }
   function setStatus(text, retry) {
@@ -289,6 +342,8 @@
     return hit || null;
   }
 
-  window.SaviorLocks = { getLocks, lockForBuy, refresh, rpc, getLocksMany, globalUnlock: () => ({ ...gu }) };
+  window.SaviorLocks = { getLocks, lockForBuy, refresh, rpc, getLocksMany, globalUnlock: () => ({ ...gu }),
+    // fresh mode helpers (Reveal all, lock screen)
+    freshWallets: () => Object.keys(cache2.wallets), head: () => lastHead, scanV2, cachedLocks: (a) => (cache2.locks[lc(a)] || {}).l || [] };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();
