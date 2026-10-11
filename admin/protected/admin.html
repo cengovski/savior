@@ -329,6 +329,8 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <div class="subtitle"><b>Lock down drop (required first):</b> OpenSea Studio leaves a signed-mint signer and a scheduled public stage on the collection, which would let others mint. Every signer must be removed and the public drop fully closed before the distributor can be deployed. Checked again on every refresh.</div>
       <button class="btn-sm" id="fsLockChk" disabled onclick="fsLockdownCheck()">Check drop lockdown</button>
       <div id="fsLockBtns"></div>
+      <button class="btn-sm btn-red" onclick="fsLdRemoveSigners()">Remove signer</button>
+      <button class="btn-sm btn-red" onclick="fsLdClosePublic()">Close public stage</button>
       <div class="result" id="fsLockdown">Enter the collection address and press Check.</div>
       <button id="fsBtn3" disabled onclick="fsStep3()">Verify collection + simulate + deploy distributor</button>
       <div class="result" id="fsRes3">Waiting...</div>
@@ -337,6 +339,10 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
     <div class="card"><h2><span class="step-badge">4</span> Configure the drop on SeaDrop (allow-list root, payout, fee recipient)</h2>
       <div class="subtitle">NFT owner txs: updateAllowList(root = distributor.allowListLeaf()), updateCreatorPayoutAddress, updateAllowedFeeRecipient(OpenSea fee 0x0000a26b...a719). Each is simulated first. Verification also checks that public and signed stages are off.</div>
       <label>Creator payout address (receives mint price minus OpenSea fee)</label><input id="fsPayout" placeholder="0x... (default deployer)">
+      <div class="subtitle"><b>Drop lock down (always available, deployer wallet only):</b> removes every SeaDrop signer and closes the public stage. Collection address is taken from step 3 (default Savior Weapons).</div>
+      <button class="btn-sm btn-red" onclick="fsLdRemoveSigners()">Remove signer</button>
+      <button class="btn-sm btn-red" onclick="fsLdClosePublic()">Close public stage</button>
+      <div class="result" id="fsLd4">Not checked yet.</div>
       <button id="fsBtn4" disabled onclick="fsStep4()">Simulate + configure</button>
       <div class="result" id="fsRes4">Waiting...</div>
     </div>
@@ -1769,7 +1775,44 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
     const pubClosed = Number(pub.maxTotalMintableByWallet) === 0 && BigInt(pub.endTime) <= now;
     return { signers, params, pub, payers, pubClosed, ok: signers.length === 0 && pubClosed };
   }
-  function ldNft(){ const v = (st.nft || $('fsNft').value || '').trim(); return ethers.isAddress(v) ? ethers.getAddress(v) : null; }
+  const LD_DEFAULT_NFT = '0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c';
+  function ldNft(){ const v = (st.nft || $('fsNft').value || LD_DEFAULT_NFT).trim(); return ethers.isAddress(v) ? ethers.getAddress(v) : null; }
+  // Standalone lock-down actions: no earlier step required. Sim from deployer, explicit gasLimit (estimate * 1.3).
+  async function ldTx(fn, args, label){
+    if (!provider || !signer) await connectWallet();
+    if (!isDeployer()) throw new Error('Connected wallet ' + deployer + ' is not the deployer ' + FS.DEPLOYER);
+    const nft = ldNft(); if (!nft) throw new Error('No valid collection address');
+    const c = new ethers.Contract(nft, LD_NFT_ABI, signer);
+    out('fsLd4', 'Simulating ' + label + ' (eth_call from deployer)...', '');
+    try { await c[fn].staticCall(...args, { from: FS.DEPLOYER }); } catch(e){ throw new Error('Simulation failed for ' + label + ': ' + em(e)); }
+    const gas = await c[fn].estimateGas(...args, { from: FS.DEPLOYER });
+    if (!confirm('Simulation OK. Sign ' + label + '?')) throw new Error('Cancelled');
+    const tx = await c[fn](...args, { gasLimit: gas * 13n / 10n });
+    out('fsLd4', 'Sent ' + tx.hash + ', waiting for receipt...', '');
+    await waitTx(tx);
+  }
+  async function ldReport(prefix){
+    let msg = prefix || '';
+    try { await renderLockdown(); msg += $('fsLockdown').textContent; } catch(e){ msg += 'Re-check failed: ' + em(e); }
+    out('fsLd4', msg, chain.lockdown ? 'ok' : 'err');
+    try { await fsRefresh(); } catch {}
+  }
+  window.fsLdRemoveSigners = async function(){
+    try {
+      if (!provider) await connectWallet();
+      const sd = new ethers.Contract(FS.SEADROP, LD_ABI, rp());
+      const signers = await sd.getSigners(ldNft());
+      if (!signers.length) return ldReport('No signers to remove.\n');
+      for (const a of signers) await ldTx('updateSignedMintValidationParams', [FS.SEADROP, a, [0,0,0,0,0,0,0]], 'remove signer ' + a);
+      await ldReport('Signers removed.\n');
+    } catch(e){ out('fsLd4', em(e), 'err'); }
+  };
+  window.fsLdClosePublic = async function(){
+    try {
+      await ldTx('updatePublicDrop', [FS.SEADROP, [0,0,0,0,1000,true]], 'close public stage');
+      await ldReport('Public stage closed.\n');
+    } catch(e){ out('fsLd4', em(e), 'err'); }
+  };
   async function renderLockdown(){
     const nft = ldNft();
     if (!nft) { chain.lockdown = false; out('fsLockdown', 'Enter the collection address and press Check.', ''); $('fsLockBtns').innerHTML = ''; return false; }
@@ -1917,7 +1960,7 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
     const prev = k => [1,2,3,4,5,6].slice(0, k - 1).every(j => done[j]);
     $('fsBtn1').disabled = !dep || done[1];
     $('fsBtn2').disabled = !dep || !prev(2) || done[2];
-    $('fsLockChk').disabled = !prev(3);
+    $('fsLockChk').disabled = false;
     $('fsBtn3').disabled = !dep || !prev(3) || done[3] || chain.deployed || !chain.lockdown;
     $('fsBtn4').disabled = !dep || !prev(4) || done[4] || chain.deployed;
     $('fsBtn5').disabled = !dep || !prev(5) || done[5] || chain.deployed;
@@ -1939,7 +1982,7 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       const show = (id, head, v, has) => out(id, head + v.lines.concat(v.warn || []).join('\n'), v.ok ? 'ok' : (has ? 'err' : ''));
       const v1 = await verifyToken(); done[1] = v1.ok; show('fsRes1', st.token ? 'TOKEN ' + st.token + '\ntx ' + st.tokenTx + '\n' : '', v1, st.token);
       if (done[1]) { const v = await verifyFactory(); done[2] = v.ok; show('fsRes2', st.factory ? 'FACTORY ' + st.factory + '\ntx ' + st.factoryTx + '\n' : '', v, st.factory); }
-      if (done[2]) { try { await renderLockdown(); } catch { chain.lockdown = false; } }
+      try { await renderLockdown(); out('fsLd4', $('fsLockdown').textContent, chain.lockdown ? 'ok' : 'err'); } catch { chain.lockdown = false; }
       if (done[2]) { const v = await verifyLucky(); done[3] = v.ok && !!chain.lockdown; show('fsRes3', st.dist ? 'COLLECTION ' + st.nft + '\nDISTRIBUTOR ' + st.dist + '\ntx ' + st.distTx + '\n' : '', v, st.dist); if (st.nft) $('fsNft').value = st.nft; }
       if (done[3]) { const v = await dropConfig(); done[4] = v.ok; show('fsRes4', '', v, true); }
       if (done[4]) { const v = await verifyApproval(); done[5] = v.ok; show('fsRes5', '', v, false); }
