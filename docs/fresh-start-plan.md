@@ -431,12 +431,14 @@ UX: ~**70 min** to reveal after `targetBlock`. Site should still prompt `reveal`
 ### Hook bypass (honest note)
 Uniswap v4 is permissionless and the token has **no transfer restrictions** (deliberate). Anyone can open a hook-free SAVIOR pool (or use another DEX) and trade without the 0.3% fee and without the 50% lock. The hook only enforces fee/lock **in the official pool**. The lock is a property of buying through the official staking router, not of the token.
 
-### Deploy order (one-shot, no circular dependency)
+### Deploy order (one-shot, no circular dependency; audit N-1 closed)
 1. `SaviorTokenV2` (deployer).
-2. `FreshDeployer(admin=deployer, token, USDC, PoolManager, treasury, 10000, 200)` — computes currency order.
-3. Off-chain: `HookMiner.find(factory, 0x2080, factory.hookInitCodeHash())` (~16k tries; fork tests found salts 509 / 14507). Hook initcode embeds `staking = factory.predictStaking()` = CREATE(factory, nonce 1). Then `factory.deploy(salt, startSqrtPrice)` in ONE tx: staking (CREATE) → hook (CREATE2) → `PoolManager.initialize`. Hook accepts only the factory as initializer, so there is no front-run window on the initial price.
-4. Permit2 approvals (SAVIOR → Permit2 → Posm).
-5. Ladder `modifyLiquidities`.
+2. `FreshDeployer(admin=deployer, token, USDC, PoolManager, treasury, 10000, 200, PositionManager, Permit2)`. FACTORY address is taken ONLY from this tx receipt (audit N-3).
+3. `SAVIOR.approve(factory, ladderAmount)`.
+4. Off-chain: `HookMiner.find(factory, 0x2080, factory.hookInitCodeHash())` (~16k tries), ladder bytes via `FreshLadder.build(poolKey(hook), saviorIsCurrency0, amount, deployer)`. Then `factory.deploy(salt, startSqrtPrice, ladderAmount, ladderData)` in ONE tx: staking (CREATE, nonce 1) -> hook (CREATE2) -> `PoolManager.initialize` -> pull SAVIOR -> Permit2 -> `Posm.modifyLiquidities` (20 NFTs to deployer). Post-checks: exactly 20 new NFTs, each owned by deployer and on this PoolKey; dust refunded; Permit2 allowance reset. No window between initialize and liquidity (N-1). Fork gas ~6.4M.
+5. Verify (read-only).
+
+Ladder geometry stays in `FreshLadder` (script) / its JS port (admin tab); the factory only post-checks owner + pool, because inlining the geometry exceeded EIP-170 (FreshDeployer is 24,460 / 24,576 bytes).
 
 ### Admin "Fresh start" tab (later — not built yet)
 Ordered steps 1–5 as above; each button enabled only if the previous step verifies on-chain:

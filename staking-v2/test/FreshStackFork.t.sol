@@ -70,14 +70,17 @@ contract FreshStackForkTest is Test {
     {
         t = _token(saviorC0);
         vm.prank(D);
-        f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200);
+        f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2);
         assertEq(f.saviorIsCurrency0(), saviorC0, "ordering");
         (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
         console2.log("mined salt", uint256(salt));
         console2.log("hook", predicted);
+        uint256 total = t.balanceOf(D);
+        uint256 first = IPosm(A.POSITION_MANAGER).nextTokenId();
         vm.prank(D);
-        (address s_, address h_, int24 tick) = f.deploy(salt, FreshLadder.startSqrtPrice(saviorC0));
-        console2.logInt(tick);
+        t.approve(address(f), total);
+        vm.prank(D);
+        (address s_, address h_) = _deployAll(f, salt, predicted, saviorC0, total);
         assertEq(h_, predicted);
         assertEq(s_, f.predictStaking());
         st = SaviorStakingFresh(s_);
@@ -85,19 +88,43 @@ contract FreshStackForkTest is Test {
         key = f.poolKey(h_);
         assertEq(st.owner(), D);
         assertEq(h.staking(), s_);
-
-        // 20-tranche ladder (Posm NFTs to D)
-        uint256 total = t.balanceOf(D);
-        bytes memory data = FreshLadder.build(key, saviorC0, total, D);
-        uint256 first = IPosm(A.POSITION_MANAGER).nextTokenId();
-        vm.startPrank(D);
-        t.approve(A.PERMIT2, type(uint256).max);
-        IPermit2(A.PERMIT2).approve(address(t), A.POSITION_MANAGER, type(uint160).max, uint48(block.timestamp + 3600));
-        IPosm(A.POSITION_MANAGER).modifyLiquidities(data, block.timestamp + 600);
-        vm.stopPrank();
+        assertEq(t.balanceOf(address(f)), 0, "factory keeps nothing");
         for (uint256 i; i < 20; ++i) assertEq(IPosm(A.POSITION_MANAGER).ownerOf(first + i), D);
         console2.log("SAVIOR left on deployer (dust)", t.balanceOf(D));
         assertLt(t.balanceOf(D), total / 1000);
+    }
+
+    function _deployAll(FreshDeployer f, bytes32 salt, address predicted, bool c0, uint256 total)
+        internal
+        returns (address s_, address h_)
+    {
+        bytes memory ladder = FreshLadder.build(f.poolKey(predicted), c0, total, D);
+        uint160 p = FreshLadder.startSqrtPrice(c0);
+        uint256 g = gasleft();
+        vm.prank(D);
+        (s_, h_,) = f.deploy(salt, p, total, ladder);
+        console2.log("deploy+init+ladder gas", g - gasleft());
+    }
+
+    /// N-1: tampered ladder (NFT owner != admin) is rejected by the factory.
+    function _badLadder(bool c0) internal {
+        SaviorTokenV2 t = _token(c0);
+        vm.prank(D);
+        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2);
+        (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
+        uint256 total = t.balanceOf(D);
+        bytes memory bad = FreshLadder.build(f.poolKey(predicted), c0, total, makeAddr("thief"));
+        uint160 p = FreshLadder.startSqrtPrice(c0);
+        vm.prank(D);
+        t.approve(address(f), total);
+        vm.prank(D);
+        vm.expectRevert(FreshDeployer.BadLadder.selector);
+        f.deploy(salt, p, total, bad);
+    }
+
+    function test_fork_factory_rejects_bad_ladder() public {
+        vm.skip(!forked);
+        _badLadder(false);
     }
 
     function _check(bool saviorC0) internal {
@@ -106,7 +133,7 @@ contract FreshStackForkTest is Test {
         // re-deploy / second init impossible
         vm.prank(D);
         vm.expectRevert(FreshDeployer.AlreadyDeployed.selector);
-        f.deploy(bytes32(0), 1);
+        f.deploy(bytes32(0), 1, 0, "");
         // another key using the same hook cannot be initialized
         PoolKey memory k2 = key;
         k2.fee = 3000;

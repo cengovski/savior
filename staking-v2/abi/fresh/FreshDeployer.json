@@ -36,6 +36,16 @@
         "name": "tickSpacing_",
         "type": "int24",
         "internalType": "int24"
+      },
+      {
+        "name": "positionManager_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "permit2_",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -111,6 +121,16 @@
         "name": "sqrtPriceX96",
         "type": "uint160",
         "internalType": "uint160"
+      },
+      {
+        "name": "ladderAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ladderData",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -173,19 +193,6 @@
   },
   {
     "type": "function",
-    "name": "hookInitCode",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "hookInitCodeHash",
     "inputs": [],
     "outputs": [
@@ -212,6 +219,19 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "permit2",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -265,6 +285,19 @@
   {
     "type": "function",
     "name": "poolManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "positionManager",
     "inputs": [],
     "outputs": [
       {
@@ -398,6 +431,25 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "LadderMinted",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "refunded",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "AlreadyDeployed",
     "inputs": []
@@ -409,6 +461,11 @@
   },
   {
     "type": "error",
+    "name": "BadLadder",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "HookAddressMismatch",
     "inputs": []
   },
@@ -416,6 +473,17 @@
     "type": "error",
     "name": "NotAdmin",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

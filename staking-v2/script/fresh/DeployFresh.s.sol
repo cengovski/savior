@@ -6,28 +6,21 @@ import {SaviorTokenV2} from "../../src/fresh/SaviorTokenV2.sol";
 import {FreshDeployer} from "../../src/fresh/FreshDeployer.sol";
 import {HookMiner} from "../../src/fresh/HookMiner.sol";
 import {FreshLadder} from "../../src/fresh/FreshLadder.sol";
-import {PoolKey} from "../../src/IV4Minimal.sol";
 import {ArcAddresses as A} from "../../src/ArcAddresses.sol";
-
-interface IPosmL {
-    function modifyLiquidities(bytes calldata, uint256) external payable;
-}
-
-interface IPermit2L {
-    function approve(address, address, uint160, uint48) external;
-}
 
 /// Fresh-start deploy, one STEP per run (ordered; each step verifies the previous on-chain state).
 /// NEVER broadcast from CI/bots. Default = simulation (no --broadcast). Owner signs via admin tab or:
 ///   STEP=1 forge script script/fresh/DeployFresh.s.sol --rpc-url arc_mainnet --sender $DEPLOYER
 ///   STEP=1 ... --account <keystore> --broadcast        (only with Dzengo's explicit go)
-/// Steps:
+/// Steps (audit N-1: ladder minted inside the factory deploy tx, no init/liquidity gap):
 ///   1 token    : SaviorTokenV2(recipient=DEPLOYER, owner=DEPLOYER, LOGO_URI)
-///   2 factory  : FreshDeployer(admin=DEPLOYER, TOKEN, USDC, PoolManager, TREASURY, 10000, 200)
-///   3 deploy   : mine hook salt (flags 0x2080) → factory.deploy(salt, startSqrtPrice)  [staking+hook+init, 1 tx]
-///   4 approvals: SAVIOR.approve(Permit2) + Permit2.approve(SAVIOR, Posm)
-///   5 ladder   : Posm.modifyLiquidities(20x MINT_POSITION + SETTLE_PAIR) → 20 NFTs to DEPLOYER
-/// Env: STEP, TOKEN (after 1), FACTORY (after 2), LOGO_URI (step 1), LADDER_AMOUNT (step 5, default = full balance)
+///   2 factory  : FreshDeployer(admin=DEPLOYER, TOKEN, USDC, PoolManager, TREASURY, 10000, 200, Posm, Permit2)
+///                FACTORY must be taken from THIS tx receipt (audit N-3), never from user input.
+///   3 approve  : SAVIOR.approve(FACTORY, LADDER_AMOUNT)
+///   4 deploy   : mine hook salt (0x2080) -> factory.deploy(salt, startSqrtPrice, LADDER_AMOUNT)
+///                = staking + hook + PoolManager.initialize + 20 Posm NFTs to DEPLOYER, one tx
+///   5 verify   : read-only checks (wiring, 20 NFTs, balances)
+/// Env: STEP, TOKEN (after 1), FACTORY (after 2), LOGO_URI (step 1), LADDER_AMOUNT (default = full balance)
 contract DeployFresh is Script {
     uint160 constant FLAGS = uint160((1 << 13) | (1 << 7));
 
@@ -52,7 +45,10 @@ contract DeployFresh is Script {
 
         if (step == 2) {
             vm.startBroadcast();
-            FreshDeployer f = new FreshDeployer(deployer, token, A.USDC, A.POOL_MANAGER, A.TREASURY, A.POOL_FEE, A.POOL_TICK_SPACING);
+            FreshDeployer f = new FreshDeployer(
+                deployer, token, A.USDC, A.POOL_MANAGER, A.TREASURY, A.POOL_FEE, A.POOL_TICK_SPACING,
+                A.POSITION_MANAGER, A.PERMIT2
+            );
             vm.stopBroadcast();
             console2.log("FACTORY", address(f));
             console2.log("predicted STAKING", f.predictStaking());
@@ -61,9 +57,22 @@ contract DeployFresh is Script {
 
         FreshDeployer fac = FreshDeployer(vm.envAddress("FACTORY"));
         require(fac.admin() == deployer && fac.token() == token, "FACTORY mismatch");
+        require(fac.positionManager() == A.POSITION_MANAGER && fac.permit2() == A.PERMIT2, "FACTORY periphery mismatch");
+        uint256 amt = vm.envOr("LADDER_AMOUNT", SaviorTokenV2(payable(token)).balanceOf(deployer));
 
         if (step == 3) {
             require(!fac.deployed(), "already deployed");
+            vm.startBroadcast();
+            SaviorTokenV2(payable(token)).approve(address(fac), amt);
+            vm.stopBroadcast();
+            console2.log("approved factory for SAVIOR", amt);
+            return;
+        }
+
+        if (step == 4) {
+            require(!fac.deployed(), "already deployed");
+            require(SaviorTokenV2(payable(token)).allowance(deployer, address(fac)) >= amt, "step 3 first");
+            require(SaviorTokenV2(payable(token)).balanceOf(deployer) >= amt, "balance < ladder amount");
             (bytes32 salt, address hook) = HookMiner.find(address(fac), FLAGS, fac.hookInitCodeHash(), 0, 500_000);
             uint160 sqrtP = FreshLadder.startSqrtPrice(fac.saviorIsCurrency0());
             console2.log("hook salt");
@@ -71,32 +80,20 @@ contract DeployFresh is Script {
             console2.log("HOOK (predicted)", hook);
             console2.log("STAKING (predicted)", fac.predictStaking());
             console2.log("startSqrtPriceX96", sqrtP);
+            bytes memory ladder = FreshLadder.build(fac.poolKey(hook), fac.saviorIsCurrency0(), amt, deployer);
             vm.startBroadcast();
-            fac.deploy(salt, sqrtP);
+            fac.deploy(salt, sqrtP, amt, ladder);
             vm.stopBroadcast();
             require(fac.hook() == hook && fac.staking() == fac.predictStaking(), "post-deploy mismatch");
             return;
         }
 
-        require(fac.deployed(), "step 3 first");
-        if (step == 4) {
-            vm.startBroadcast();
-            SaviorTokenV2(payable(token)).approve(A.PERMIT2, type(uint256).max);
-            IPermit2L(A.PERMIT2).approve(token, A.POSITION_MANAGER, type(uint160).max, uint48(block.timestamp + 1 days));
-            vm.stopBroadcast();
-            return;
-        }
-
         if (step == 5) {
-            uint256 amt = vm.envOr("LADDER_AMOUNT", SaviorTokenV2(payable(token)).balanceOf(deployer));
-            PoolKey memory key = fac.poolKey(fac.hook());
-            bytes memory data = FreshLadder.build(key, fac.saviorIsCurrency0(), amt, deployer);
-            console2.log("ladder SAVIOR", amt);
-            console2.log("Posm.modifyLiquidities unlockData:");
-            console2.logBytes(data);
-            vm.startBroadcast();
-            IPosmL(A.POSITION_MANAGER).modifyLiquidities(data, block.timestamp + 600);
-            vm.stopBroadcast();
+            require(fac.deployed(), "step 4 first");
+            console2.log("STAKING", fac.staking());
+            console2.log("HOOK", fac.hook());
+            console2.log("deployer SAVIOR left", SaviorTokenV2(payable(token)).balanceOf(deployer));
+            console2.log("PoolManager SAVIOR", SaviorTokenV2(payable(token)).balanceOf(A.POOL_MANAGER));
             return;
         }
         revert("unknown STEP");
