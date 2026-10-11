@@ -25,8 +25,9 @@
 
 | Date | Decision |
 |------|----------|
-| 2026-10-11 | **Token rescue = option (b):** owner may rescue foreign ERC-20, native, **and** the token's own balance stuck on the token contract. Requirements: `to != address(0)`, **Ownable2Step**, emit event. **No** logo URI, **no** EIP-2612 permit on the token. |
-| 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Fresh-start staking should pick a stronger scheme (see lock-randomness report / prefer fixed 7d or commit-reveal / D20DAO VRF). |
+| 2026-10-11 | **Token rescue = option (a):** owner rescues **foreign ERC-20 + native only**; **never** own SAVIOR (`CannotRescueOwnToken`). `to != 0`, **Ownable2Step**, `Rescued` event. **No** EIP-2612 permit. |
+| 2026-10-11 | **Logo:** `logoURI` set once in constructor (no setter). Prefer `ipfs://` CID of repo `logo.svg`; on-chain `data:image/svg+xml;base64,…` feasible (~3KB for current svg). Wallets mostly ignore contract logo — also publish tokenlists / Trust / explorer / CoinGecko. |
+| 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Prefer **fixed 7 days** for fresh-start unless product needs jitter; else commit-reveal or D20DAO VRF on Arc. |
 
 ## 1) New token design
 
@@ -39,13 +40,14 @@
 
 | Field | Value | Rationale |
 |-------|-------|-----------|
-| Name / symbol | SAVIOR / SAVIOR | Brand continuity; **no** on-chain logo URI |
+| Name / symbol | SAVIOR / SAVIOR | Brand continuity |
 | Decimals | **6** | Matches Arc USDC (6) and current SAVIOR; keeps amount UX identical |
 | Total supply | **1_000_000_000 × 10^6** (1B) | Round; same order as today’s circulating-in-pool ~1B |
 | Mint | **Once**, in `constructor(recipient)` | No `mint`, no minter role |
 | Burn | `burn(uint256)` by holder | Optional supply reduction / deprecate leftovers |
 | Upgrade | **None** (no proxy) | Avoids UUPS / renounce traps seen on legacy liquidity proxy |
-| Ownable / rescue | **Ownable2Step** + `rescue` for foreign ERC-20/native **and own-token** (decision b); `to != 0` + event | Own-token rescue only recovers mistaken sends to the token contract; no user balances live there |
+| Ownable / rescue | **Ownable2Step** + `rescue` foreign ERC-20/native only (decision **a**); never `address(this)`; `to != 0` + `Rescued` | Mistaken SAVIOR sent to token contract stays stuck — accepted |
+| logoURI | Constructor-only string (`ipfs://` or data-URI) | Wallets rarely read it; still useful for explorers/dapps |
 | Permit | **None** (decided) | Keep surface minimal |
 | Transfer tax / rebase | **None** | Staking and V4 assume vanilla ERC-20 |
 
@@ -314,3 +316,47 @@ Re-estimate on fork immediately before launch (`cast estimate` / forge gas repor
 - Prior ladder fork proof: `staking-v2/test/LiquidityLadderFork.t.sol` + `docs/liquidity-ladder.md`  
 - Uniswap Arc Posm `0x6049…f82B` / PM `0x8366…0951` / Permit2 canonical  
 - Auditor notes: live hook source ≠ repo stub; OnlyStaking gate; UUPS owner = deployer  
+
+
+## Appendix: logoURI and wallet display
+
+### On-chain / IPFS options
+| Option | Size / cost | Notes |
+|--------|-------------|--------|
+| `ipfs://<CID>` of `logo.svg` | Deploy stores ~60–80 chars | Pin via NFT.storage / Pinata / web3.storage / Kubo; CID deterministic for same bytes (CIDv1 recommended). Recurring pin cost small or free tiers. |
+| `https://…` raw GitHub / CDN | Short | Mutable if URL content changes; explorers may hotlink. |
+| `data:image/svg+xml;base64,…` | Current repo logo ≈ **2255 B** raw → URI ≈ **3034 chars** | Fits comfortably in ctor; increases initcode calldata gas (~few cents USDC on Arc). No dependency on IPFS. |
+
+**Recommendation:** ship `logoURI` as `ipfs://` (pin `logo.svg`) **or** embed data-URI if you want zero off-chain dependency at launch; keep PNG 256×256 for Trust Wallet PRs separately.
+
+### Where wallets actually read logos (sources)
+| Client | Source | Contract `logoURI`? |
+|--------|--------|---------------------|
+| **MetaMask** | Tokens API + static CDN `static.cx.metamask.io/.../tokenIcons/...`; legacy [contract-metadata](https://github.com/MetaMask/contract-metadata) | **No** for ERC-20 (NFT `tokenURI` is different — MIP-1) |
+| **Trust Wallet** | [trustwallet/assets](https://github.com/trustwallet/assets) `blockchains/<chain>/assets/<checksum>/logo.png` | **No** |
+| **Uniswap UI** | **CoinGecko** (official support article, updated 2026-08) | **No** |
+| **Rabby** | Own backend API (`@rabby-wallet/rabby-api` token endpoints); exact logo upstream not fully documented in public source reviewed | Unlikely contract field |
+| **Blockscout / Arc explorer** | Token metadata / admin or verified project profiles (explorer-specific; Cloudflare often blocks automated scrape) | Sometimes reads metadata if submitted |
+
+### Steps for automatic / practical display
+1. Deploy token with `logoURI` set (ipfs or data-URI).
+2. Add `tokenlist.json` (Uniswap token lists schema) in the SAVIOR repo / site with `logoURI`.
+3. PR to Trust Wallet `assets` once Arc chain folder exists / is accepted (checksum address, `logo.png` 256², `info.json`).
+4. Submit MetaMask contract-metadata / Tokens pipeline if Arc supported.
+5. CoinGecko / CoinMarketCap listing request (drives Uniswap logos).
+6. Arc explorer token profile / verified metadata form.
+7. Site & admin hardcode icon regardless of wallets.
+
+## Appendix: lock randomness (current v2 bias)
+
+PoC: `staking-v2/test/LockBiasPoC.t.sol` (ARC_FORK).
+
+- Seed: `keccak256(blockhash(n-1), user, msg.sender, userNonce, globalNonce) % (5 days + 1)` → extra ∈ [0, 432000] sec.
+- **Predictable** before sending: parent hash known; eth_call / off-chain match on-chain (PoC asserted equality).
+- Same-block re-roll via amount: **blocked** (D-1). Failed conditional stake **does not** bump nonces.
+- Stats: P(extra&lt;1h)≈0.83% (~121 blocks); &lt;12h≈10% (~11); &lt;1d≈20% (~6). Arc sub-second blocks → minutes of wall-clock for tight targets.
+- Failed try gas ≈ **145k** → ≈ **0.0029 USDC** at 20 gwei (18-dec native).
+- `block.prevrandao` on Arc = **0** ([docs.arc.io](https://docs.arc.io/arc/references/evm-differences)); Malachite/Tendermint PoA, no RANDAO.
+- VRF on Arc: **D20DAO** coordinator `0xd20da057469C45928912d983F45790C41e290571`, `quoteFee` ≈ **0.02 USDC** (measured); Chainlink VRF / Pyth Entropy / Gelato VRF — **no Arc addresses found** in public docs searched.
+
+**Fresh-start recommendation:** default **fixed 7 days** (simplest, fair UX). If jitter wanted: commit-reveal with `blockhash(commitBlock+N)` + 256-window fallback, or D20DAO VRF (async, fee, complexity).
