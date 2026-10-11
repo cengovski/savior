@@ -20,6 +20,14 @@
 
 ---
 
+
+## Decisions recorded (Dzengo)
+
+| Date | Decision |
+|------|----------|
+| 2026-10-11 | **Token rescue = option (b):** owner may rescue foreign ERC-20, native, **and** the token's own balance stuck on the token contract. Requirements: `to != address(0)`, **Ownable2Step**, emit event. **No** logo URI, **no** EIP-2612 permit on the token. |
+| 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Fresh-start staking should pick a stronger scheme (see lock-randomness report / prefer fixed 7d or commit-reveal / D20DAO VRF). |
+
 ## 1) New token design
 
 ### 1.1 Goals
@@ -31,14 +39,14 @@
 
 | Field | Value | Rationale |
 |-------|-------|-----------|
-| Name / symbol | SAVIOR / SAVIOR | Brand continuity |
+| Name / symbol | SAVIOR / SAVIOR | Brand continuity; **no** on-chain logo URI |
 | Decimals | **6** | Matches Arc USDC (6) and current SAVIOR; keeps amount UX identical |
 | Total supply | **1_000_000_000 × 10^6** (1B) | Round; same order as today’s circulating-in-pool ~1B |
 | Mint | **Once**, in `constructor(recipient)` | No `mint`, no minter role |
 | Burn | `burn(uint256)` by holder | Optional supply reduction / deprecate leftovers |
 | Upgrade | **None** (no proxy) | Avoids UUPS / renounce traps seen on legacy liquidity proxy |
-| Ownable / rescue | **None** on the token, or Ownable that **cannot** transfer SAVIOR | Prevents “rescue” draining user balances |
-| Permit | Optional EIP-2612 | Nice for UX; not required for v1 of fresh start |
+| Ownable / rescue | **Ownable2Step** + `rescue` for foreign ERC-20/native **and own-token** (decision b); `to != 0` + event | Own-token rescue only recovers mistaken sends to the token contract; no user balances live there |
+| Permit | **None** (decided) | Keep surface minimal |
 | Transfer tax / rebase | **None** | Staking and V4 assume vanilla ERC-20 |
 
 ### 1.3 Allocation (decision point)
