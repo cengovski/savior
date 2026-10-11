@@ -49,7 +49,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   <div class="container nav-in">
     <a href="#top" class="brand"><img src="logo.svg" alt="$SAVIOR logo" width="32" height="32"/>$SAVIOR</a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="#swap">Swap</a><a href="#locks">Locks</a><a href="#trades">Live Trades</a><a href="#bridge">Bridge</a><a href="#liquidity">Liquidity</a><a href="#tokenomics">Tokenomics</a><a href="docs/">Docs</a>
+      <a href="#swap">Swap</a><a href="#locks">Locks</a><a href="#trades">Live Trades</a><a href="#bridge">Bridge</a><a href="#liquidity">Liquidity</a><a href="#nft">NFT</a><a href="#tokenomics">Tokenomics</a><a href="docs/">Docs</a>
     </nav>
     <div class="nav-right">
       <span class="pill-net">ARC MAINNET</span>
@@ -61,7 +61,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 </header>
 <div id="menu-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="Menu">
   <div class="sheet-head"><a href="#top" class="brand" onclick="closeMenu()" style="border:0;font-size:18px"><img src="logo.svg" alt="" width="32" height="32"/>$SAVIOR</a><button class="icon-btn" onclick="closeMenu()" aria-label="Close menu"><svg class="ico-18"><use href="#i-x"/></svg></button></div>
-  <a href="#swap" onclick="closeMenu()">Swap</a><a href="#locks" onclick="closeMenu()">Locks</a><a href="#trades" onclick="closeMenu()">Live Trades</a><a href="#bridge" onclick="closeMenu()">Bridge</a><a href="#liquidity" onclick="closeMenu()">Liquidity</a><a href="#tokenomics" onclick="closeMenu()">Tokenomics</a><a href="docs/" onclick="closeMenu()">Docs</a>
+  <a href="#swap" onclick="closeMenu()">Swap</a><a href="#locks" onclick="closeMenu()">Locks</a><a href="#trades" onclick="closeMenu()">Live Trades</a><a href="#bridge" onclick="closeMenu()">Bridge</a><a href="#liquidity" onclick="closeMenu()">Liquidity</a><a href="#nft" onclick="closeMenu()">NFT</a><a href="#tokenomics" onclick="closeMenu()">Tokenomics</a><a href="docs/" onclick="closeMenu()">Docs</a>
 </div>
 
 <main id="top">
@@ -241,6 +241,40 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div class="card stat"><div class="chip"><svg class="ico"><use href="#i-liquidity"/></svg></div><div class="label">Pool</div><div class="value">SAVIOR / USDC</div><div class="sub">1% pool fee</div></div>
       <div class="card stat"><div class="chip"><svg class="ico"><use href="#i-bolt"/></svg></div><div class="label">Hook</div><div class="value">Uniswap V4 Hook</div><div class="sub">50% of every buy is locked</div></div>
       <div class="card stat"><div class="chip"><svg class="ico"><use href="#i-tokenomics"/></svg></div><div class="label">Price</div><div class="value" id="pool-price">-</div><div class="sub">USDC per 1M SAVIOR, read on-chain</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- NFT -->
+<section id="nft" class="section alt">
+  <div class="container">
+    <div class="sec-head">
+      <div class="chip"><svg class="ico"><use href="#i-vault"/></svg></div>
+      <div class="eyebrow">NFT</div>
+      <h2 class="h1">Savior Weapons</h2>
+      <p class="lead">Something was sealed away before the first light. 1,111 crates exist on Arc. No one knows what lies inside.</p>
+    </div>
+    <div class="nft-wrap">
+      <div class="nft-art card">
+        <img src="assets/nft/savior-weapons.gif" alt="Sealed Savior Weapons crate" width="400" height="400" loading="lazy" decoding="async"/>
+      </div>
+      <div class="card nft-info">
+        <span class="nft-soon">Coming soon</span>
+        <p class="nft-soon-text">These NFTs will be part of a game developed in the future with treasury funds. Until then, the glow is the only answer.</p>
+        <h3 class="nft-h">How to win one</h3>
+        <ol class="nft-steps">
+          <li><b>Buy 10 USDC or more</b> of SAVIOR on this site.</li>
+          <li><b>Reveal your lock</b> within about 70 minutes of the buy.</li>
+          <li><b>Each reveal has a 5% chance</b> to win a Savior Weapons NFT.</li>
+          <li><b>Claim it here</b> with Claim NFT. It then shows in your wallet and on OpenSea.</li>
+        </ol>
+        <ul class="nft-notes">
+          <li>Missed the reveal window? Then there is no draw for that lock.</li>
+          <li>Locks opened with stake are not eligible. Only buys count.</li>
+        </ul>
+        <div class="nft-meta"><span class="muted">Contract</span><a class="mono" href="https://explorer.arc.io/address/0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c" target="_blank" rel="noopener">0xf9cEda...8f383c</a><span class="muted">Max supply</span><span class="mono">1,111</span></div>
+        <div class="nft-cta"><a class="btn btn-primary" href="#swap">Buy SAVIOR</a><a class="btn btn-ghost" href="https://opensea.io/collection/0xf9cedaa96278462f9b85adfbb4ea0bdfc38f383c" target="_blank" rel="noopener">View on OpenSea</a></div>
+      </div>
     </div>
   </div>
 </section>
