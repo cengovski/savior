@@ -7,14 +7,14 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @notice Fresh-start SAVIOR: fixed supply, no mint after ctor, burn, Ownable2Step rescue
 ///         of foreign ERC-20/native only (never own token). logoURI owner-updatable.
 /// @dev Prototype for feature/fresh-start — audit before mainnet.
-///      If ownership is renounced, logoURI can no longer be changed.
+///      Owner powers: setLogoURI + foreign ERC-20/native rescue ONLY. renounceOwnership disabled.
 contract SaviorTokenV2 is Ownable2Step {
     string public constant name = "SAVIOR";
     string public constant symbol = "SAVIOR";
     uint8 public constant decimals = 6;
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000e6; // 1B
 
-    /// @notice Wallet/metadata logo. Owner may update via {setLogoURI}; fixed after renounce.
+    /// @notice Wallet/metadata logo. Owner may update via {setLogoURI}.
     ///         Prefer `ipfs://…` or HTTPS; on-chain `data:image/svg+xml;base64,…` OK if small (~3KB).
     string public logoURI;
 
@@ -29,6 +29,7 @@ contract SaviorTokenV2 is Ownable2Step {
 
     error ZeroAddress();
     error CannotRescueOwnToken();
+    error RenounceDisabled();
 
     constructor(address recipient, address initialOwner, string memory logoURI_) Ownable(initialOwner) {
         if (recipient == address(0) || initialOwner == address(0)) revert ZeroAddress();
@@ -39,7 +40,7 @@ contract SaviorTokenV2 is Ownable2Step {
         emit Transfer(address(0), recipient, TOTAL_SUPPLY);
     }
 
-    /// @notice Update logo URI. Only owner; becomes immutable in practice if ownership is renounced.
+    /// @notice Update logo URI. Only owner.
     function setLogoURI(string calldata newLogoURI) external onlyOwner {
         logoURI = newLogoURI;
         emit LogoURIUpdated(newLogoURI);
@@ -90,6 +91,11 @@ contract SaviorTokenV2 is Ownable2Step {
             require(IERC20(token).transfer(to, amount), "erc20");
         }
         emit Rescued(token, to, amount);
+    }
+
+    /// @notice Ownership can only be transferred (2-step), never renounced.
+    function renounceOwnership() public pure override {
+        revert RenounceDisabled();
     }
 
     receive() external payable {}

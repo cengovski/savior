@@ -82,13 +82,40 @@ contract FreshTokenGasTest is Test {
         vm.expectRevert();
         t.setLogoURI("ipfs://nope");
 
-        // after renounce, logo is fixed
+    }
+
+    function test_renounce_reverts() public {
+        SaviorTokenV2 t = new SaviorTokenV2(D, D, LOGO);
         vm.prank(D);
+        vm.expectRevert(SaviorTokenV2.RenounceDisabled.selector);
         t.renounceOwnership();
-        vm.expectRevert();
-        vm.prank(D);
-        t.setLogoURI("ipfs://stuck");
-        assertEq(t.logoURI(), next);
+        assertEq(t.owner(), D);
+    }
+
+    function test_no_mint_selector() public {
+        SaviorTokenV2 t = new SaviorTokenV2(D, D, LOGO);
+        bytes4[3] memory sels = [bytes4(keccak256("mint(address,uint256)")), bytes4(keccak256("mint(uint256)")), bytes4(keccak256("burnFrom(address,uint256)"))];
+        for (uint256 i; i < 3; ++i) {
+            vm.prank(D);
+            (bool ok,) = address(t).call(abi.encodeWithSelector(sels[i], D, 1));
+            assertFalse(ok);
+        }
+        assertEq(t.totalSupply(), 1_000_000_000e6);
+    }
+
+    function test_owner_cannot_move_user_funds_or_supply() public {
+        address u = makeAddr("user");
+        SaviorTokenV2 t = new SaviorTokenV2(u, D, LOGO);
+        vm.startPrank(D);
+        vm.expectRevert(bytes("allow"));
+        t.transferFrom(u, D, 1);
+        vm.expectRevert(bytes("bal"));
+        t.burn(1);
+        vm.expectRevert(SaviorTokenV2.CannotRescueOwnToken.selector);
+        t.rescue(address(t), D, 0);
+        vm.stopPrank();
+        assertEq(t.balanceOf(u), 1_000_000_000e6);
+        assertEq(t.totalSupply(), 1_000_000_000e6);
     }
 
     function test_fork_prevrandao_note() public {

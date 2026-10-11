@@ -26,8 +26,20 @@
 | Date | Decision |
 |------|----------|
 | 2026-10-11 | **Token rescue = option (a):** owner rescues **foreign ERC-20 + native only**; **never** own SAVIOR (`CannotRescueOwnToken`). `to != 0`, **Ownable2Step**, `Rescued` event. **No** EIP-2612 permit. |
-| 2026-10-11 | **Logo:** `logoURI` + `setLogoURI` (**onlyOwner**), `LogoURIUpdated` (also emitted in ctor). **Not** immutable — if ownership is renounced, logo becomes fixed. Prefer `ipfs://` or data-URI (~3KB svg). Wallets mostly ignore contract field — also tokenlists / Trust / explorer / CoinGecko. |
+| 2026-10-11 | **Logo:** `logoURI` + `setLogoURI` (**onlyOwner**), `LogoURIUpdated` (also emitted in ctor). Owner-updatable; ownership is **never renounced** (renounceOwnership reverts). Prefer `ipfs://` or data-URI (~3KB svg). Wallets mostly ignore contract field — also tokenlists / Trust / explorer / CoinGecko. |
 | 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Prefer **fixed 7 days** for fresh-start unless product needs jitter; else commit-reveal or D20DAO VRF on Arc. |
+
+## Owner powers (token)
+
+Decision 2026-10-11: ownership is **not** renounced; `renounceOwnership()` reverts (`RenounceDisabled`). Ownership moves only via Ownable2Step transfer + accept.
+
+Owner CAN only:
+1. `setLogoURI(string)` (emits `LogoURIUpdated`).
+2. `rescue(token, to, amount)` for **foreign ERC-20 or native** (`to != 0`, `Rescued` event).
+
+Owner CANNOT: mint (no mint function; supply minted once in constructor), move or burn any user's balance, change supply, rescue own SAVIOR (`CannotRescueOwnToken`), pause/blacklist/tax, upgrade (no proxy). Burn is holder-only on own balance.
+
+**Open decision:** lock duration (fixed 7d vs commit-reveal vs D20DAO VRF) still pending.
 
 ## 1) New token design
 
@@ -47,7 +59,7 @@
 | Burn | `burn(uint256)` by holder | Optional supply reduction / deprecate leftovers |
 | Upgrade | **None** (no proxy) | Avoids UUPS / renounce traps seen on legacy liquidity proxy |
 | Ownable / rescue | **Ownable2Step** + `rescue` foreign ERC-20/native only (decision **a**); never `address(this)`; `to != 0` + `Rescued` | Mistaken SAVIOR sent to token contract stays stuck — accepted |
-| logoURI | Owner-updatable via `setLogoURI` (`ipfs://` or data-URI); event on set | Fixed after `renounceOwnership`; wallets rarely read it |
+| logoURI | Owner-updatable via `setLogoURI` (`ipfs://` or data-URI); event on set | Wallets rarely read it |
 | Permit | **None** (decided) | Keep surface minimal |
 | Transfer tax / rebase | **None** | Staking and V4 assume vanilla ERC-20 |
 
@@ -213,7 +225,7 @@ Recompute exactly after final supply-in-ladder is fixed (Decision A).
 - [ ] Staking: D-1 seed, D-2 MIN_STAKE, D-3 deadline, rescue vs totalLocked, 50/50 lock, treasury BPS, immutables match pool.
 - [ ] Pool: fee 10000, spacing 200, hook address, initialize price.
 - [ ] LP: Posm ownership = deployer; ladder math → ~50k USDC gross; eth_call mint simulation.
-- [ ] Operational: owner keys, renounce policy (do **not** renounce hook/staking owners until checklist done).
+- [ ] Operational: owner keys secured; ownership is never renounced (token `renounceOwnership` reverts).
 
 ### 6.5 Fork test plan
 - [ ] `SaviorTokenV2` deploy + totalSupply/balances.
@@ -274,7 +286,7 @@ Re-estimate on fork immediately before launch (`cast estimate` / forge gas repor
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Repeat of renounced-owner LP lock | High | Posm NFTs only; never custom proxy salt=0; don’t renounce owners early |
+| Repeat of renounced-owner LP lock | High | Posm NFTs only; never custom proxy salt=0; owners never renounced |
 | Reusing old hook → shared UUPS / single staking | High | New immutable hook |
 | Wrong hook flags (CREATE2) | High | Miner + `getHookPermissions` assert; fork test |
 | Ladder math drift if supply ≠ 1B in pool | Med | Recompute table after Decision A |
@@ -327,7 +339,7 @@ Re-estimate on fork immediately before launch (`cast estimate` / forge gas repor
 | `https://…` raw GitHub / CDN | Short | Mutable if URL content changes; explorers may hotlink. |
 | `data:image/svg+xml;base64,…` | Current repo logo ≈ **2255 B** raw → URI ≈ **3034 chars** | Fits comfortably in ctor; increases initcode calldata gas (~few cents USDC on Arc). No dependency on IPFS. |
 
-**Recommendation:** ship initial `logoURI` as `ipfs://` (pin `logo.svg`) **or** data-URI; owner can update later via `setLogoURI` until renounce. Keep PNG 256×256 for Trust Wallet PRs separately.
+**Recommendation:** ship initial `logoURI` as `ipfs://` (pin `logo.svg`) **or** data-URI; owner can update later via `setLogoURI`. Keep PNG 256×256 for Trust Wallet PRs separately.
 
 ### Where wallets actually read logos (sources)
 | Client | Source | Contract `logoURI`? |
