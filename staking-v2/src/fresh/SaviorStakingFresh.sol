@@ -10,16 +10,13 @@ import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBound
 /// @title SaviorStakingFresh
 /// @notice Fresh-start staking for the new SAVIOR token. Lock duration uses user-driven commit-reveal
 ///         (no server/bot): at buy/stake, unlockAt defaults to createdAt+10d with isPending=true;
-///         targetBlock = block.number+REVEAL_DELAY_BLOCKS; revealDeadlineBlock = targetBlock+256
-///         (last height where blockhash(target) is still available). Anyone may reveal while
-///         block.number > targetBlock && blockhash(target) != 0; duration = 5d + keccak(...) % (5d+1);
+///         targetBlock = block.number+REVEAL_DELAY_BLOCKS; revealDeadlineBlock = targetBlock+8191
+///         (EIP-2935 HISTORY_SERVE_WINDOW). Hash via blockhash (recent) else EIP-2935 history contract
+///         at 0x0000F908…2935 (Arc Prague). Anyone may reveal while hash available; duration 5–10d;
 ///         unlockAt = min(current, createdAt+duration) (never lengthens); isPending=false.
-///         After the window, 10d stands (claim may finalize pending). Claim auto-reveals if still in window.
-///         Buy/sell via PoolManager.unlock; 0.3% treasury; buy 50/50 lock; SameBlock sell guard;
-///         swapExactIn deadline; MIN_STAKE on stake/stakeFor.
+///         After the window, 10d stands. Claim auto-reveals if still in window.
 /// @dev No proxy. Ownable2Step; renounceOwnership disabled. Does NOT replace deployed SaviorStakingV2.
-///      Arc ~0.5s blocks ⇒ 256-block reveal window ≈ ~2 minutes — site should prompt a second reveal tx
-///      right after buy/stake confirms (no server/bot; user wallet signs).
+///      Arc ~0.51s/block ⇒ 8191-block window ≈ ~70 minutes. Site should still prompt reveal after buy.
 contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
 
@@ -29,7 +26,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint64 unlockAt; // set immediately to createdAt+10d; may shorten on reveal
         uint64 createdAt;
         uint64 targetBlock;
-        uint64 revealDeadlineBlock; // targetBlock + BLOCKHASH_WINDOW
+        uint64 revealDeadlineBlock; // targetBlock + HISTORY_SERVE_WINDOW (8191)
         bool pending; // true until successful reveal (or optional finalize after window)
     }
 
@@ -49,8 +46,13 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     uint64 public constant DEFAULT_LOCK = 10 days; // unlockAt at commit (= LOCK_DURATION + MAX_EXTRA_LOCK)
     /// @dev Blocks to wait before reveal. Arc sub-second finality / no reorgs → 3 is enough.
     uint64 public constant REVEAL_DELAY_BLOCKS = 3;
-    /// @dev EVM retains blockhash for the 256 most recent blocks; last usable height is target+256.
-    uint64 public constant BLOCKHASH_WINDOW = 256;
+    /// @dev EIP-2935 HISTORY_SERVE_WINDOW (Arc Prague). Last usable height is target+8191.
+    ///      Native `blockhash` still covers the most recent 256; older ones use HISTORY_STORAGE.
+    uint64 public constant HISTORY_SERVE_WINDOW = 8191;
+    /// @dev Canonical EIP-2935 history storage address (verified on Arc mainnet 5042).
+    address public constant HISTORY_STORAGE = 0x0000F90827F1C53a10cb7A02335B175320002935;
+    /// @notice Alias of HISTORY_SERVE_WINDOW (8191) for older UI notes.
+    uint64 public constant BLOCKHASH_WINDOW = 8191;
     /// @notice Minimum SAVIOR (6 decimals) accepted by stake/stakeFor = 1 SAVIOR.
     uint256 public constant MIN_STAKE = 1e6;
     uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%
@@ -256,7 +258,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint64 createdAt = uint64(block.timestamp);
         uint64 unlockAt = createdAt + DEFAULT_LOCK; // 10 days immediately
         uint64 target = uint64(block.number + REVEAL_DELAY_BLOCKS);
-        uint64 deadline = target + BLOCKHASH_WINDOW;
+        uint64 deadline = target + HISTORY_SERVE_WINDOW;
         _locks[user].push(Lock({
             amount: amount,
             unlockAt: unlockAt,
@@ -267,6 +269,26 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         }));
         totalLocked += amount;
         emit Staked(user, index, amount, createdAt, unlockAt, target, deadline);
+    }
+
+
+    /// @notice Block hash for `blockNumber`: native `blockhash` if still in 256-window, else EIP-2935
+    ///         history contract (Arc). Returns 0 if outside serve window / call fails.
+    function ringBlockHash(uint256 blockNumber) public view returns (bytes32) {
+        return _ringBlockHash(blockNumber);
+    }
+
+    function _ringBlockHash(uint256 blockNumber) internal view returns (bytes32) {
+        bytes32 h = blockhash(blockNumber);
+        if (h != bytes32(0)) return h;
+        // Outside native window (or future/current): try EIP-2935 ring buffer.
+        if (blockNumber >= block.number) return bytes32(0);
+        unchecked {
+            if (block.number - blockNumber > HISTORY_SERVE_WINDOW) return bytes32(0);
+        }
+        (bool ok, bytes memory ret) = HISTORY_STORAGE.staticcall(abi.encode(blockNumber));
+        if (!ok || ret.length < 32) return bytes32(0);
+        return abi.decode(ret, (bytes32));
     }
 
     /// @notice True if lock still awaits a successful reveal (may still be true after window with 10d final).
@@ -283,7 +305,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         Lock storage l = ls[i];
         if (l.amount == 0 || !l.pending) return false;
         if (block.number <= l.targetBlock) return false;
-        return blockhash(l.targetBlock) != bytes32(0);
+        return _ringBlockHash(l.targetBlock) != bytes32(0);
     }
 
     /// @notice True if pending and the EVM blockhash window for targetBlock has closed.
@@ -293,7 +315,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         Lock storage l = ls[i];
         if (l.amount == 0 || !l.pending) return false;
         if (block.number <= l.targetBlock) return false;
-        return blockhash(l.targetBlock) == bytes32(0);
+        return _ringBlockHash(l.targetBlock) == bytes32(0);
     }
 
     /// @notice Reveal while blockhash(target) is available. Callable by anyone (user-driven; no bot).
@@ -306,7 +328,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         if (!l.pending) revert AlreadyRevealed();
         if (block.number <= l.targetBlock) revert TooEarly();
 
-        bytes32 h = blockhash(l.targetBlock);
+        bytes32 h = _ringBlockHash(l.targetBlock);
         if (h == bytes32(0)) revert RevealWindowClosed();
 
         uint256 r = uint256(keccak256(abi.encode(h, user, i, l.createdAt))) % (uint256(MAX_EXTRA_LOCK) + 1);
@@ -328,7 +350,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         if (l.amount == 0) revert NothingToClaim();
         if (!l.pending) revert AlreadyRevealed();
         if (block.number <= l.targetBlock) revert TooEarly();
-        if (blockhash(l.targetBlock) != bytes32(0)) revert StillRevealable();
+        if (_ringBlockHash(l.targetBlock) != bytes32(0)) revert StillRevealable();
         l.pending = false;
         emit LockRevealFinalized(user, i, l.unlockAt);
     }
@@ -342,7 +364,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         if (amt == 0) revert NothingToClaim();
         if (l.pending) {
             if (block.number > l.targetBlock) {
-                bytes32 h = blockhash(l.targetBlock);
+                bytes32 h = _ringBlockHash(l.targetBlock);
                 if (h != bytes32(0)) {
                     reveal(msg.sender, i);
                 } else {
@@ -369,7 +391,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         for (uint256 i = 0; i < n; i++) {
             Lock storage l = ls[i];
             bool pending = l.amount != 0 && l.pending;
-            bool canReveal = pending && block.number > l.targetBlock && blockhash(l.targetBlock) != bytes32(0);
+            bool canReveal = pending && block.number > l.targetBlock && _ringBlockHash(l.targetBlock) != bytes32(0);
             out[i] = LockView({
                 amount: l.amount,
                 createdAt: l.createdAt,

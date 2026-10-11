@@ -28,7 +28,7 @@
 | 2026-10-11 | **Token rescue = option (a):** owner rescues **foreign ERC-20 + native only**; **never** own SAVIOR (`CannotRescueOwnToken`). `to != 0`, **Ownable2Step**, `Rescued` event. **No** EIP-2612 permit. |
 | 2026-10-11 | **Logo:** `logoURI` + `setLogoURI` (**onlyOwner**), `LogoURIUpdated` (also emitted in ctor). Owner-updatable; ownership is **never renounced** (renounceOwnership reverts). Prefer `ipfs://` or data-URI (~3KB svg). Wallets mostly ignore contract field — also tokenlists / Trust / explorer / CoinGecko. |
 | 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Prefer **fixed 7 days** for fresh-start unless product needs jitter; else commit-reveal or D20DAO VRF on Arc. |
-| 2026-10-11 | **Lock duration = commit-reveal 5–10 days, NO VRF, no server/bot — user reveals.** `SaviorStakingFresh`: at buy/stake `unlockAt=createdAt+10d` + `pending=true`, `targetBlock=n+3`, `revealDeadlineBlock=target+256`. Reveal (anyone) only while `blockhash(target)!=0`; shortens via `min`, never lengthens. Window miss → 10d final. Arc ~0.51s/block ⇒ **256-block window ≈ 130s (~2.2 min)** — site must prompt reveal tx after buy. Tests: `CommitRevealLock.t.sol`. |
+| 2026-10-11 | **Lock = commit-reveal 5–10d, user reveals, EIP-2935.** `unlockAt=createdAt+10d`+pending; `targetBlock=n+3`; `revealDeadlineBlock=target+8191`. Hash: `blockhash` then EIP-2935 `0x0000F908…2935` (Arc Prague, verified eth_call). Miss → 10d. **~70 min** window at ~0.51s/block. |
 
 ## Owner powers (token)
 
@@ -221,7 +221,7 @@ Recompute exactly after final supply-in-ladder is fixed (Decision A).
 - [ ] Swap/stake/estimate against **new** staking (`SaviorStakingFresh`) only.
 - [ ] Leaderboard/feed seed from new staking deploy block.
 - [ ] Copy: no promise about old pool liquidity.
-- [ ] **After buy/stake:** show default **unlockAt = +10d** and a **reveal countdown** to `revealDeadlineBlock` (~2 min on Arc). Prompt user for a **second tx** `reveal(user,i)` as soon as `revealableNow` (no server/bot).
+- [ ] **After buy/stake:** show default **unlockAt = +10d** and a **reveal countdown** to `revealDeadlineBlock` (~70 min on Arc via EIP-2935). Prompt user for a **second tx** `reveal(user,i)` as soon as `revealableNow` (no server/bot).
 - [ ] **Claim flow:** if `revealableNow`, prefer explicit `reveal` then later `claim`; `claim` also auto-reveals in-window. Never assume `unlockAt==0` (it is set at commit).
 - [ ] **Lock sorting:** claimable (`now >= unlockAt`) → pending+revealable → pending (countdown) → waiting on unlockAt.
 - [ ] Display fields from `getLocks`: `amount`, `createdAt`, `unlockAt`, `isPending`, `targetBlock`, `revealDeadlineBlock`, `revealableNow`.
@@ -385,19 +385,25 @@ Implemented: `staking-v2/src/fresh/SaviorStakingFresh.sol` + `test/CommitRevealL
 
 | Step | Behavior |
 |------|----------|
-| Commit (buy/stake) | `unlockAt = createdAt + 10d` immediately; `pending=true`; `targetBlock=block.number+3`; `revealDeadlineBlock=targetBlock+256`. Event `Staked`. |
-| Reveal window | Open when `block.number > targetBlock` and `blockhash(target) != 0` (EVM last usable height ≈ `target+256`). |
+| Commit (buy/stake) | `unlockAt = createdAt + 10d` immediately; `pending=true`; `targetBlock=block.number+3`; `revealDeadlineBlock=targetBlock+8191`. Event `Staked`. |
+| Reveal window | Open when `block.number > targetBlock` and `ringBlockHash(target) != 0` (`blockhash` or EIP-2935; last height `target+8191`). |
 | Reveal | Anyone: `duration = 5d + keccak(blockhash,user,i,createdAt)%(5d+1)`; `unlockAt = min(unlockAt, createdAt+duration)` (**never lengthens**); `pending=false`. `LockRevealed`. |
 | Miss window | Keep 10d; `reveal` reverts `RevealWindowClosed`; optional `finalizeExpired` clears pending. |
 | Claim | Auto-reveal if still in window; else finalize 10d if closed. |
 | Views | `getLocks` → `LockView{amount,createdAt,unlockAt,isPending,targetBlock,revealDeadlineBlock,revealableNow}`. |
 
-#### Arc reveal-window timing (measured 2026-10-11, RPC `rpc.mainnet.arc.io`)
+#### Arc reveal-window timing + EIP-2935 (measured 2026-10-11, RPC `rpc.mainnet.arc.io`)
 
-| Sample | Avg block time | 256 blocks |
-|--------|----------------|------------|
-| last 100 / 500 / 2000 / 5000 blocks | **≈ 0.51 s** | **≈ 130 s (~2.2 min)** |
+| Fact | Result |
+|------|--------|
+| Avg block time (100–5000 blk) | **≈ 0.51 s** |
+| EIP-2935 at `0x0000F908…2935` | **HAS_CODE** (83 bytes); `eth_call` matches `eth_getBlockByNumber` for n−1 … n−**8191**; n−8192 reverts |
+| Prague signals | Block has `requestsHash`, `parentBeaconBlockRoot`, blobs |
+| Window | `revealDeadlineBlock = target+8191` ⇒ **≈ 4150 s (~69–70 min)** |
+| Foundry | Unit tests `vm.mockCall` history; real RPC verified separately (fork may not fill ring) |
 
-UX: user must reveal within **~2 minutes** after `targetBlock` (≈ seconds after buy for N=3). **Site should fire a second `reveal(user,i)` tx right after buy/stake confirms** (wallet-signed; no backend). Countdown = blocks until `revealDeadlineBlock` × ~0.51s.
+**Snapshot/poke complement (not implemented):** optional `mapping(uint256=>bytes32)` filled on buy/stake/reveal for pending targets — hash fixed once block exists so poker cannot bias; only risk is nobody pokes within 256 ⇒ need 2935 or 10d fallback. Gas: O(pending targets) or per-block global. **Recommend 2935 alone** (already on Arc).
+
+UX: ~**70 min** to reveal after `targetBlock`. Site should still prompt `reveal` soon after buy (no bot); countdown to `revealDeadlineBlock`.
 
 **Branch note:** `SaviorStakingFresh` on `feature/fresh-start` only; live `SaviorStakingV2` unchanged.

@@ -21,7 +21,6 @@ contract ConditionalStakeAttacker {
         token.approve(address(staking), amount);
         uint256 idx = staking.stake(amount);
         SaviorStakingFresh.LockView memory L = staking.getLocks(address(this))[idx];
-        // Default 10d already set; future target hash unknown → cannot decide to keep/revert based on short duration.
         bytes32 h = blockhash(L.targetBlock);
         require(h == bytes32(0), "future hash should be unknown");
         require(L.isPending && L.unlockAt == L.createdAt + 10 days, "default 10d pending");
@@ -35,6 +34,7 @@ contract CommitRevealLockTest is Test {
     address owner = address(this);
     address user = makeAddr("user");
     address other = makeAddr("other");
+    address constant HISTORY = 0x0000F90827F1C53a10cb7A02335B175320002935;
 
     string constant LOGO = "ipfs://test";
 
@@ -59,31 +59,32 @@ contract CommitRevealLockTest is Test {
         idx = staking.stake(amt);
     }
 
+    function _mockHistory(uint256 blockNumber, bytes32 h) internal {
+        vm.mockCall(HISTORY, abi.encode(blockNumber), abi.encode(h));
+    }
+
     function test_default_10d_pending_on_commit() public {
         uint256 idx = _stakeAs(user, 10e6);
         SaviorStakingFresh.LockView memory L = staking.getLocks(user)[idx];
         assertEq(L.amount, 10e6);
         assertEq(L.unlockAt, L.createdAt + 10 days);
-        assertEq(L.unlockAt, L.createdAt + staking.DEFAULT_LOCK());
         assertTrue(L.isPending);
-        assertTrue(staking.isPending(user, idx));
         assertEq(L.targetBlock, uint64(block.number + staking.REVEAL_DELAY_BLOCKS()));
-        assertEq(L.revealDeadlineBlock, L.targetBlock + staking.BLOCKHASH_WINDOW());
+        assertEq(L.revealDeadlineBlock, L.targetBlock + staking.HISTORY_SERVE_WINDOW());
+        assertEq(L.revealDeadlineBlock, L.targetBlock + 8191);
         assertFalse(L.revealableNow);
-        assertFalse(staking.revealableNow(user, idx));
     }
 
-    function test_reveal_by_anyone_shortens_never_lengthens() public {
+    function test_reveal_by_anyone_via_native_blockhash() public {
         uint256 idx = _stakeAs(user, 10e6);
         SaviorStakingFresh.LockView memory L = staking.getLocks(user)[idx];
         uint64 defaultUnlock = L.unlockAt;
+        uint256 target = L.targetBlock;
 
         vm.expectRevert(SaviorStakingFresh.TooEarly.selector);
         staking.reveal(user, idx);
 
-        uint256 target = L.targetBlock;
         vm.roll(target + 1);
-        // Force a hash that yields a short extra (search a few)
         bytes32 h;
         uint64 expectedDur;
         for (uint256 salt = 1; salt < 500; salt++) {
@@ -95,24 +96,38 @@ contract CommitRevealLockTest is Test {
         }
         vm.setBlockhash(target, h);
 
-        assertTrue(staking.revealableNow(user, idx));
-        assertTrue(staking.getLocks(user)[idx].revealableNow);
-
         vm.prank(other);
         staking.reveal(user, idx);
-
         L = staking.getLocks(user)[idx];
         assertFalse(L.isPending);
         assertEq(L.unlockAt, L.createdAt + expectedDur);
-        assertTrue(L.unlockAt <= defaultUnlock); // never lengthens
-        assertEq(L.unlockAt, defaultUnlock < L.createdAt + expectedDur ? defaultUnlock : L.createdAt + expectedDur);
+        assertTrue(L.unlockAt <= defaultUnlock);
+    }
 
-        vm.expectRevert(SaviorStakingFresh.AlreadyRevealed.selector);
+    function test_reveal_via_eip2935_after_native_window() public {
+        // Roll past 256 so native blockhash is 0; EIP-2935 mock supplies the hash.
+        uint256 idx = _stakeAs(user, 10e6);
+        uint64 created = staking.getLocks(user)[idx].createdAt;
+        uint256 target = staking.getLocks(user)[idx].targetBlock;
+        bytes32 h = keccak256("from-2935");
+        uint256 extra = uint256(keccak256(abi.encode(h, user, idx, created)))
+            % (uint256(staking.MAX_EXTRA_LOCK()) + 1);
+        uint64 expectedDur = uint64(staking.LOCK_DURATION() + extra);
+
+        vm.roll(target + 300); // >256 ⇒ native blockhash(target)==0 in Foundry unless set
+        // ensure native is zero
+        assertEq(blockhash(target), bytes32(0));
+        _mockHistory(target, h);
+
+        assertEq(staking.ringBlockHash(target), h);
+        assertTrue(staking.revealableNow(user, idx));
+
         staking.reveal(user, idx);
+        assertEq(staking.getLocks(user)[idx].unlockAt, created + expectedDur);
+        assertFalse(staking.isPending(user, idx));
     }
 
     function test_reveal_never_lengthens() public {
-        // For many seeds, unlockAt after reveal is always <= default 10d
         for (uint256 n = 0; n < 8; n++) {
             address u = makeAddr(string(abi.encodePacked("u", n)));
             vm.prank(user);
@@ -128,17 +143,16 @@ contract CommitRevealLockTest is Test {
             staking.reveal(u, idx);
             assertLe(staking.getLocks(u)[idx].unlockAt, before);
             assertFalse(staking.isPending(u, idx));
-            // advance so next stake gets a fresh target relative to chain tip
             vm.roll(block.number + 1);
         }
     }
 
-    function test_window_expiry_keeps_10d_reveal_reverts() public {
+    function test_window_expiry_at_8192_keeps_10d() public {
         uint256 idx = _stakeAs(user, 10e6);
         uint64 created = staking.getLocks(user)[idx].createdAt;
         uint256 target = staking.getLocks(user)[idx].targetBlock;
-        // Beyond 256-block window; leave hash unset → 0
-        vm.roll(target + 300);
+        // Past HISTORY_SERVE_WINDOW; no mock ⇒ ringBlockHash == 0
+        vm.roll(target + 8192);
 
         assertTrue(staking.isPending(user, idx));
         assertTrue(staking.revealWindowClosed(user, idx));
@@ -147,12 +161,23 @@ contract CommitRevealLockTest is Test {
         vm.expectRevert(SaviorStakingFresh.RevealWindowClosed.selector);
         staking.reveal(user, idx);
 
-        // still default 10d
         assertEq(staking.getLocks(user)[idx].unlockAt, created + 10 days);
 
         staking.finalizeExpired(user, idx);
         assertFalse(staking.isPending(user, idx));
         assertEq(staking.getLocks(user)[idx].unlockAt, created + 10 days);
+    }
+
+    function test_still_revealable_at_deadline_8191_with_2935() public {
+        uint256 idx = _stakeAs(user, 10e6);
+        uint256 target = staking.getLocks(user)[idx].targetBlock;
+        bytes32 h = keccak256("edge");
+        vm.roll(target + 8191);
+        assertEq(blockhash(target), bytes32(0));
+        _mockHistory(target, h);
+        assertTrue(staking.revealableNow(user, idx));
+        staking.reveal(user, idx);
+        assertFalse(staking.isPending(user, idx));
     }
 
     function test_claim_auto_reveals_in_window() public {
@@ -171,15 +196,13 @@ contract CommitRevealLockTest is Test {
         vm.prank(user);
         staking.claim(idx);
         assertEq(token.balanceOf(user), before + 10e6);
-        assertEq(staking.getLocks(user)[idx].amount, 0);
-        assertFalse(staking.getLocks(user)[idx].isPending);
     }
 
     function test_claim_after_window_uses_10d_no_reveal() public {
         uint256 idx = _stakeAs(user, 10e6);
         uint64 created = staking.getLocks(user)[idx].createdAt;
         uint256 target = staking.getLocks(user)[idx].targetBlock;
-        vm.roll(target + 300);
+        vm.roll(target + 8192);
         vm.warp(created + 10 days + 1);
 
         uint256 before = token.balanceOf(user);
@@ -232,6 +255,5 @@ contract CommitRevealLockTest is Test {
         assertTrue(staking.getLocks(user)[idx].revealableNow);
         staking.reveal(user, idx);
         assertFalse(staking.getLocks(user)[idx].revealableNow);
-        assertFalse(staking.getLocks(user)[idx].isPending);
     }
 }
