@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {SaviorStakingFresh} from "../src/fresh/SaviorStakingFresh.sol";
+import {SaviorStakingFresh, ILuckySink} from "../src/fresh/SaviorStakingFresh.sol";
 import {SaviorTokenV2} from "../src/fresh/SaviorTokenV2.sol";
 import {PoolKey, IPoolManagerMinimal} from "../src/IV4Minimal.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -48,7 +48,7 @@ contract CommitRevealLockTest is Test {
             hooks: makeAddr("hook")
         });
         staking = new SaviorStakingFresh(
-            owner, IERC20(address(token)), IPoolManagerMinimal(makeAddr("pm")), makeAddr("treasury"), key
+            owner, IERC20(address(token)), IPoolManagerMinimal(makeAddr("pm")), makeAddr("treasury"), key, ILuckySink(address(0))
         );
         vm.prank(user);
         token.approve(address(staking), type(uint256).max);

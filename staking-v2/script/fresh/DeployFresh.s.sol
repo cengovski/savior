@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Script, console2} from "forge-std/Script.sol";
 import {SaviorTokenV2} from "../../src/fresh/SaviorTokenV2.sol";
 import {FreshDeployer} from "../../src/fresh/FreshDeployer.sol";
+import {SaviorStakingFresh} from "../../src/fresh/SaviorStakingFresh.sol";
 import {HookMiner} from "../../src/fresh/HookMiner.sol";
 import {FreshLadder} from "../../src/fresh/FreshLadder.sol";
 import {ArcAddresses as A} from "../../src/ArcAddresses.sol";
@@ -47,7 +48,7 @@ contract DeployFresh is Script {
             vm.startBroadcast();
             FreshDeployer f = new FreshDeployer(
                 deployer, token, A.USDC, A.POOL_MANAGER, A.TREASURY, A.POOL_FEE, A.POOL_TICK_SPACING,
-                A.POSITION_MANAGER, A.PERMIT2
+                A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode)
             );
             vm.stopBroadcast();
             console2.log("FACTORY", address(f));
@@ -82,7 +83,7 @@ contract DeployFresh is Script {
             console2.log("startSqrtPriceX96", sqrtP);
             bytes memory ladder = FreshLadder.build(fac.poolKey(hook), fac.saviorIsCurrency0(), amt, deployer);
             vm.startBroadcast();
-            fac.deploy(salt, sqrtP, amt, ladder);
+            fac.deploy(salt, sqrtP, amt, ladder, type(SaviorStakingFresh).creationCode, vm.envOr("LUCKY_SINK", address(0)));
             vm.stopBroadcast();
             require(fac.hook() == hook && fac.staking() == fac.predictStaking(), "post-deploy mismatch");
             return;

@@ -46,6 +46,11 @@
         "name": "permit2_",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "stakingCodeHash_",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "nonpayable"
@@ -131,6 +136,16 @@
         "name": "ladderData",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "stakingCode",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "luckySink",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -349,6 +364,19 @@
   },
   {
     "type": "function",
+    "name": "stakingCodeHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "tickSpacing",
     "inputs": [],
     "outputs": [
@@ -462,6 +490,16 @@
   {
     "type": "error",
     "name": "BadLadder",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadLuckySink",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadStakingCode",
     "inputs": []
   },
   {

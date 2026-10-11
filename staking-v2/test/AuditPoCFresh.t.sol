@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {SaviorStakingFresh} from "../src/fresh/SaviorStakingFresh.sol";
+import {SaviorStakingFresh, ILuckySink} from "../src/fresh/SaviorStakingFresh.sol";
 import {SaviorTokenV2} from "../src/fresh/SaviorTokenV2.sol";
 import {PoolKey, IPoolManagerMinimal} from "../src/IV4Minimal.sol";
 import {ArcAddresses} from "../src/ArcAddresses.sol";
@@ -32,7 +32,7 @@ contract AuditPoCFresh is Test {
         token = new SaviorTokenV2(user, owner, "ipfs://x");
         PoolKey memory key = PoolKey(ArcAddresses.USDC, address(token), 10000, 200, address(0x1234));
         if (address(token) < ArcAddresses.USDC) key = PoolKey(address(token), ArcAddresses.USDC, 10000, 200, address(0x1234));
-        st = new SaviorStakingFresh(owner, IERC20(address(token)), IPoolManagerMinimal(address(0xBEEF)), address(0x7EA5), key);
+        st = new SaviorStakingFresh(owner, IERC20(address(token)), IPoolManagerMinimal(address(0xBEEF)), address(0x7EA5), key, ILuckySink(address(0)));
         vm.prank(user);
         token.transfer(attacker, 500_000_000e6);
         vm.prank(user);

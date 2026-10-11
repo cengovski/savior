@@ -5,7 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PoolKey, SwapParams, IUnlockCallback, TickMathBounds} from "../src/IV4Minimal.sol";
 import {SaviorTokenV2} from "../src/fresh/SaviorTokenV2.sol";
-import {SaviorStakingFresh} from "../src/fresh/SaviorStakingFresh.sol";
+import {SaviorStakingFresh, ILuckySink} from "../src/fresh/SaviorStakingFresh.sol";
 import {SaviorHookFresh} from "../src/fresh/SaviorHookFresh.sol";
 import {FreshDeployer} from "../src/fresh/FreshDeployer.sol";
 import {HookMiner} from "../src/fresh/HookMiner.sol";
@@ -45,6 +45,7 @@ contract DirectSwapper is IUnlockCallback {
 contract FreshStackForkTest is Test {
     address D = makeAddr("deployer");
     bool forked;
+    address internal sink; // lucky sink for deploy (0 = disabled)
 
     function setUp() public {
         forked = vm.envOr("ARC_FORK", false);
@@ -70,7 +71,7 @@ contract FreshStackForkTest is Test {
     {
         t = _token(saviorC0);
         vm.prank(D);
-        f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2);
+        f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode));
         assertEq(f.saviorIsCurrency0(), saviorC0, "ordering");
         (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
         console2.log("mined salt", uint256(salt));
@@ -102,7 +103,7 @@ contract FreshStackForkTest is Test {
         uint160 p = FreshLadder.startSqrtPrice(c0);
         uint256 g = gasleft();
         vm.prank(D);
-        (s_, h_,) = f.deploy(salt, p, total, ladder);
+        (s_, h_,) = f.deploy(salt, p, total, ladder, type(SaviorStakingFresh).creationCode, sink);
         console2.log("deploy+init+ladder gas", g - gasleft());
     }
 
@@ -110,7 +111,7 @@ contract FreshStackForkTest is Test {
     function _badLadder(bool c0) internal {
         SaviorTokenV2 t = _token(c0);
         vm.prank(D);
-        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2);
+        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode));
         (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
         uint256 total = t.balanceOf(D);
         bytes memory bad = FreshLadder.build(f.poolKey(predicted), c0, total, makeAddr("thief"));
@@ -119,7 +120,7 @@ contract FreshStackForkTest is Test {
         t.approve(address(f), total);
         vm.prank(D);
         vm.expectRevert(FreshDeployer.BadLadder.selector);
-        f.deploy(salt, p, total, bad);
+        f.deploy(salt, p, total, bad, type(SaviorStakingFresh).creationCode, address(0));
     }
 
     function test_fork_factory_rejects_bad_ladder() public {
@@ -133,7 +134,7 @@ contract FreshStackForkTest is Test {
         // re-deploy / second init impossible
         vm.prank(D);
         vm.expectRevert(FreshDeployer.AlreadyDeployed.selector);
-        f.deploy(bytes32(0), 1, 0, "");
+        f.deploy(bytes32(0), 1, 0, "", "", address(0));
         // another key using the same hook cannot be initialized
         PoolKey memory k2 = key;
         k2.fee = 3000;

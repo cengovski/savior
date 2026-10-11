@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {SaviorStakingFresh} from "../src/fresh/SaviorStakingFresh.sol";
+import {SaviorStakingFresh, ILuckySink} from "../src/fresh/SaviorStakingFresh.sol";
 import {SaviorTokenV2} from "../src/fresh/SaviorTokenV2.sol";
 import {PoolKey, IPoolManagerMinimal} from "../src/IV4Minimal.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,7 +18,7 @@ contract EmergencyTimelockTest is Test {
         token = new SaviorTokenV2(user, owner, "x");
         PoolKey memory k = PoolKey(address(0x3600000000000000000000000000000000000000), address(token), 10000, 200, address(1));
         if (address(token) < k.currency0) k = PoolKey(address(token), k.currency0, 10000, 200, address(1));
-        st = new SaviorStakingFresh(owner, IERC20(address(token)), IPoolManagerMinimal(address(2)), address(3), k);
+        st = new SaviorStakingFresh(owner, IERC20(address(token)), IPoolManagerMinimal(address(2)), address(3), k, ILuckySink(address(0)));
         vm.prank(user);
         token.approve(address(st), type(uint256).max);
     }

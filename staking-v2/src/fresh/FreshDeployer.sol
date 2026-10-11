@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PoolKey, IPoolManagerMinimal} from "../IV4Minimal.sol";
-import {SaviorStakingFresh} from "./SaviorStakingFresh.sol";
+
 import {SaviorHookFresh} from "./SaviorHookFresh.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -12,6 +12,10 @@ interface IPosmLadder {
     function nextTokenId() external view returns (uint256);
     function ownerOf(uint256 id) external view returns (address);
     function getPoolAndPositionInfo(uint256 id) external view returns (PoolKey memory, uint256);
+}
+
+interface ILuckyBound {
+    function staking() external view returns (address);
 }
 
 interface IPermit2Approve {
@@ -43,6 +47,9 @@ contract FreshDeployer {
     address public immutable currency1;
     address public immutable positionManager;
     address public immutable permit2;
+    /// @notice keccak256(type(SaviorStakingFresh).creationCode). Staking initcode is passed as calldata to
+    ///         deploy() and must match (keeps this factory under EIP-170; admin tab checks it vs artifact).
+    bytes32 public immutable stakingCodeHash;
 
     address public staking;
     address public hook;
@@ -57,6 +64,8 @@ contract FreshDeployer {
     error StakingAddressMismatch();
     error BadHookFlags();
     error BadLadder();
+    error BadStakingCode();
+    error BadLuckySink();
 
     /// @dev Post-check each new NFT: owner == admin and its PoolKey (first 5 words of
     ///      Posm.getPoolAndPositionInfo) == this pool's key. Raw compare keeps bytecode small (EIP-170).
@@ -80,8 +89,10 @@ contract FreshDeployer {
         uint24 fee_,
         int24 tickSpacing_,
         address positionManager_,
-        address permit2_
+        address permit2_,
+        bytes32 stakingCodeHash_
     ) {
+        stakingCodeHash = stakingCodeHash_;
         positionManager = positionManager_;
         permit2 = permit2_;
         admin = admin_;
@@ -134,7 +145,14 @@ contract FreshDeployer {
     ///         Post-check: exactly 20 new NFTs, each owned by `admin` and on THIS pool key; dust refunded;
     ///         Permit2 allowance capped to `ladderAmount` (factory holds nothing else). Closes audit N-1 (no window
     ///         between initialize and liquidity). Ladder geometry stays in FreshLadder (EIP-170 size budget).
-    function deploy(bytes32 salt, uint160 sqrtPriceX96, uint256 ladderAmount, bytes calldata ladderData)
+    function deploy(
+        bytes32 salt,
+        uint160 sqrtPriceX96,
+        uint256 ladderAmount,
+        bytes calldata ladderData,
+        bytes calldata stakingCode,
+        address luckySink
+    )
         external
         returns (address staking_, address hook_, int24 tick)
     {
@@ -142,26 +160,38 @@ contract FreshDeployer {
         if (deployed) revert AlreadyDeployed();
         if (!isValidHookSalt(salt)) revert BadHookFlags();
         deployed = true;
-        address predictedHook = computeHookAddress(salt);
-        address predictedStaking = predictStaking();
-
-        staking_ = address(
-            new SaviorStakingFresh(
-                admin, IERC20(token), IPoolManagerMinimal(poolManager), treasury, poolKey(predictedHook)
-            )
-        );
-        if (staking_ != predictedStaking) revert StakingAddressMismatch();
-
-        hook_ = address(
-            new SaviorHookFresh{salt: salt}(poolManager, staking_, address(this), currency0, currency1, fee, tickSpacing)
-        );
-        if (hook_ != predictedHook) revert HookAddressMismatch();
+        staking_ = _createStaking(stakingCode, luckySink, computeHookAddress(salt));
+        hook_ = _createHook(salt, staking_);
 
         tick = IPoolManagerInit(poolManager).initialize(poolKey(hook_), sqrtPriceX96);
         staking = staking_;
         hook = hook_;
         emit FreshDeployed(staking_, hook_, tick, salt);
         if (ladderAmount != 0) _ladder(hook_, ladderAmount, ladderData);
+    }
+
+    function _createHook(bytes32 salt, address staking_) internal returns (address hook_) {
+        hook_ = address(
+            new SaviorHookFresh{salt: salt}(poolManager, staking_, address(this), currency0, currency1, fee, tickSpacing)
+        );
+        if (hook_ != computeHookAddress(salt)) revert HookAddressMismatch();
+    }
+
+    function _createStaking(bytes calldata stakingCode, address luckySink, address predictedHook)
+        internal
+        returns (address staking_)
+    {
+        address predictedStaking = predictStaking();
+        if (keccak256(stakingCode) != stakingCodeHash) revert BadStakingCode();
+        // Lucky sink (if any) must already be bound to the predicted staking (immutable minter binding).
+        if (luckySink != address(0) && ILuckyBound(luckySink).staking() != predictedStaking) revert BadLuckySink();
+        bytes memory init = abi.encodePacked(
+            stakingCode, abi.encode(admin, token, poolManager, treasury, poolKey(predictedHook), luckySink)
+        );
+        assembly ("memory-safe") {
+            staking_ := create(0, add(init, 32), mload(init))
+        }
+        if (staking_ != predictedStaking) revert StakingAddressMismatch();
     }
 
     function _ladder(address hook_, uint256 amount, bytes calldata data) internal {

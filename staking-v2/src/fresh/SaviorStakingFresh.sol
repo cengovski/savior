@@ -18,6 +18,13 @@ import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBound
 ///         After the window, 10d stands. Claim auto-reveals if still in window.
 /// @dev No proxy. Ownable2Step; renounceOwnership disabled. Does NOT replace deployed SaviorStakingV2.
 ///      Arc ~0.51s/block ⇒ 8191-block window ≈ ~70 minutes. Site should still prompt reveal after buy.
+/// @notice Lucky NFT sink. Called once per winning lock with the LOCK OWNER (never msg.sender).
+///         Option A: LuckyDistributor (OpenSea ERC721SeaDrop allowlist mint, winner pulls via claimNFT).
+///         Option B: SaviorLuckyNFT (own ERC-721, mints directly to user).
+interface ILuckySink {
+    function onWin(address user, uint256 index) external;
+}
+
 contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
 
@@ -29,6 +36,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint64 targetBlock;
         uint64 revealDeadlineBlock; // targetBlock + HISTORY_SERVE_WINDOW (8191)
         bool pending; // true until successful reveal (or optional finalize after window)
+        bool lucky; // Lucky NFT eligible: set at buy time iff USDC actually received >= LUCKY_MIN_USDC
     }
 
     /// @notice ABI-friendly view of a lock (includes computed revealableNow).
@@ -63,8 +71,21 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     uint256 public constant MAX_PAGE = 200;
     /// @notice Max items per `revealBatch`. Sized so worst-case gas stays ~well under Arc 30M block
     ///         limit and typical wallet UX (~few M). See tests for measured per-item gas.
-    uint256 public constant MAX_REVEAL_BATCH = 40;
+    uint256 public constant MAX_REVEAL_BATCH = 25; // worst case all Lucky winners via SeaDrop ~4.5M gas (fork-measured 178k/item)
     uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%
+    /// @notice Lucky NFT: buys whose GROSS USDC input (amount actually received by this contract from
+    ///         the buyer, before pool fee and before the SAVIOR-side treasury fee) >= 10 USDC are eligible.
+    uint256 public constant LUCKY_MIN_USDC = 10e6;
+    /// @notice Win chance in bps of 10_000 (5%).
+    uint256 public constant LUCKY_CHANCE_BPS = 500;
+    /// @notice Lucky NFT sink (immutable; its own minter/staking binding == this). address(0) disables.
+    ILuckySink public immutable luckySink;
+    /// @notice Gas forwarded to luckySink.onWin. The caller must leave at least LUCKY_GAS_REQUIRED, else the
+    ///         reveal reverts (a third-party revealer cannot starve the mint and still consume the draw).
+    uint256 public constant LUCKY_GAS = 400_000;
+    uint256 public constant LUCKY_GAS_REQUIRED = 420_000;
+    /// @notice Wins whose sink call reverted anyway (sink bug / misconfig). Reveal never reverts for it.
+    mapping(address => uint256) public luckyFailed;
 
     IERC20 public immutable savior;
     IPoolManagerMinimal public immutable poolManager;
@@ -103,6 +124,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     event EmergencyUnlockScheduled(uint64 executeAfter);
     event EmergencyUnlockCancelled();
     event Rescued(address indexed token, address indexed to, uint256 amount);
+    event LuckyWin(address indexed user, uint256 indexed index, bool delivered);
 
     error Locked();
     error ZeroAmount();
@@ -127,6 +149,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     error NotScheduled();
     error TimelockActive();
     error AlreadyUnlocked();
+    error LowGas();
 
     event Swapped(
         address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked
@@ -137,8 +160,10 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         IERC20 saviorToken,
         IPoolManagerMinimal poolManager_,
         address treasury_,
-        PoolKey memory key_
+        PoolKey memory key_,
+        ILuckySink luckySink_
     ) Ownable(initialOwner) {
+        luckySink = luckySink_;
         if (address(saviorToken) == address(0) || address(poolManager_) == address(0) || treasury_ == address(0)) {
             revert ZeroAddress();
         }
@@ -194,7 +219,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         if (net == 0 || net < minOut) revert Bad();
         if (fee != 0) IERC20(tokenOut).safeTransfer(treasury, fee);
 
-        uint256 locked = isBuy ? _payBuy(tokenOut, net) : _paySell(tokenOut, net);
+        uint256 locked = isBuy ? _payBuy(tokenOut, net, received >= LUCKY_MIN_USDC) : _paySell(tokenOut, net);
         emit Swapped(msg.sender, zeroForOne, received, out, fee, locked);
     }
 
@@ -219,11 +244,11 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         return 0;
     }
 
-    function _payBuy(address tokenOut, uint256 net) internal returns (uint256 locked) {
+    function _payBuy(address tokenOut, uint256 net, bool lucky) internal returns (uint256 locked) {
         locked = net / 2;
         if (locked != 0) {
             if (locked > type(uint128).max) revert AmountTooLarge();
-            _pushPending(msg.sender, uint128(locked));
+            _pushPending(msg.sender, uint128(locked), lucky);
         }
         IERC20(tokenOut).safeTransfer(msg.sender, net - locked);
     }
@@ -271,10 +296,10 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint256 received = savior.balanceOf(address(this)) - before;
         if (received < MIN_STAKE) revert BelowMinStake();
         if (received > type(uint128).max) revert AmountTooLarge();
-        index = _pushPending(user, uint128(received));
+        index = _pushPending(user, uint128(received), false);
     }
 
-    function _pushPending(address user, uint128 amount) internal returns (uint256 index) {
+    function _pushPending(address user, uint128 amount, bool lucky) internal returns (uint256 index) {
         index = _locks[user].length;
         uint64 createdAt = uint64(block.timestamp);
         uint64 unlockAt = createdAt + DEFAULT_LOCK; // 10 days immediately
@@ -286,7 +311,8 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
             createdAt: createdAt,
             targetBlock: target,
             revealDeadlineBlock: deadline,
-            pending: true
+            pending: true,
+            lucky: lucky
         }));
         totalLocked += amount;
         emit Staked(user, index, amount, createdAt, unlockAt, target, deadline);
@@ -366,6 +392,32 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         }
         l.pending = false;
         emit LockRevealed(user, i, l.unlockAt, duration, shortened);
+        // Lucky NFT: independent draw from the SAME committed hash, distinct domain tag. Always to `user`
+        // (lock owner), never msg.sender. Only reached on a real reveal (never after window / finalize).
+        if (l.lucky && address(luckySink) != address(0) && isLuckyWin(h, user, i, l.createdAt)) {
+            _lucky(user, i);
+        }
+    }
+
+    function _lucky(address user, uint256 i) internal {
+        if (gasleft() < LUCKY_GAS_REQUIRED) revert LowGas();
+        bool ok;
+        try luckySink.onWin{gas: LUCKY_GAS}(user, i) {
+            ok = true;
+        } catch {
+            ++luckyFailed[user];
+        }
+        emit LuckyWin(user, i, ok);
+    }
+
+    /// @notice Pure lucky draw (exposed for tests/UI): keccak(h, user, i, createdAt, "SAVIOR_LUCKY_V1") % 10000 < 500.
+    function isLuckyWin(bytes32 h, address user, uint256 i, uint64 createdAt) public pure returns (bool) {
+        return uint256(keccak256(abi.encode(h, user, i, createdAt, "SAVIOR_LUCKY_V1"))) % 10_000 < LUCKY_CHANCE_BPS;
+    }
+
+    /// @notice Whether lock `i` of `user` was created by a >= 10 USDC buy (eligible for the lucky draw).
+    function luckyEligible(address user, uint256 i) external view returns (bool) {
+        return i < _locks[user].length && _locks[user][i].lucky;
     }
 
     /// @dev Try reveal without reverting on skippable conditions. Returns true if revealed.
