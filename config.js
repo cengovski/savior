@@ -1,20 +1,22 @@
-// config.js, public, non-secret configuration (mirrors deployments/arc-mainnet.json on add-contracts).
+// config.js, public, non-secret configuration for the SAVIOR site on Arc mainnet.
+// Wiring verified on-chain: staking.key() = (USDC, token, 10000, 200, hook), hook.staking() = staking,
+// staking.luckySink() = distributor, distributor.staking() = staking, distributor.nft() = nft.
 window.SAVIOR_CONFIG = {
   chainId: 5042,
   rpc: "https://rpc.mainnet.arc.io",
   explorer: "https://explorer.arc.io",
   contracts: {
-    token:       "0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3", // SaviorToken (UUPS proxy), 6 decimals
-    hook:        "0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0",
-    staking:     "0xBCA651C0A0540a1fCDef066B5476d714431fa525", // v1 (legacy)
-    stakingV2:   "0x8807DA96A254B370e1E9ae8d3cc4163d1E2939bB", // SaviorStakingV2, deploy tx 0xea39975a...5fac4
-    stakingV2DeployBlock: 25311674, // from the deploy tx receipt (skips the on-chain deploy block search)
+    token:       "0x4A939085A36B4faB5D222b196619C0CdBdd6A022", // SAVIOR token (6 decimals, 1B fixed supply)
+    hook:        "0x813bdb7A1d4594B794ed9Df9Fad8A93f3873A080", // Uniswap V4 hook
+    staking:     "0xFFaed084D0186FA96138d523f9292Fd4e47Dad63", // staking: swaps, locks, lock reveal
+    distributor: "0x54713bd7f1B6c23eCe81A2F334E247789A569c5e", // Lucky NFT distributor (empty hides the Lucky NFT card)
+    nft:         "0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c", // Savior Weapons (OpenSea SeaDrop)
+    deployer:    "0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c", // deployer of the stack above
+    deployBlock: 25416100, // deploy tx receipt (start of the Staked event scan)
     poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
     usdc:        "0x3600000000000000000000000000000000000000",
     treasury:    "0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787",
   },
-  // keccak256(abi.encode(PoolKey{USDC, SAVIOR, fee 10000, tickSpacing 200, hook}))
-  poolId: "0x004d7e7f668a78ea18228d753008ccf0c2b6b9e7c6c03d7a44d7cd954d072ab6",
   tokenDecimals: 6,
   usdcDecimals: 6, // ERC-20 interface of Arc USDC (native gas uses 18)
   // Buys >= this many USDC are highlighted. Override with ?bigbuy=NN
@@ -23,20 +25,6 @@ window.SAVIOR_CONFIG = {
   // https://developers.circle.com/cctp/references/contract-addresses (Mainnet tables)
   // and the chain definition shipped in @circle-fin/bridge-kit@1.15.2. Bridge Kit uses these internally;
   // listed here for display/reference only.
-  // FRESH START (new token + hook + pool, SaviorStakingFresh with lock reveal, Lucky NFT). Deployed on Arc mainnet
-  // by FreshDeployer 0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c, tx 0x88312965...538e34ad (block 25416100).
-  // Wiring verified on-chain: staking.key() = (USDC, token, 10000, 200, hook), hook.staking() = staking,
-  // staking.luckySink() = distributor, distributor.staking() = staking, distributor.nft() = nft.
-  // Emptying token, hook or staking switches the site back to the old stack.
-  fresh: {
-    token:       "0x4A939085A36B4faB5D222b196619C0CdBdd6A022", // SaviorTokenV2 (6 decimals, 1B fixed supply)
-    hook:        "0x813bdb7A1d4594B794ed9Df9Fad8A93f3873A080", // SaviorHookFresh
-    staking:     "0xFFaed084D0186FA96138d523f9292Fd4e47Dad63", // SaviorStakingFresh
-    distributor: "0x54713bd7f1B6c23eCe81A2F334E247789A569c5e", // LuckyDistributor (empty hides the Lucky NFT card)
-    nft:         "0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c", // Savior Weapons (SWRP), OpenSea SeaDrop clone
-    factory:     "0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c", // FreshDeployer
-    deployBlock: 25416100, // receipt of the FreshDeployer.deploy tx (start of the Staked event scan)
-  },
   cctp: {
     domain: 26,
     tokenMessengerV2:     "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
@@ -46,45 +34,18 @@ window.SAVIOR_CONFIG = {
   },
 };
 
-// Staking v2 switch. Active only for a valid, non-zero address; otherwise the site behaves exactly as with v1 only.
-// Local testing only (localhost): ?v2=0x... overrides the address, e.g. against an anvil fork (see rpc.js ?rpc=).
-(function (C) {
-  let a = (C.contracts.stakingV2 || "").trim();
-  const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  const q = local && new URLSearchParams(location.search).get("v2");
-  if (q) a = q.trim();
-  C.v2 = /^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x0{40}$/i.test(a) ? a : "";
-  // v2 differences used by the site: minOut is checked against NET output (after the 0.3% treasury fee),
-  // v1 checked the GROSS pool output. Fee (0.3%) and the 50/50 instant/locked split are unchanged.
-  // The old staking contract is retired (no SAVIOR left, globalUnlock true): with v2 set, the site reads only v2.
-  C.v1Retired = !!C.v2;
-  C.stakingSources = C.v1Retired ? [{ id: "v2", label: "", address: C.v2 }] : C.v2 ? [{ id: "v1", label: "Old", address: C.contracts.staking }, { id: "v2", label: "v2", address: C.v2 }]
-                          : [{ id: "v1", label: "", address: C.contracts.staking }];
-})(window.SAVIOR_CONFIG);
-
-// Fresh-start switch. Active only when fresh.token, fresh.hook and fresh.staking are valid non-zero addresses.
-// Then the site uses the new token/pool/staking and only the fresh staking contract (old v1/v2 are not read).
-// Local testing only (localhost): ?fresh=token,hook,staking,distributor,deployBlock (e.g. an anvil fork, with ?rpc=).
+// Derived values. Local testing only (localhost): ?stack=token,hook,staking,distributor,deployBlock
+// points the site at another deployment (e.g. an anvil fork, together with rpc.js ?rpc=).
 (function (C) {
   const ok = (a) => /^0x[0-9a-fA-F]{40}$/.test(a || "") && !/^0x0{40}$/i.test(a);
-  const f = Object.assign({}, C.fresh);
   const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  const q = local && new URLSearchParams(location.search).get("fresh");
-  if (q) { const [token, hook, staking, distributor, deployBlock] = q.split(","); Object.assign(f, { token, hook, staking, distributor, deployBlock: Number(deployBlock) || 0 }); }
-  C.freshActive = !!(ok(f.token) && ok(f.hook) && ok(f.staking));
-  if (!C.freshActive) return;
-  C.legacy = { contracts: Object.assign({}, C.contracts), poolId: C.poolId };
-  C.fresh = Object.assign(f, { distributor: ok(f.distributor) ? f.distributor : "" });
-  C.contracts.token = f.token;
-  C.contracts.hook = f.hook;
-  C.contracts.stakingV2 = f.staking;
-  C.contracts.stakingV2DeployBlock = f.deployBlock || 0;
-  C.v2 = f.staking;
-  C.v1Retired = true;
-  C.stakingSources = [{ id: "v2", label: "", address: f.staking }];
-  // Pool ordering: currency0 is the lower address. Live pool: USDC is currency0.
-  C.saviorIsCurrency0 = BigInt(f.token) < BigInt(C.contracts.usdc);
-  const [c0, c1] = C.saviorIsCurrency0 ? [f.token, C.contracts.usdc] : [C.contracts.usdc, f.token];
+  const q = local && new URLSearchParams(location.search).get("stack");
+  if (q) { const [token, hook, staking, distributor, deployBlock] = q.split(","); Object.assign(C.contracts, { token, hook, staking, distributor, deployBlock: Number(deployBlock) || 0 }); }
+  if (!ok(C.contracts.distributor)) C.contracts.distributor = "";
+  // Pool ordering: currency0 is the lower address.
+  C.saviorIsCurrency0 = BigInt(C.contracts.token) < BigInt(C.contracts.usdc);
+  const [c0, c1] = C.saviorIsCurrency0 ? [C.contracts.token, C.contracts.usdc] : [C.contracts.usdc, C.contracts.token];
+  // keccak256(abi.encode(PoolKey{currency0, currency1, fee 10000, tickSpacing 200, hook}))
   C.poolId = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
-    ["address", "address", "uint24", "int24", "address"], [c0, c1, 10000, 200, f.hook]));
+    ["address", "address", "uint24", "int24", "address"], [c0, c1, 10000, 200, C.contracts.hook]));
 })(window.SAVIOR_CONFIG);

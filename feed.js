@@ -3,8 +3,8 @@
 //  - PoolManager Swap (decoded from receipts of txs that move SAVIOR through the PoolManager)(bytes32 indexed id, address indexed sender, int128 amount0, int128 amount1, uint160, uint128, int24, uint24)
 //    filtered to the SAVIOR pool id. currency0 = USDC, currency1 = SAVIOR; amounts are the swapper's deltas,
 //    so amount0 < 0 means USDC paid in => BUY.
-//  - SaviorToken Transfer events touching the Staking contract => stake/lock and claim.
-//    (On-chain scan 2026-10-10: SaviorStaking itself emits no events, so token transfers are the only signal.)
+//  - SAVIOR Transfer events touching the staking contract => stake/lock and claim.
+//  - Staking events in the same getLogs call: reveal results, Reveal all batches and Lucky NFT wins.
 (function () {
   const C = window.SAVIOR_CONFIG;
   const SWAP_TOPIC = "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f";
@@ -12,10 +12,7 @@
   const CHUNK = 2000, BACKFILL_CHUNKS = 30, POLL_MS = 8000, MAX_ITEMS = 40;
   const lc = (a) => (a || "").toLowerCase();
   const STAKING = lc(C.contracts.staking), PM = lc(C.contracts.poolManager), TREASURY = lc(C.contracts.treasury);
-  // Staking v2: both contracts count as staking; rows are labelled by source only when v2 is active.
-  const V2 = lc(C.v2 || "");
-  const isStaking = (a) => a === STAKING || (V2 && a === V2);
-  const srcOf = (a) => (V2 && a === V2 ? "v2" : "v1");
+  const isStaking = (a) => a === STAKING;
   let provider, lastBlock = 0, timer = null, seen = new Set(), items = [];
 
   const topicAddr = (t) => "0x" + t.slice(26);
@@ -31,18 +28,15 @@
     if (retry) { const b = el("button", "link", " Retry"); b.onclick = () => { clearTimeout(timer); setStatus("Reconnecting to Arc..."); poll(); }; e.appendChild(b); }
   }
   // cache: last trades survive reloads and show instantly
-  // Fresh start: the same getLogs call also carries the fresh staking events (address array + topic OR).
-  const FRESH = !!C.freshActive;
-  const EV = FRESH ? {
+  // The same getLogs call also carries the staking events (address array + topic OR).
+  const EV = {
     revealed: ethers.id("LockRevealed(address,uint256,uint64,uint64,bool)"),
     finalized: ethers.id("LockRevealFinalized(address,uint256,uint64)"),
     batch: ethers.id("RevealBatch(address,uint256,uint256)"),
     lucky: ethers.id("LuckyWin(address,uint256,bool)"),
-  } : {};
-  const logFilter = (from, to) => FRESH
-    ? { address: [C.contracts.token, C.v2], topics: [[TRANSFER_TOPIC, EV.revealed, EV.finalized, EV.batch, EV.lucky]], fromBlock: from, toBlock: to }
-    : { address: C.contracts.token, topics: [TRANSFER_TOPIC], fromBlock: from, toBlock: to };
-  const CACHE_KEY = FRESH ? "savior.feed.fresh." + V2 : V2 ? "savior.feed.v2." + V2 : "savior.feed.v1"; // v2 mode never mixes with v1-only cache
+  };
+  const logFilter = (from, to) => ({ address: [C.contracts.token, C.contracts.staking], topics: [[TRANSFER_TOPIC, EV.revealed, EV.finalized, EV.batch, EV.lucky]], fromBlock: from, toBlock: to });
+  const CACHE_KEY = "savior.feed." + STAKING; // keyed by the staking address
   let backfillFailed = false, pollFails = 0, lastPollOk = 0, seedScanned = 0;
   function saveCache() {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify({ lastBlock, items: items.map((i) => ({ ...i, _req: undefined, locked: i.locked == null ? null : String(i.locked) })) })); } catch (e) {}
@@ -68,7 +62,6 @@
       const kind = el("span", "feed-kind k-" + it.kind);
       if (it.big) kind.innerHTML = '<svg class="ico-16"><use href="#i-bolt"/></svg>';
       kind.appendChild(document.createTextNode(it.kind));
-      if (V2 && it.src && !C.v1Retired) kind.appendChild(el("span", "src-tag", it.src === "v2" ? "v2" : "Old"));
       const mid = el("div", "feed-main");
       mid.appendChild(el("div", null, it.text));
       if (it.locked != null) {
@@ -76,7 +69,7 @@
           `${fmt(it.locked, C.tokenDecimals)} locked` + (it.pending ? ", 10 days (default), pending reveal" : it.unlock === undefined ? "" : it.unlock ? `, unlocks ${new Date(it.unlock * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ", claimed")));
         if (it.unlock === undefined && !it._req && window.SaviorLocks && it.who) {
           it._req = true;
-          (C.v1Retired && (it.src || "v1") === "v1" ? Promise.resolve(null) : window.SaviorLocks.lockForBuy(it.who, it.locked, it.src || "v1")).then((l) => { it.unlock = l ? l.unlockAt : null; it.pending = !!(l && l.pending && !(l.deadline && window.SaviorLocks.head() > l.deadline)); render(); }).catch(() => { it._req = false; });
+          window.SaviorLocks.lockForBuy(it.who, it.locked).then((l) => { it.unlock = l ? l.unlockAt : null; it.pending = !!(l && l.pending && !(l.deadline && window.SaviorLocks.head() > l.deadline)); render(); }).catch(() => { it._req = false; });
         }
       }
       row.append(kind, mid, el("span", "feed-who", it.who ? short(it.who) : "#" + it.block));
@@ -109,7 +102,7 @@
   // (very noisy), so we scan only the sparse SAVIOR Transfer log and decode the pool Swap from the receipt.
   async function fetchRange(from, to, live, pre) {
     let transfers = pre || await withRetry(() => provider.getLogs(logFilter(from, to)));
-    if (FRESH) { freshEvents(transfers.filter((l) => lc(l.address) === V2), live); transfers = transfers.filter((l) => lc(l.address) !== V2); }
+    stakingEvents(transfers.filter((l) => lc(l.address) === STAKING), live); transfers = transfers.filter((l) => lc(l.address) !== STAKING);
     const byTx = new Map();
     for (const l of transfers) { if (!byTx.has(l.transactionHash)) byTx.set(l.transactionHash, []); byTx.get(l.transactionHash).push(l); }
     for (const [hash, logs] of byTx) {
@@ -126,8 +119,7 @@
             const usdcNum = Number(ethers.formatUnits(a0 < 0n ? -a0 : a0, C.usdcDecimals));
             let locked = null;
             if (buy) { const net = a1 - (a1 * 30n) / 10000n; locked = net / 2n; } // 0.3% treasury fee, then 50% locked
-            const src = srcOf(lc(topicAddr(l.topics[2]))); // Swap(id, sender, ...): sender is the staking contract
-            add({ kind: buy ? "BUY" : "SELL", src, text: buy ? `${usdc} USDC to ${sav} SAVIOR` : `${sav} SAVIOR to ${usdc} USDC`,
+            add({ kind: buy ? "BUY" : "SELL", text: buy ? `${usdc} USDC to ${sav} SAVIOR` : `${sav} SAVIOR to ${usdc} USDC`,
                   who: rc.from, tx: hash, block: l.blockNumber, idx: l.index, big: buy && usdcNum >= C.bigBuyUsdc, locked }, live);
           }
           continue; // remaining transfers are the swap's lock split
@@ -136,14 +128,14 @@
       for (const l of logs) {
         const f = lc(topicAddr(l.topics[1])), t = lc(topicAddr(l.topics[2]));
         const amt = fmt(BigInt(l.data), C.tokenDecimals);
-        if (isStaking(t) && f !== PM && !isStaking(f)) add({ kind: "STAKE", src: srcOf(t), text: `${amt} SAVIOR locked`, who: f, tx: hash, block: l.blockNumber, idx: l.index }, live);
-        else if (isStaking(f) && t !== PM && t !== TREASURY && !isStaking(t)) add({ kind: "CLAIM", src: srcOf(f), text: `${amt} SAVIOR claimed`, who: t, tx: hash, block: l.blockNumber, idx: l.index }, live);
+        if (isStaking(t) && f !== PM && !isStaking(f)) add({ kind: "STAKE", text: `${amt} SAVIOR locked`, who: f, tx: hash, block: l.blockNumber, idx: l.index }, live);
+        else if (isStaking(f) && t !== PM && t !== TREASURY && !isStaking(t)) add({ kind: "CLAIM", text: `${amt} SAVIOR claimed`, who: t, tx: hash, block: l.blockNumber, idx: l.index }, live);
       }
     }
   }
 
-  // Fresh staking events: reveal results, Reveal all batches and Lucky NFT wins.
-  function freshEvents(logs, live) {
+  // Staking events: reveal results, Reveal all batches and Lucky NFT wins.
+  function stakingEvents(logs, live) {
     const dec = (types, data) => ethers.AbiCoder.defaultAbiCoder().decode(types, data);
     const days = (s) => (Number(s) / 86400).toLocaleString("en-US", { maximumFractionDigits: 2 });
     for (const l of logs) {
@@ -210,9 +202,10 @@
     // 1) instant: trades from a previous visit, else the shipped snapshot
     let cached = null; try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch (e) {}
     if (cached && cached.items && cached.items.length) { loadItems(cached.items); lastBlock = cached.lastBlock || 0; }
-    else if (FRESH) seedScanned = Math.max(0, (C.contracts.stakingV2DeployBlock || 0) - 1); // fresh: no old-token seed, scan from deploy
     else {
-      try { const r = await fetch(new URL("locks-seed.json", document.baseURI), { cache: "no-cache" }); if (r.ok) { const sd = await r.json(); loadItems(sd.trades); seedScanned = sd.scanned || 0; } } catch (e) {}
+      // shipped snapshot, only if it was generated for this staking contract; otherwise scan from the deploy block
+      seedScanned = Math.max(0, (C.contracts.deployBlock || 0) - 1);
+      try { const r = await fetch(new URL("locks-seed.json", document.baseURI), { cache: "no-cache" }); if (r.ok) { const sd = await r.json(); if (lc(sd.staking) === STAKING) { loadItems(sd.trades); seedScanned = Math.max(seedScanned, sd.scanned || 0); } } } catch (e) {}
     }
     if (items.length) { render(); setStatus("Showing recent trades, connecting to Arc..."); }
     else setStatus("Loading recent trades...");
