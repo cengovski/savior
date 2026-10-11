@@ -323,7 +323,6 @@ contract CommitRevealLockTest is Test {
     function test_revealBatch_gas_at_max() public {
         uint256 max = staking.MAX_REVEAL_BATCH();
         // fund and stake max locks for user
-        uint256 need = max * 10e6;
         // user already has huge supply from token ctor
         for (uint256 k = 0; k < max; k++) {
             _stakeAs(user, 10e6);
