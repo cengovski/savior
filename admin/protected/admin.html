@@ -326,6 +326,10 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
         <div><label>Mint price per NFT (USDC, 0 = free)</label><input id="fsPrice" value="0"></div>
         <div><label>maxTotalMintableByWallet (distributor)</label><input id="fsMaxWallet" value="1000000"></div>
       </div>
+      <div class="subtitle"><b>Lock down drop (required first):</b> OpenSea Studio leaves a signed-mint signer and a scheduled public stage on the collection, which would let others mint. Every signer must be removed and the public drop fully closed before the distributor can be deployed. Checked again on every refresh.</div>
+      <button class="btn-sm" id="fsLockChk" disabled onclick="fsLockdownCheck()">Check drop lockdown</button>
+      <div id="fsLockBtns"></div>
+      <div class="result" id="fsLockdown">Enter the collection address and press Check.</div>
       <button id="fsBtn3" disabled onclick="fsStep3()">Verify collection + simulate + deploy distributor</button>
       <div class="result" id="fsRes3">Waiting...</div>
     </div>
@@ -1752,6 +1756,48 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
 
   function cloneCode(impl){ return ('0x363d3d373d3d3d363d73' + impl.slice(2) + '5af43d82803e903d91602b57fd5bf3').toLowerCase(); }
 
+  const LD_ABI = ['function getSigners(address) view returns (address[])', 'function getPayers(address) view returns (address[])',
+    'function getSignedMintValidationParams(address,address) view returns (tuple(uint80 minMintPrice,uint24 maxMaxTotalMintableByWallet,uint40 minStartTime,uint40 maxEndTime,uint40 maxMaxTokenSupplyForStage,uint16 minFeeBps,uint16 maxFeeBps))',
+    'function getPublicDrop(address) view returns (tuple(uint80 mintPrice,uint48 startTime,uint48 endTime,uint16 maxTotalMintableByWallet,uint16 feeBps,bool restrictFeeRecipients))'];
+  const LD_NFT_ABI = ['function updateSignedMintValidationParams(address,address,tuple(uint80,uint24,uint40,uint40,uint40,uint16,uint16))',
+    'function updatePublicDrop(address,tuple(uint80,uint48,uint48,uint16,uint16,bool))'];
+  // Lockdown gate: no signers AND public drop fully closed (maxTotalMintableByWallet == 0 and endTime <= now).
+  async function lockdownState(nft){
+    const sd = new ethers.Contract(FS.SEADROP, LD_ABI, rp());
+    const [signers, pub, payers, now] = await Promise.all([sd.getSigners(nft), sd.getPublicDrop(nft), sd.getPayers(nft), rp().getBlock('latest').then(b => BigInt(b.timestamp))]);
+    const params = await Promise.all(signers.map(s => sd.getSignedMintValidationParams(nft, s)));
+    const pubClosed = Number(pub.maxTotalMintableByWallet) === 0 && BigInt(pub.endTime) <= now;
+    return { signers, params, pub, payers, pubClosed, ok: signers.length === 0 && pubClosed };
+  }
+  function ldNft(){ const v = (st.nft || $('fsNft').value || '').trim(); return ethers.isAddress(v) ? ethers.getAddress(v) : null; }
+  async function renderLockdown(){
+    const nft = ldNft();
+    if (!nft) { chain.lockdown = false; out('fsLockdown', 'Enter the collection address and press Check.', ''); $('fsLockBtns').innerHTML = ''; return false; }
+    const s = await lockdownState(nft);
+    const L = ['collection ' + nft];
+    L.push((s.signers.length ? 'BAD ' : 'OK  ') + 'signed-mint signers: ' + (s.signers.length ? s.signers.join(', ') : 'none'));
+    s.signers.forEach((a, i) => { const p = s.params[i]; L.push('    ' + a + ': minPrice ' + p.minMintPrice + ', maxPerWallet ' + p.maxMaxTotalMintableByWallet + ', start ' + p.minStartTime + ', end ' + p.maxEndTime + ', supply ' + p.maxMaxTokenSupplyForStage); });
+    L.push((s.pubClosed ? 'OK  ' : 'BAD ') + 'public drop closed (price ' + s.pub.mintPrice + ', start ' + s.pub.startTime + ', end ' + s.pub.endTime + ', maxPerWallet ' + s.pub.maxTotalMintableByWallet + ', feeBps ' + s.pub.feeBps + ')');
+    if (s.payers.length) L.push('INFO payers set (OpenSea checkout): ' + s.payers.join(', ') + '. They can only mint inside an active stage.');
+    L.push(s.ok ? 'LOCKED DOWN: ok to continue.' : 'NOT locked down: use the buttons above (deployer wallet), later steps stay disabled.');
+    out('fsLockdown', L.join('\n'), s.ok ? 'ok' : 'err');
+    const dep = isDeployer();
+    $('fsLockBtns').innerHTML = s.signers.map(a => '<button class="btn-sm btn-red" ' + (dep ? '' : 'disabled ') + 'onclick="fsLockSigner(\'' + a + '\')">Remove signer ' + a.slice(0, 8) + '...</button>').join(' ') +
+      (s.pubClosed ? '' : ' <button class="btn-sm btn-red" ' + (dep ? '' : 'disabled ') + 'onclick="fsLockPublic(' + Number(s.pub.feeBps || 1000) + ')">Close public drop</button>');
+    chain.lockdown = s.ok;
+    return s.ok;
+  }
+  window.fsLockdownCheck = async function(){ try { await renderLockdown(); setBtns(chain.done || {}); } catch(e){ out('fsLockdown', em(e), 'err'); } };
+  async function ldSend(fn, args, label){
+    const nft = ldNft();
+    if (!isDeployer()) throw new Error('Connect the deployer wallet');
+    const c = new ethers.Contract(nft, LD_NFT_ABI, signer);
+    await simSend(c, fn, args, 'fsLockdown', label);
+    await renderLockdown(); setBtns(chain.done || {});
+  }
+  window.fsLockSigner = async function(a){ try { await ldSend('updateSignedMintValidationParams', [FS.SEADROP, a, [0,0,0,0,0,0,0]], 'remove signer ' + a); } catch(e){ out('fsLockdown', em(e), 'err'); } };
+  window.fsLockPublic = async function(bps){ try { await ldSend('updatePublicDrop', [FS.SEADROP, [0,0,0,0,bps || 1000,true]], 'close public drop'); } catch(e){ out('fsLockdown', em(e), 'err'); } };
+
   async function verifyLucky(){
     const r = { ok: false, lines: [] };
     if (!st.nft || !st.dist) { r.lines.push('No collection / distributor yet.'); return r; }
@@ -1871,7 +1917,8 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
     const prev = k => [1,2,3,4,5,6].slice(0, k - 1).every(j => done[j]);
     $('fsBtn1').disabled = !dep || done[1];
     $('fsBtn2').disabled = !dep || !prev(2) || done[2];
-    $('fsBtn3').disabled = !dep || !prev(3) || done[3] || chain.deployed;
+    $('fsLockChk').disabled = !prev(3);
+    $('fsBtn3').disabled = !dep || !prev(3) || done[3] || chain.deployed || !chain.lockdown;
     $('fsBtn4').disabled = !dep || !prev(4) || done[4] || chain.deployed;
     $('fsBtn5').disabled = !dep || !prev(5) || done[5] || chain.deployed;
     $('fsMineBtn').disabled = $('fsCheckSaltBtn').disabled = !dep || !prev(6) || chain.deployed;
@@ -1892,7 +1939,8 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       const show = (id, head, v, has) => out(id, head + v.lines.concat(v.warn || []).join('\n'), v.ok ? 'ok' : (has ? 'err' : ''));
       const v1 = await verifyToken(); done[1] = v1.ok; show('fsRes1', st.token ? 'TOKEN ' + st.token + '\ntx ' + st.tokenTx + '\n' : '', v1, st.token);
       if (done[1]) { const v = await verifyFactory(); done[2] = v.ok; show('fsRes2', st.factory ? 'FACTORY ' + st.factory + '\ntx ' + st.factoryTx + '\n' : '', v, st.factory); }
-      if (done[2]) { const v = await verifyLucky(); done[3] = v.ok; show('fsRes3', st.dist ? 'COLLECTION ' + st.nft + '\nDISTRIBUTOR ' + st.dist + '\ntx ' + st.distTx + '\n' : '', v, st.dist); if (st.nft) $('fsNft').value = st.nft; }
+      if (done[2]) { try { await renderLockdown(); } catch { chain.lockdown = false; } }
+      if (done[2]) { const v = await verifyLucky(); done[3] = v.ok && !!chain.lockdown; show('fsRes3', st.dist ? 'COLLECTION ' + st.nft + '\nDISTRIBUTOR ' + st.dist + '\ntx ' + st.distTx + '\n' : '', v, st.dist); if (st.nft) $('fsNft').value = st.nft; }
       if (done[3]) { const v = await dropConfig(); done[4] = v.ok; show('fsRes4', '', v, true); }
       if (done[4]) { const v = await verifyApproval(); done[5] = v.ok; show('fsRes5', '', v, false); }
       if (done[5] && !chain.deployed && st.salt) { try { chain.saltOk = await new ethers.Contract(st.factory, FACTORY_ABI, rp()).isValidHookSalt(st.salt); if (chain.saltOk) $('fsSalt').value = st.salt; } catch { chain.saltOk = false; } }
@@ -1946,6 +1994,7 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
   window.fsStep3 = async function(){
     try {
       need(2);
+      if (!(await renderLockdown())) throw new Error('Lock down the drop first (signers removed, public drop closed)');
       if (st.dist) throw new Error('A distributor is already stored.');
       const nft = ethers.getAddress($('fsNft').value.trim());
       const code = (await rp().getCode(nft)).toLowerCase();
