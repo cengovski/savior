@@ -204,7 +204,23 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
 
   <!-- LİKİDİTE -->
   <div class="section" id="tab-liquidity">
-    <div class="card"><h2>Tick Hesapla</h2>
+    <div class="card"><h2>SAVIOR/USDC V4 Pool — Pozisyonlar</h2>
+      <p class="subtitle">Pool: fee 10000, tickSpacing 200, hook 0xFfcf…60c0. Likidite PositionManager NFT değil; legacy proxy <code>0x6109…3c95</code> üzerinden PoolManager salt=0 pozisyonları. Deployer: <code>0x7185…20e7</code>.</p>
+      <div class="warning" id="liqOwnerWarn">Yükleniyor…</div>
+      <button onclick="liqLoadPositions()">Zincirden Yükle</button>
+      <div class="result" id="liqPosResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Tümünü Deployer'a Çek</h2>
+      <p class="subtitle">Adımlar: (1) legacy proxy owner kontrolü — şu an renounce edilmiş (<code>owner()==0</code>), bu yüzden eth_call NotOwner döner. (2) LiquidityRescue deploy. (3) <code>upgradeToAndCall(rescue, withdrawAllAndRestore)</code> — likiditeyi çeker, eski impl'i geri yazar. Her yazma önce eth_call.</p>
+      <button class="btn-red" id="liqWithdrawBtn" onclick="liqWithdrawAll()">Simüle Et + Withdraw All</button>
+      <div class="result" id="liqWithdrawResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>20-Tranche SAVIOR Ladder</h2>
+      <p class="subtitle">Withdraw sonrası deployer bakiyesini 20 eşit dilime böl; fiyatın altındaki ardışık tek taraflı (yalnızca SAVIOR) aralıklara yerleştir. Hedef: tüm SAVIOR'ı almak ~50.000 USDC brüt (%1 havuz ücreti dahil). PositionManager + Permit2. Yalnızca deployer imzalar.</p>
+      <button class="btn-green" id="liqLadderBtn" onclick="liqAddLadder()">Simüle Et + 20-Tranche Ladder</button>
+      <div class="result" id="liqLadderResult">Bekleniyor...</div>
+    </div>
+    <div class="card"><h2>Tick Hesapla (eski)</h2>
       <div class="grid2">
         <div><label>Fiyat (SAVIOR/USDC)</label><input id="calcPrice" value="200000"></div>
         <div><label>Tick Spacing</label><input id="calcTickSpacing" value="200"></div>
@@ -212,7 +228,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button onclick="calcTick()">Hesapla</button>
       <div class="result" id="calcResult">Bekleniyor...</div>
     </div>
-    <div class="card"><h2>Likidite Ekle</h2>
+    <div class="card"><h2>Likidite Ekle (eski staking proxy)</h2>
       <label>Staking Proxy</label><input id="liqStaking" placeholder="0x...">
       <div class="grid3">
         <div><label>Tick Lower</label><input id="liqTickLower" value="119200"></div>
@@ -225,7 +241,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       </div>
       <div class="result" id="liqAddResult">Bekleniyor...</div>
     </div>
-    <div class="card"><h2>Likidite Çıkar</h2>
+    <div class="card"><h2>Likidite Çıkar (eski staking proxy)</h2>
       <label>Staking Proxy</label><input id="remLiqStaking" placeholder="0x...">
       <div class="grid3">
         <div><label>Tick Lower</label><input id="remTickLower" value="119200"></div>
@@ -1039,6 +1055,169 @@ function setResult(id, msg, cls) {
   }
 </script>
 <script>
+
+// ── Liquidity V4 pool (legacy proxy positions + 20-tranche ladder) ──
+const LIQ = (() => {
+  const DEPLOYER = '0x7185d50557040047A142aEadA95e41C4b31720e7';
+  const LEGACY = '0x61096C5850d492530524c14c0602757f1d9d3c95';
+  const USDC = '0x3600000000000000000000000000000000000000';
+  const SAVIOR = '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3';
+  const HOOK = '0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0';
+  const PM = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
+  const POSM = '0x6049c9a0e26405C0985f9E3685C87d0aE917f82B';
+  const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+  const STATE_VIEW = '0xF3334192D15450CdD385c8B70e03f9A6bD9E673b';
+  const POOL_ID = '0x004d7e7f668a78ea18228d753008ccf0c2b6b9e7c6c03d7a44d7cd954d072ab6';
+  const RESTORE_IMPL = '0x954fF6ae3f19167f7c6c24FF6a43680c0Ffb5C83';
+  const RANGES = [[121000,121200],[121200,121400],[121400,121600],[121600,121800],[121800,122000]];
+  // 20-tranche ladder ticks (upper → lower); SAVIOR-only below price
+  const LADDER_TICKS = [121800,120000,118200,116400,114600,112800,111000,109200,107400,105600,103800,102000,100200,98400,96600,94800,93000,91400,89800,88200,86600];
+  const LADDER_SQRT = ['34962360349697265032986773817444','31953335214378312554014683580590','29203280931553866779873355698343','26689909251898744636872781992034','24392850157630797652685242206350','22293486770484211798113310380059','20374804468278937933786501323173','18621252987227656732820051416783','17018620392366642985394678120592','15553917894683978985743565222032','14215274581427338678292663124139','12991841206416493925970834189792','11873702260613933624349404812283','10851795610315646184681248037272','9917839051657088880707386496347','9064263186183736465700110338626','8284150073465667804633817457384','7647264935695662854132592423401','7059343502725204859575735652508','6516621446819952884979925665545','6015623841616429162295202690126'];
+  const RESCUE_BC = '0x60a0604052306080523480156012575f80fd5b50608051610e9d6100325f395f818161020701526107270152610e9d5ff3fe608060405234801561000f575f80fd5b50600436106100a6575f3560e01c806391dd73461161006e57806391dd734614610126578063a54eb24214610146578063aa4cfccd14610161578063badcc2f81461017c578063c1b8411a14610197578063c318fd29146101b2575f80fd5b80633e0dc34e146100aa5780634fad8872146100c557806352d1902d146100f857806362308e851461010057806389a302711461011b575b5f80fd5b6100b26101c7565b6040519081526020015b60405180910390f35b6100e073e4065efc5e19305e4ed1dfdb6542a32a34e0caf381565b6040516001600160a01b0390911681526020016100bc565b6100b26101fb565b6100e0738366a39cc670b4001a1121b8f6a443a643e4095181565b6100e0601b60991b81565b610139610134366004610958565b61026a565b6040516100bc91906109c6565b6100e073ffcf2ef82aa17fb31f3618e0302f9adc92d060c081565b6100e073f3334192d15450cdd385c8b70e03f9a6bd9e673b81565b6100e073954ff6ae3f19167f7c6c24ff6a43680c0ffb5c8381565b6100e0737185d50557040047a142aeada95e41c4b31720e781565b6101c56101c0366004610a43565b61071d565b005b5f6101d06108d4565b6040516020016101e09190610af2565b60405160208183030381529060405280519060200120905090565b5f306001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461024557604051634e66b6bb60e11b815260040160405180910390fd5b507f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc90565b606033738366a39cc670b4001a1121b8f6a443a643e40951146102a05760405163f655705d60e01b815260040160405180910390fd5b5f806102ae84860186610be2565b915091505f805f6102bd6101c7565b90505f5b8551811015610571575f73f3334192d15450cdd385c8b70e03f9a6bd9e673b6001600160a01b031663dacf1d2f84308a868151811061030257610302610c47565b60200260200101518a878151811061031c5761031c610c47565b60209081029190910101516040516001600160e01b031960e087901b16815260048101949094526001600160a01b039092166024840152600290810b60448401520b60648201525f608482015260a401606060405180830381865afa158015610387573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906103ab9190610c5b565b50509050806001600160801b03165f036103c55750610569565b5f738366a39cc670b4001a1121b8f6a443a643e40951635a6bcfda6103e86108d4565b60405180608001604052808c888151811061040557610405610c47565b602002602001015160020b81526020018b888151811061042757610427610c47565b602002602001015160020b8152602001866001600160801b031661044a90610cae565b81525f6020909101526040516001600160e01b031960e085901b168152610475929190600401610cc8565b60408051808303815f875af1158015610490573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906104b49190610d19565b5090506104c5608082901d87610d3b565b95506104d5600f82900b86610d3b565b94507f62be0f625694c5da291c31b40d434af2c12899250214af363d7c72c2979a82b688848151811061050a5761050a610c47565b602002602001015188858151811061052457610524610c47565b60200260200101518460405161055e93929190600293840b81529190920b60208201526001600160801b0391909116604082015260600190565b60405180910390a150505b6001016102c1565b505f83128061057f57505f82125b1561059d57604051632bb9acf760e01b815260040160405180910390fd5b5f83131561062a57604051630b0d9c0960e01b8152601b60991b6004820152737185d50557040047a142aeada95e41c4b31720e7602482015260448101849052738366a39cc670b4001a1121b8f6a443a643e4095190630b0d9c09906064015f604051808303815f87803b158015610613575f80fd5b505af1158015610625573d5f803e3d5ffd5b505050505b5f8213156106c757604051630b0d9c0960e01b815273e4065efc5e19305e4ed1dfdb6542a32a34e0caf36004820152737185d50557040047a142aeada95e41c4b31720e7602482015260448101839052738366a39cc670b4001a1121b8f6a443a643e4095190630b0d9c09906064015f604051808303815f87803b1580156106b0575f80fd5b505af11580156106c2573d5f803e3d5ffd5b505050505b60408051848152602081018490527fef53713ee4f072f79f4d516084e3f4d15f2cde709d2091235b37ae719c272dd6910160405180910390a160405180602001604052805f815250955050505050505b92915050565b6001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016300361076657604051634e66b6bb60e11b815260040160405180910390fd5b33737185d50557040047a142aeada95e41c4b31720e71461079a57604051638b906c9760e01b815260040160405180910390fd5b8215806107a75750828114155b156107c557604051632bb9acf760e01b815260040160405180910390fd5b738366a39cc670b4001a1121b8f6a443a643e409516001600160a01b03166348c89491858585856040516020016107ff9493929190610da2565b6040516020818303038152906040526040518263ffffffff1660e01b815260040161082a91906109c6565b5f604051808303815f875af1158015610845573d5f803e3d5ffd5b505050506040513d5f823e601f3d908101601f1916820160405261086c9190810190610dd3565b5073954ff6ae3f19167f7c6c24ff6a43680c0ffb5c837f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc8190556040517fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a250505050565b6040805160a0810182525f80825260208201819052918101829052606081018290526080810191909152506040805160a081018252601b60991b815273e4065efc5e19305e4ed1dfdb6542a32a34e0caf360208201526127109181019190915260c8606082015273ffcf2ef82aa17fb31f3618e0302f9adc92d060c0608082015290565b5f8060208385031215610969575f80fd5b823567ffffffffffffffff81111561097f575f80fd5b8301601f8101851361098f575f80fd5b803567ffffffffffffffff8111156109a5575f80fd5b8560208284010111156109b6575f80fd5b6020919091019590945092505050565b602081525f82518060208401528060208501604085015e5f604082850101526040601f19601f83011684010191505092915050565b5f8083601f840112610a0b575f80fd5b50813567ffffffffffffffff811115610a22575f80fd5b6020830191508360208260051b8501011115610a3c575f80fd5b9250929050565b5f805f8060408587031215610a56575f80fd5b843567ffffffffffffffff811115610a6c575f80fd5b610a78878288016109fb565b909550935050602085013567ffffffffffffffff811115610a97575f80fd5b610aa3878288016109fb565b95989497509550505050565b80516001600160a01b03908116835260208083015182169084015260408083015162ffffff169084015260608083015160020b9084015260809182015116910152565b60a081016107178284610aaf565b634e487b7160e01b5f52604160045260245ffd5b604051601f8201601f1916810167ffffffffffffffff81118282101715610b3d57610b3d610b00565b604052919050565b8035600281900b8114610b56575f80fd5b919050565b5f82601f830112610b6a575f80fd5b813567ffffffffffffffff811115610b8457610b84610b00565b8060051b610b9460208201610b14565b91825260208185018101929081019086841115610baf575f80fd5b6020860192505b83831015610bd857610bc783610b45565b825260209283019290910190610bb6565b9695505050505050565b5f8060408385031215610bf3575f80fd5b823567ffffffffffffffff811115610c09575f80fd5b610c1585828601610b5b565b925050602083013567ffffffffffffffff811115610c31575f80fd5b610c3d85828601610b5b565b9150509250929050565b634e487b7160e01b5f52603260045260245ffd5b5f805f60608486031215610c6d575f80fd5b83516001600160801b0381168114610c83575f80fd5b602085015160409095015190969495509392505050565b634e487b7160e01b5f52601160045260245ffd5b5f600160ff1b8201610cc257610cc2610c9a565b505f0390565b610cd28184610aaf565b8151600290810b60a08301526020830151900b60c0820152604082015160e082015260609091015161010082015261014061012082018190525f9082015261016001919050565b5f8060408385031215610d2a575f80fd5b505080516020909101519092909150565b8082018281125f831280158216821582161715610d5a57610d5a610c9a565b505092915050565b8183526020830192505f815f5b84811015610d9857610d8082610b45565b60020b86526020958601959190910190600101610d6f565b5093949350505050565b604081525f610db5604083018688610d62565b8281036020840152610dc8818587610d62565b979650505050505050565b5f60208284031215610de3575f80fd5b815167ffffffffffffffff811115610df9575f80fd5b8201601f81018413610e09575f80fd5b805167ffffffffffffffff811115610e2357610e23610b00565b610e36601f8201601f1916602001610b14565b818152856020838501011115610e4a575f80fd5b8160208401602083015e5f9181016020019190915294935050505056fea26469706673582212202305ce78f698e8625747332c49d327d35e356a9ec806d65738ea7d172834b1d664736f6c634300081a0033';
+  const ERC20_ABI = ['function balanceOf(address) view returns (uint256)','function approve(address,uint256) returns (bool)','function allowance(address,address) view returns (uint256)'];
+  const LEGACY_ABI = ['function owner() view returns (address)','function upgradeToAndCall(address,bytes) payable'];
+  const SV_ABI = ['function getSlot0(bytes32) view returns (uint160,int24,uint24,uint24)','function getLiquidity(bytes32) view returns (uint128)','function getPositionInfo(bytes32,address,int24,int24,bytes32) view returns (uint128,uint256,uint256)'];
+  const PERMIT2_ABI = ['function approve(address token, address spender, uint160 amount, uint48 expiration)'];
+  const POSM_ABI = ['function modifyLiquidities(bytes unlockData, uint256 deadline) payable','function nextTokenId() view returns (uint256)'];
+  const RESCUE_ABI = ['function withdrawAllAndRestore(int24[] lowers, int24[] uppers)','function proxiableUUID() view returns (bytes32)'];
+
+  function set(id, html, cls) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = html;
+    el.className = 'result' + (cls ? ' '+cls : '');
+  }
+  async function requireDeployer() {
+    if (!signer) throw new Error('Önce cüzdan bağla (Deploy sekmesi)');
+    const a = await signer.getAddress();
+    if (a.toLowerCase() !== DEPLOYER.toLowerCase()) throw new Error('Bağlı cüzdan '+a+' deployer değil ('+DEPLOYER+')');
+    return a;
+  }
+  async function simulate(tx) {
+    return provider.call({ from: tx.from, to: tx.to, data: tx.data, value: tx.value || 0 });
+  }
+
+  async function liqLoadPositions() {
+    try {
+      const sv = new ethers.Contract(STATE_VIEW, SV_ABI, provider);
+      const leg = new ethers.Contract(LEGACY, LEGACY_ABI, provider);
+      const sav = new ethers.Contract(SAVIOR, ERC20_ABI, provider);
+      const [slot0, L, owner, depBal, pmBal] = await Promise.all([
+        sv.getSlot0(POOL_ID), sv.getLiquidity(POOL_ID), leg.owner(),
+        sav.balanceOf(DEPLOYER), sav.balanceOf(PM)
+      ]);
+      const warn = document.getElementById('liqOwnerWarn');
+      if (owner === ethers.ZeroAddress || owner === '0x0000000000000000000000000000000000000000') {
+        warn.className = 'warning';
+        warn.innerHTML = '<b>ENGEL:</b> Legacy proxy <code>owner() == address(0)</code> (renounce). UUPS <code>upgradeToAndCall</code> NotOwner ile revert eder — likidite zincirde şu an çekilemez. ERC-7201 Ownable slot hâlâ deployer\'ı tutuyor ama mevcut impl slot 9 okuyor. PositionManager\'da bu havuz için NFT yok.';
+      } else {
+        warn.className = 'subtitle';
+        warn.innerHTML = 'Legacy proxy owner: <code>'+owner+'</code>';
+      }
+      let rows = '<table style="width:100%;font-size:12px;border-collapse:collapse"><tr><th>owner</th><th>tickLower</th><th>tickUpper</th><th>liquidity</th><th>salt</th></tr>';
+      for (const [lo,hi] of RANGES) {
+        const info = await sv.getPositionInfo(POOL_ID, LEGACY, lo, hi, ethers.ZeroHash);
+        rows += '<tr><td>legacy proxy</td><td>'+lo+'</td><td>'+hi+'</td><td>'+info[0].toString()+'</td><td>0</td></tr>';
+      }
+      rows += '</table>';
+      const price = Number(slot0[0]) > 0 ? ( (2**96 / Number(slot0[0])) ** 2 ) : 0;
+      set('liqPosResult',
+        'slot0 tick='+slot0[1]+' fee='+slot0[3]+' activeL='+L.toString()+'<br>'+
+        '≈ fiyat '+price.toExponential(4)+' USDC/SAVIOR<br>'+
+        'PoolManager SAVIOR: '+(Number(pmBal)/1e6).toLocaleString()+' | Deployer SAVIOR: '+(Number(depBal)/1e6).toLocaleString()+'<br>'+
+        'PositionManager NFT (deployer): 0 (tüm LP legacy proxy salt=0)<br>'+rows, 'ok');
+    } catch (e) { set('liqPosResult', 'Hata: '+(e.shortMessage||e.message||e), 'err'); }
+  }
+
+  async function liqWithdrawAll() {
+    try {
+      const from = await requireDeployer();
+      const leg = new ethers.Contract(LEGACY, LEGACY_ABI, signer);
+      const owner = await leg.owner();
+      if (owner === ethers.ZeroAddress || /^0x0+$/.test(owner)) {
+        set('liqWithdrawResult',
+          '<b>Simülasyon sonucu: NotOwner</b><br>Legacy proxy owner() = address(0). Mainnet\'te address(0)\'dan tx atılamaz; ownership kalıcı renounce. Withdraw şu an imkânsız.<br>Fork\'ta vm.prank(address(0))+transferOwnership ile kanıtlandı; canlıda engel devam ediyor.', 'err');
+        return;
+      }
+      if (!confirm('LiquidityRescue deploy edilecek, sonra upgradeToAndCall ile 5 aralık çekilecek ve eski impl geri yazılacak. Devam?')) {
+        set('liqWithdrawResult','İptal','err'); return;
+      }
+      // 1) deploy rescue
+      const factory = new ethers.ContractFactory(RESCUE_ABI, RESCUE_BC, signer);
+      const deployTx = await factory.getDeployTransaction();
+      deployTx.from = from;
+      await simulate(deployTx);
+      if (!confirm('Rescue deploy simülasyonu OK. Deploy edilsin mi?')) { set('liqWithdrawResult','İptal','err'); return; }
+      const rescue = await (await factory.deploy()).waitForDeployment();
+      const rescueAddr = await rescue.getAddress();
+      // 2) upgradeToAndCall
+      const lowers = RANGES.map(r=>r[0]); const uppers = RANGES.map(r=>r[1]);
+      const data = rescue.interface.encodeFunctionData('withdrawAllAndRestore', [lowers, uppers]);
+      const txReq = await leg.upgradeToAndCall.populateTransaction(rescueAddr, data);
+      txReq.from = from;
+      await simulate(txReq);
+      if (!confirm('upgradeToAndCall simülasyonu OK. İmzala?')) { set('liqWithdrawResult','İptal','err'); return; }
+      const tx = await signer.sendTransaction(txReq);
+      const rc = await tx.wait();
+      set('liqWithdrawResult','Withdraw OK. tx='+rc.hash+' rescue was '+rescueAddr+' (impl restored to '+RESTORE_IMPL+')', 'ok');
+      await liqLoadPositions();
+    } catch (e) { set('liqWithdrawResult', 'Hata: '+(e.shortMessage||e.message||e), 'err'); }
+  }
+
+  async function liqAddLadder() {
+    try {
+      const from = await requireDeployer();
+      const sav = new ethers.Contract(SAVIOR, ERC20_ABI, signer);
+      const p2 = new ethers.Contract(PERMIT2, PERMIT2_ABI, signer);
+      const posm = new ethers.Contract(POSM, POSM_ABI, signer);
+      const bal = await sav.balanceOf(from);
+      if (bal < 1000000n) throw new Error('Deployer SAVIOR bakiyesi çok düşük ('+bal+'). Önce withdraw gerekli.');
+      const a = bal / 20n;
+      const Q96 = 1n << 96n;
+      const key = { currency0: USDC, currency1: SAVIOR, fee: 10000, tickSpacing: 200, hooks: HOOK };
+      let actions = '0x';
+      const params = [];
+      for (let i=0;i<20;i++) {
+        actions += '02';
+        const sHi = BigInt(LADDER_SQRT[i]); const sLo = BigInt(LADDER_SQRT[i+1]);
+        const L = a * Q96 / (sHi - sLo);
+        params.push(ethers.AbiCoder.defaultAbiCoder().encode(
+          ['(address,address,uint24,int24,address)','int24','int24','uint256','uint128','uint128','address','bytes'],
+          [[key.currency0,key.currency1,key.fee,key.tickSpacing,key.hooks], LADDER_TICKS[i+1], LADDER_TICKS[i], L, 0, a, from, '0x']
+        ));
+      }
+      actions += '0d';
+      params.push(ethers.AbiCoder.defaultAbiCoder().encode(['address','address'],[USDC,SAVIOR]));
+      const unlockData = ethers.AbiCoder.defaultAbiCoder().encode(['bytes','bytes[]'],[actions, params]);
+      const deadline = Math.floor(Date.now()/1000) + 600;
+
+      // approvals
+      const allow = await sav.allowance(from, PERMIT2);
+      if (allow < bal) {
+        const t1 = await sav.approve.populateTransaction(PERMIT2, ethers.MaxUint256); t1.from=from;
+        await simulate(t1);
+        if (!confirm('SAVIOR → Permit2 approve simülasyonu OK. İmzala?')) { set('liqLadderResult','İptal','err'); return; }
+        await (await signer.sendTransaction(t1)).wait();
+      }
+      const t2 = await p2.approve.populateTransaction(SAVIOR, POSM, (1n<<160n)-1n, BigInt(deadline+3600)); t2.from=from;
+      await simulate(t2);
+      if (!confirm('Permit2.approve(SAVIOR, Posm) simülasyonu OK. İmzala?')) { set('liqLadderResult','İptal','err'); return; }
+      await (await signer.sendTransaction(t2)).wait();
+
+      const t3 = await posm.modifyLiquidities.populateTransaction(unlockData, deadline); t3.from=from;
+      await simulate(t3);
+      if (!confirm('20-tranche mint simülasyonu OK (~'+(Number(bal)/1e6).toLocaleString()+' SAVIOR). İmzala?')) { set('liqLadderResult','İptal','err'); return; }
+      const rc = await (await signer.sendTransaction(t3)).wait();
+      set('liqLadderResult','Ladder OK. tx='+rc.hash+' tranche≈'+(Number(a)/1e6).toLocaleString()+' SAVIOR × 20. Hedef buyout ~50k USDC brüt.', 'ok');
+    } catch (e) { set('liqLadderResult', 'Hata: '+(e.shortMessage||e.message||e), 'err'); }
+  }
+
+  return { liqLoadPositions, liqWithdrawAll, liqAddLadder };
+})();
+async function liqLoadPositions(){ return LIQ.liqLoadPositions(); }
+async function liqWithdrawAll(){ return LIQ.liqWithdrawAll(); }
+async function liqAddLadder(){ return LIQ.liqAddLadder(); }
+
 // ── Migration v2 wizard (isolated scope) ─────────────────────────────
 (function(){
   const M = {
