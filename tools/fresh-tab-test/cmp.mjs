@@ -1,0 +1,13 @@
+import fs from 'fs'; import { ethers } from 'ethers';
+globalThis.ethers = ethers;
+const src = fs.readFileSync('fresh.js','utf8');
+const lad = src.slice(src.indexOf('//FRESH_LADDER_BEGIN'), src.indexOf('//FRESH_LADDER_END'));
+const LADDER = new Function(lad + '; return LADDER;')();
+const abi = ethers.AbiCoder.defaultAbiCoder(); const o='0x7185d50557040047A142aEadA95e41C4b31720e7';
+const k1=['0x3600000000000000000000000000000000000000','0xc67508Dd0F43C52da77de8E4d2A9293226d59345',10000,200,'0x3A558C957CB35c1d4Db678B64Fcca14Ac1342080'];
+const k0=['0x1111111111111111111111111111111111111111','0x3600000000000000000000000000000000000000',10000,200,'0xDe593f5f8A34949ad3953a63d50bee89E8d32080'];
+const a=LADDER.build(abi,k1,false,1000000000000000n,o), b=LADDER.build(abi,k0,true,999999999123456n,o);
+const s=fs.readFileSync('/tmp/ladcmp/s.txt','utf8').split(',');
+console.log('c1 equal', a.toLowerCase()===fs.readFileSync('/tmp/ladcmp/c1.hex','utf8').trim().toLowerCase());
+console.log('c0 equal', b.toLowerCase()===fs.readFileSync('/tmp/ladcmp/c0.hex','utf8').trim().toLowerCase());
+console.log('sqrt equal', LADDER.startSqrtPrice(false).toString()===s[0], LADDER.startSqrtPrice(true).toString()===s[1]);
