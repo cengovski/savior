@@ -254,11 +254,33 @@ const HOOK_ABI = [
 ];
 
 const STAKING_IMPL_ABI = ['constructor()'];
+// SaviorStakingV2 (staking-v2/src/SaviorStakingV2.sol). Address configurable via localStorage 'savior_staking_v2'; not deployed yet.
+const STAKING_V2_ADDRESS = localStorage.getItem('savior_staking_v2') || '';
+const STAKING_V2_ABI = [
+  'constructor(address initialOwner, address saviorToken, address poolManager, address treasury, (address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key)',
+  'function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut, uint256 deadline) returns (uint256)',
+  'function MIN_STAKE() view returns (uint256)',
+  'function keySet() view returns (bool)',
+  'function owner() view returns (address)',
+  'function pendingOwner() view returns (address)',
+  'function globalUnlock() view returns (bool)',
+  'function totalLocked() view returns (uint256)',
+  'function getLocks(address user) view returns ((uint128 amount, uint64 unlockAt)[])',
+  'function stake(uint256 amount) returns (uint256)',
+  'function claim(uint256 i)',
+  'function emergencyUnlockAll()',
+  'function rescue(address token, uint256 amount)',
+  'function transferOwnership(address newOwner)',
+  'function acceptOwnership()',
+];
 const STAKING_ABI = [
   'function initialize(address owner, address saviorToken, address poolManager, address treasury) external',
   'function setPoolKey(tuple(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key) external',
   'function addLiquidity(uint256 usdcAmount, uint256 saviorAmount, int24 tickLower, int24 tickUpper) external payable',
-  'function poolKeySet() view returns (bool)',
+  // v1 on-chain getters (bytecode 0xBCA651…a525): keySet() 0x788499c0, globalUnlock() 0x06aec0ef; poolKeySet() does not exist
+  'function keySet() view returns (bool)',
+  'function globalUnlock() view returns (bool)',
+  'function owner() view returns (address)',
 ];
 
 const PM_ABI = [
