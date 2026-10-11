@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBounds} from "../IV4Minimal.sol";
 
@@ -55,6 +56,11 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     uint64 public constant BLOCKHASH_WINDOW = 8191;
     /// @notice Minimum SAVIOR (6 decimals) accepted by stake/stakeFor = 1 SAVIOR.
     uint256 public constant MIN_STAKE = 1e6;
+    /// @notice Minimum for stakeFor (third party locking into someone else's array) = 100,000 SAVIOR
+    ///         (~0.5 USDC at the planned 5e-6 start price). Makes lock-array spam (audit O-2) cost real value.
+    uint256 public constant MIN_STAKE_FOR = 100_000e6;
+    /// @notice Max page size for paginated views.
+    uint256 public constant MAX_PAGE = 200;
     /// @notice Max items per `revealBatch`. Sized so worst-case gas stays ~well under Arc 30M block
     ///         limit and typical wallet UX (~few M). See tests for measured per-item gas.
     uint256 public constant MAX_REVEAL_BATCH = 40;
@@ -94,6 +100,8 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     event RevealBatch(address indexed caller, uint256 revealed, uint256 attempted);
     event Claimed(address indexed user, uint256 indexed index, uint256 amount);
     event EmergencyUnlockAll(address indexed by);
+    event EmergencyUnlockScheduled(uint64 executeAfter);
+    event EmergencyUnlockCancelled();
     event Rescued(address indexed token, address indexed to, uint256 amount);
 
     error Locked();
@@ -115,6 +123,10 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     error BelowMinStake();
     error BatchLengthMismatch();
     error BatchTooLarge();
+    error ZeroMinOut();
+    error NotScheduled();
+    error TimelockActive();
+    error AlreadyUnlocked();
 
     event Swapped(
         address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked
@@ -165,6 +177,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         returns (uint256 net)
     {
         if (block.timestamp > deadline) revert Expired();
+        if (minOut == 0) revert ZeroMinOut(); // audit D-2: price limit is at the tick bounds; minOut is the only slippage guard
         if (amountIn == 0 || amountIn > uint256(type(int256).max)) revert Bad();
         bool isBuy = (zeroForOne == _saviorIsCurrency1);
         if (isBuy) {
@@ -175,7 +188,8 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         (uint256 received, uint256 out) = _pullAndSwap(zeroForOne, amountIn);
         address tokenOut = zeroForOne ? _c1 : _c0;
 
-        uint256 fee = out * TREASURY_FEE_BPS / 10_000;
+        // Fee rounds UP (audit B-4): no zero-fee dust swaps; at most 1 raw unit more than floor.
+        uint256 fee = Math.mulDiv(out, TREASURY_FEE_BPS, 10_000, Math.Rounding.Ceil);
         net = out - fee;
         if (net == 0 || net < minOut) revert Bad();
         if (fee != 0) IERC20(tokenOut).safeTransfer(treasury, fee);
@@ -245,6 +259,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
 
     function stakeFor(address user, uint256 amount) external nonReentrant returns (uint256 index) {
         if (user == address(0)) revert ZeroAddress();
+        if (user != msg.sender && amount < MIN_STAKE_FOR) revert BelowMinStake();
         return _stake(user, amount);
     }
 
@@ -390,6 +405,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         emit RevealBatch(msg.sender, revealed, n);
     }
 
+    /// @dev UNBOUNDED — prefer pendingRevealable(user, offset, limit).
     /// @notice Indices of `user` locks that are revealable now (pending + past target + hash available).
     ///         Bounded by that user's lock count only — no global unbounded list.
     function pendingRevealable(address user) external view returns (uint256[] memory indices) {
@@ -462,7 +478,61 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         emit Claimed(msg.sender, i, amt);
     }
 
+    /// @notice Number of locks (incl. claimed, amount==0) for `user`. Use with paginated views.
+    function lockCount(address user) external view returns (uint256) {
+        return _locks[user].length;
+    }
+
+    function _view(Lock storage l) internal view returns (LockView memory) {
+        bool pending = l.amount != 0 && l.pending;
+        return LockView({
+            amount: l.amount,
+            createdAt: l.createdAt,
+            unlockAt: l.unlockAt,
+            isPending: pending,
+            targetBlock: l.targetBlock,
+            revealDeadlineBlock: l.revealDeadlineBlock,
+            revealableNow: pending && block.number > l.targetBlock && _ringBlockHash(l.targetBlock) != bytes32(0)
+        });
+    }
+
+    /// @notice Paginated locks: indices [offset, offset+limit) clipped to length; limit <= MAX_PAGE.
+    function getLocks(address user, uint256 offset, uint256 limit) external view returns (LockView[] memory out) {
+        (uint256 s, uint256 e) = _range(_locks[user].length, offset, limit);
+        out = new LockView[](e - s);
+        for (uint256 i = s; i < e; ++i) {
+            out[i - s] = _view(_locks[user][i]);
+        }
+    }
+
+    /// @notice Revealable indices within [offset, offset+limit) (scan range, not result count).
+    function pendingRevealable(address user, uint256 offset, uint256 limit)
+        external
+        view
+        returns (uint256[] memory indices)
+    {
+        Lock[] storage ls = _locks[user];
+        (uint256 s, uint256 e) = _range(ls.length, offset, limit);
+        uint256[] memory tmp = new uint256[](e - s);
+        uint256 m;
+        for (uint256 i = s; i < e; ++i) {
+            Lock storage l = ls[i];
+            if (l.amount != 0 && l.pending && block.number > l.targetBlock && _ringBlockHash(l.targetBlock) != bytes32(0)) {
+                tmp[m++] = i;
+            }
+        }
+        indices = new uint256[](m);
+        for (uint256 j; j < m; ++j) indices[j] = tmp[j];
+    }
+
+    function _range(uint256 len, uint256 offset, uint256 limit) internal pure returns (uint256 s, uint256 e) {
+        if (limit > MAX_PAGE) limit = MAX_PAGE;
+        s = offset > len ? len : offset;
+        e = s + limit > len ? len : s + limit;
+    }
+
     /// @notice Locks for `user` with pending / revealableNow computed for UI.
+    /// @dev UNBOUNDED (O(n)). UI must use getLocks(user, offset, limit) + lockCount; kept for v1-style compat.
     function getLocks(address user) external view returns (LockView[] memory out) {
         Lock[] storage ls = _locks[user];
         uint256 n = ls.length;
@@ -483,9 +553,38 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         }
     }
 
-    function emergencyUnlockAll() external onlyOwner {
+    /// @notice Delay between scheduling and executing the global emergency unlock (Dzengo O-1).
+    uint64 public constant EMERGENCY_UNLOCK_DELAY = 48 hours;
+    /// @notice 0 = not scheduled; else timestamp after which executeEmergencyUnlock is allowed.
+    uint64 public emergencyUnlockAfter;
+
+    /// @notice Schedule (or re-schedule, resetting the 48h clock) the irreversible global unlock.
+    function scheduleEmergencyUnlock() external onlyOwner {
+        if (globalUnlock) revert AlreadyUnlocked();
+        uint64 after_ = uint64(block.timestamp) + EMERGENCY_UNLOCK_DELAY;
+        emergencyUnlockAfter = after_;
+        emit EmergencyUnlockScheduled(after_);
+    }
+
+    function cancelEmergencyUnlock() external onlyOwner {
+        if (emergencyUnlockAfter == 0) revert NotScheduled();
+        emergencyUnlockAfter = 0;
+        emit EmergencyUnlockCancelled();
+    }
+
+    /// @notice After the 48h delay: every lock becomes claimable now. Irreversible.
+    function executeEmergencyUnlock() external onlyOwner {
+        uint64 a = emergencyUnlockAfter;
+        if (a == 0) revert NotScheduled();
+        if (block.timestamp < a) revert TimelockActive();
+        emergencyUnlockAfter = 0;
         globalUnlock = true;
         emit EmergencyUnlockAll(msg.sender);
+    }
+
+    /// @notice UI countdown: (scheduled, executeAfter, executed=globalUnlock).
+    function emergencyUnlockStatus() external view returns (bool scheduled, uint64 executeAfter, bool executed) {
+        return (emergencyUnlockAfter != 0, emergencyUnlockAfter, globalUnlock);
     }
 
     function rescue(address token, uint256 amount) external onlyOwner nonReentrant {

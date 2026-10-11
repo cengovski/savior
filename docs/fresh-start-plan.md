@@ -407,3 +407,38 @@ Implemented: `staking-v2/src/fresh/SaviorStakingFresh.sol` + `test/CommitRevealL
 UX: ~**70 min** to reveal after `targetBlock`. Site should still prompt `reveal` soon after buy (no bot); countdown to `revealDeadlineBlock`.
 
 **Branch note:** `SaviorStakingFresh` on `feature/fresh-start` only; live `SaviorStakingV2` unchanged.
+
+---
+
+## Audit fixes (2026-10-11, audit `/workspace/audit-fresh/RAPOR.md`)
+
+| ID | Status | Change |
+|----|--------|--------|
+| Y-1 | Fixed (hook) + **accepted residual** | `src/fresh/SaviorHookFresh.sol`: immutable, no owner/proxy. `beforeInitialize` only from `FreshDeployer` and only the single bound PoolKey (c0, c1, fee 10000, spacing 200, hooks=this). `beforeSwap` only `sender == staking` (immutable). Flags `BEFORE_INITIALIZE|BEFORE_SWAP` = `0x2080`; **no afterSwap** (fee + 50% lock are done by the staking router after settle — an afterSwap callback adds gas/surface for nothing). |
+| O-1 | **Timelock only** (Dzengo) | `emergencyUnlockAll` replaced by `scheduleEmergencyUnlock` → 48h → `executeEmergencyUnlock` (onlyOwner), `cancelEmergencyUnlock`, `emergencyUnlockStatus()` for UI countdown. |
+| O-2 | Fixed | `stakeFor` for another user requires `MIN_STAKE_FOR = 100,000 SAVIOR`; paginated `getLocks(user,offset,limit)`, `pendingRevealable(user,offset,limit)`, `lockCount(user)`; `MAX_PAGE = 200`. Unbounded overloads kept for compat — UI must not use them. |
+| D-1 | Accepted | Arc proposer grind of target hash: max gain 5 days on own lock (see appendix). |
+| D-2 | Fixed | `swapExactIn` reverts `ZeroMinOut` if `minOut == 0`. UI must pass a quoter-based minOut (e.g. quote × (1 − slippage)). |
+| D-3 | Fixed | `src/fresh/FreshLadder.sol` + `script/fresh/DeployFresh.s.sol` step 5: 20 `MINT_POSITION` + `SETTLE_PAIR`, NFTs to deployer. Ordering asserted; if SAVIOR < USDC (currency0) the ladder is mirrored (ticks negated, ranges above start tick −121801). Fork test covers both orderings. |
+| B-3 | Fixed | `SaviorTokenV2.rescue` uses SafeERC20. |
+| B-4 | Adjusted | Treasury fee now rounds **up** (`Math.mulDiv(..., Ceil)`): no zero-fee dust swaps; ≤1 raw unit difference. SameBlock is not a security guarantee. |
+
+### Owner powers — stated plainly (Dzengo decision)
+- **No multisig.** Owner = deployer EOA (Ownable2Step, renounce disabled).
+- **No LP NFT lock.** The 20 ladder NFTs belong to the deployer; **liquidity stays freely withdrawable by the owner at any time.** Buyers trust the owner on this.
+- Emergency global unlock: 48h public timelock (on-chain event + `emergencyUnlockStatus`).
+
+### Hook bypass (honest note)
+Uniswap v4 is permissionless and the token has **no transfer restrictions** (deliberate). Anyone can open a hook-free SAVIOR pool (or use another DEX) and trade without the 0.3% fee and without the 50% lock. The hook only enforces fee/lock **in the official pool**. The lock is a property of buying through the official staking router, not of the token.
+
+### Deploy order (one-shot, no circular dependency)
+1. `SaviorTokenV2` (deployer).
+2. `FreshDeployer(admin=deployer, token, USDC, PoolManager, treasury, 10000, 200)` — computes currency order.
+3. Off-chain: `HookMiner.find(factory, 0x2080, factory.hookInitCodeHash())` (~16k tries; fork tests found salts 509 / 14507). Hook initcode embeds `staking = factory.predictStaking()` = CREATE(factory, nonce 1). Then `factory.deploy(salt, startSqrtPrice)` in ONE tx: staking (CREATE) → hook (CREATE2) → `PoolManager.initialize`. Hook accepts only the factory as initializer, so there is no front-run window on the initial price.
+4. Permit2 approvals (SAVIOR → Permit2 → Posm).
+5. Ladder `modifyLiquidities`.
+
+### Admin "Fresh start" tab (later — not built yet)
+Ordered steps 1–5 as above; each button enabled only if the previous step verifies on-chain:
+- step 2 needs `TOKEN.code`, `owner()==deployer`; step 3 needs `factory.admin/token`, `!deployed`, `isValidHookSalt(salt)`; after 3 check `factory.hook()/staking()`, `hook.staking()==staking`, `staking.owner()`; step 5 needs Permit2 allowance.
+- Simulate each tx with `eth_call` first. ABIs: `staking-v2/abi/fresh/*.json`. Views for verify: `predictStaking`, `hookInitCodeHash`, `computeHookAddress`, `isValidHookSalt`, `poolKey`, `saviorIsCurrency0`, `hook.boundKey`, `staking.emergencyUnlockStatus`.

@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @notice Fresh-start SAVIOR: fixed supply, no mint after ctor, burn, Ownable2Step rescue
 ///         of foreign ERC-20/native only (never own token). logoURI owner-updatable.
@@ -88,7 +89,7 @@ contract SaviorTokenV2 is Ownable2Step {
             (bool ok,) = to.call{value: amount}("");
             require(ok, "native");
         } else {
-            require(IERC20(token).transfer(to, amount), "erc20");
+            SafeERC20.safeTransfer(IERC20(token), to, amount); // audit B-3: non-bool tokens
         }
         emit Rescued(token, to, amount);
     }
