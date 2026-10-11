@@ -23,14 +23,19 @@ window.SAVIOR_CONFIG = {
   // https://developers.circle.com/cctp/references/contract-addresses (Mainnet tables)
   // and the chain definition shipped in @circle-fin/bridge-kit@1.15.2. Bridge Kit uses these internally;
   // listed here for display/reference only.
-  // FRESH START (new token + hook + pool, SaviorStakingFresh with lock reveal, Lucky NFT). NOT DEPLOYED YET.
-  // PLACEHOLDERS: leave empty until deployed. While token, hook or staking is empty the site behaves exactly as today.
+  // FRESH START (new token + hook + pool, SaviorStakingFresh with lock reveal, Lucky NFT). Deployed on Arc mainnet
+  // by FreshDeployer 0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c, tx 0x88312965...538e34ad (block 25416100).
+  // Wiring verified on-chain: staking.key() = (USDC, token, 10000, 200, hook), hook.staking() = staking,
+  // staking.luckySink() = distributor, distributor.staking() = staking, distributor.nft() = nft.
+  // Emptying token, hook or staking switches the site back to the old stack.
   fresh: {
-    token:       "", // PLACEHOLDER: SaviorTokenV2
-    hook:        "", // PLACEHOLDER: SaviorHookFresh
-    staking:     "", // PLACEHOLDER: SaviorStakingFresh
-    distributor: "", // PLACEHOLDER: LuckyDistributor (optional; empty hides the Lucky NFT card)
-    deployBlock: 0,  // PLACEHOLDER: block of the FreshDeployer.deploy tx (start of the Staked event scan)
+    token:       "0x4A939085A36B4faB5D222b196619C0CdBdd6A022", // SaviorTokenV2 (6 decimals, 1B fixed supply)
+    hook:        "0x813bdb7A1d4594B794ed9Df9Fad8A93f3873A080", // SaviorHookFresh
+    staking:     "0xFFaed084D0186FA96138d523f9292Fd4e47Dad63", // SaviorStakingFresh
+    distributor: "0x54713bd7f1B6c23eCe81A2F334E247789A569c5e", // LuckyDistributor (empty hides the Lucky NFT card)
+    nft:         "0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c", // Savior Weapons (SWRP), OpenSea SeaDrop clone
+    factory:     "0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c", // FreshDeployer
+    deployBlock: 25416100, // receipt of the FreshDeployer.deploy tx (start of the Staked event scan)
   },
   cctp: {
     domain: 26,

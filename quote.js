@@ -62,7 +62,9 @@
     let { sqrtP, L, tick } = st, rem = amountIn, out = 0n;
     for (let i = 0; i < MAX_STEPS && rem > 0n; i++) {
       const base = Math.floor(tick / TICK_SPACING) * TICK_SPACING;
-      let nextTick = zeroForOne ? (sqrtP <= sqrtAtTick(base) ? base - TICK_SPACING : base) : base + TICK_SPACING;
+      // V4: going down, the next initialized tick is <= the current tick (the current one included, e.g. a fresh pool
+      // sitting exactly on a range edge). After a cross we set tick = nextTick - 1, so the next base is one spacing lower.
+      let nextTick = zeroForOne ? base : base + TICK_SPACING;
       nextTick = Math.max(MIN_TICK, Math.min(MAX_TICK, nextTick));
       const target = sqrtAtTick(nextTick);
       const remLessFee = (rem * (1000000n - feePips)) / 1000000n;
