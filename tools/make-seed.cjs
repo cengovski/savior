@@ -5,6 +5,19 @@ const { chromium } = require("playwright"); const fs = require("fs");
   const b = await chromium.launch(); const p = await b.newPage();
   await p.goto(process.argv[2] || "http://localhost:8765/");
   await p.waitForFunction(() => /Updated/.test(document.getElementById("lb-status").textContent) && /Live/.test(document.getElementById("feed-status").textContent), null, { timeout: 240000 });
+  // Fresh start: the seed only carries the fresh staking section (old-token lockers and trades do not apply).
+  const fr = await p.evaluate(() => {
+    const C = window.SAVIOR_CONFIG; if (!C.freshActive) return null; const a = C.v2.toLowerCase();
+    return { a, l: JSON.parse(localStorage.getItem("savior.locks.fresh." + a)), f: JSON.parse(localStorage.getItem("savior.feed.fresh." + a)) };
+  });
+  if (fr) {
+    const l2 = {}; for (const [w, c] of Object.entries(fr.l.locks || {})) if (fr.l.wallets[w]) l2[w] = c.l;
+    const seed = { generated: new Date().toISOString(), fresh: true, scanned: fr.l.scanned, wallets: {}, locksAt: Date.now(), locks: {}, trades: [],
+      v2: { address: fr.a, deployBlock: fr.l.deployBlock, scanned: fr.l.scanned, wallets: fr.l.wallets, locks: l2 } };
+    fs.writeFileSync("locks-seed.json", JSON.stringify(seed, null, 1) + "\n");
+    console.log("fresh seed:", Object.keys(seed.v2.wallets).length, "wallets, scanned", seed.v2.scanned, "from", seed.v2.deployBlock);
+    return b.close();
+  }
   const d = await p.evaluate(() => {
     const v2 = (window.SAVIOR_CONFIG.v2 || "").toLowerCase();
     return { v2, l: JSON.parse(localStorage.getItem("savior.locks.v1")), l2: v2 ? JSON.parse(localStorage.getItem("savior.locks.v2." + v2)) : null,

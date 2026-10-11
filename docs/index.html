@@ -85,7 +85,8 @@ document.documentElement.setAttribute('data-theme',t);})();
       <ol>
         <li>You pay USDC. The pool swaps it for SAVIOR.</li>
         <li><b>50% of the SAVIOR goes to your wallet right away.</b></li>
-        <li><b>The other 50% is locked</b> in the staking contract for a random 5 to 10 days.</li>
+        <li><b>The other 50% is locked</b> in the staking contract for 10 days by default.</li>
+        <li><b>Reveal your lock</b> within about 70 minutes of the buy and it can drop to a random 5 to 10 days. Anyone can reveal, so the app also has a public Reveal all button.</li>
         <li>When a lock expires, you claim it from the Locks section of the app.</li>
       </ol>
       <p>Selling works the other way around: you send SAVIOR and receive USDC. Sells are not locked. Selling in the same block as a buy is not allowed.</p>
@@ -94,7 +95,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <div class="kv"><span class="muted">Gas token</span><span>USDC</span></div>
         <div class="kv"><span class="muted">Token decimals</span><span>6</span></div>
         <div class="kv"><span class="muted">Instant share of a buy</span><span>50%</span></div>
-        <div class="kv"><span class="muted">Lock period</span><span>5 to 10 days</span></div>
+        <div class="kv"><span class="muted">Lock period</span><span>10 days, 5 to 10 after a reveal</span></div>
       </div>
     </section>
 
@@ -112,7 +113,8 @@ document.documentElement.setAttribute('data-theme',t);})();
 
     <section id="locks" class="doc-sec">
       <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-lock"/></svg></span>Locks and claims</h2>
-      <p>Each buy creates one lock that holds half of the SAVIOR you bought. Each lock has its own unlock time between 5 and 10 days after the buy.</p>
+      <p>Each buy creates one lock that holds half of the SAVIOR you bought. A new lock unlocks 10 days after the buy. About 2 seconds after the buy, a reveal window opens for about 70 minutes: press <b>Reveal your lock</b> and the lock gets its final unlock time, a random 5 to 10 days after the buy (never longer than 10). If nobody reveals it in time, it simply stays at 10 days.</p>
+      <p><b>Lucky NFT:</b> buys of 10 USDC or more have a 5% chance to win a Savior Weapons NFT, drawn when the lock is revealed. A win is reserved for your wallet; claim it with <b>Claim NFT</b> in the app. If the lock is not revealed in time, there is no draw.</p>
       <ul>
         <li><b>See your locks:</b> connect your wallet and open <a class="link" href="../#locks">My Locked Positions</a>. You will see the amount, a countdown and the status of each lock. Times are shown in your local time zone.</li>
         <li><b>Claim:</b> when a lock shows <b>Ready</b>, press Claim and confirm in your wallet. The SAVIOR goes straight to your wallet.</li>
@@ -138,16 +140,26 @@ document.documentElement.setAttribute('data-theme',t);})();
       <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-vault"/></svg></span>Contract addresses</h2>
       <p>All contracts are on Arc Mainnet. Check addresses on the explorer before you approve anything.</p>
       <div class="contracts" style="grid-template-columns:minmax(0,1fr);max-width:720px">
-<div><span class="muted">SAVIOR token (6 decimals)</span><a href="https://explorer.arc.io/address/0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3" target="_blank" rel="noopener">0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3</a></div>
-<div><span class="muted">SaviorStaking (swap, lock, claim)</span><a href="https://explorer.arc.io/address/0xBCA651C0A0540a1fCDef066B5476d714431fa525" target="_blank" rel="noopener">0xBCA651C0A0540a1fCDef066B5476d714431fa525</a></div>
-<div><span class="muted">Uniswap V4 hook</span><a href="https://explorer.arc.io/address/0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0" target="_blank" rel="noopener">0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0</a></div>
+<div><span class="muted">SAVIOR token (6 decimals)</span><a href="https://explorer.arc.io/address/0x4A939085A36B4faB5D222b196619C0CdBdd6A022" target="_blank" rel="noopener">0x4A939085A36B4faB5D222b196619C0CdBdd6A022</a></div>
+<div><span class="muted">SaviorStakingFresh (swap, lock, reveal, claim)</span><a href="https://explorer.arc.io/address/0xFFaed084D0186FA96138d523f9292Fd4e47Dad63" target="_blank" rel="noopener">0xFFaed084D0186FA96138d523f9292Fd4e47Dad63</a></div>
+<div><span class="muted">Uniswap V4 hook</span><a href="https://explorer.arc.io/address/0x813bdb7A1d4594B794ed9Df9Fad8A93f3873A080" target="_blank" rel="noopener">0x813bdb7A1d4594B794ed9Df9Fad8A93f3873A080</a></div>
+<div><span class="muted">Lucky NFT distributor</span><a href="https://explorer.arc.io/address/0x54713bd7f1B6c23eCe81A2F334E247789A569c5e" target="_blank" rel="noopener">0x54713bd7f1B6c23eCe81A2F334E247789A569c5e</a></div>
+<div><span class="muted">Lucky NFT collection (Savior Weapons)</span><a href="https://explorer.arc.io/address/0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c" target="_blank" rel="noopener">0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c</a></div>
+<div><span class="muted">Deployer (FreshDeployer)</span><a href="https://explorer.arc.io/address/0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c" target="_blank" rel="noopener">0x5fC43F5078Ad4052E3B4A79aa0fC4BC5e5dF9b7c</a></div>
 <div><span class="muted">Uniswap V4 PoolManager</span><a href="https://explorer.arc.io/address/0x8366a39CC670B4001A1121B8F6A443A643e40951" target="_blank" rel="noopener">0x8366a39CC670B4001A1121B8F6A443A643e40951</a></div>
 <div><span class="muted">USDC on Arc</span><a href="https://explorer.arc.io/address/0x3600000000000000000000000000000000000000" target="_blank" rel="noopener">0x3600000000000000000000000000000000000000</a></div>
 <div><span class="muted">Treasury</span><a href="https://explorer.arc.io/address/0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787" target="_blank" rel="noopener">0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787</a></div>
 <div><span class="muted">CCTP TokenMessengerV2</span><a href="https://explorer.arc.io/address/0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d" target="_blank" rel="noopener">0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d</a></div>
 <div><span class="muted">CCTP MessageTransmitterV2</span><a href="https://explorer.arc.io/address/0x81D40F21F12A8F0E3252Bccb954D722d4c464B64" target="_blank" rel="noopener">0x81D40F21F12A8F0E3252Bccb954D722d4c464B64</a></div>
       </div>
-      <p style="margin-top:12px">Pool ID: <span class="mono" style="word-break:break-all">0x004d7e7f668a78ea18228d753008ccf0c2b6b9e7c6c03d7a44d7cd954d072ab6</span> (USDC / SAVIOR, fee 10000, tick spacing 200). CCTP addresses verified against <a class="link" href="https://developers.circle.com/cctp/references/contract-addresses" target="_blank" rel="noopener">Circle's documentation</a>.</p>
+      <p style="margin-top:16px">Retired contracts (before the fresh start in October 2026). The old token is not the current SAVIOR and has no pool in the app:</p>
+      <div class="contracts" style="grid-template-columns:minmax(0,1fr);max-width:720px;opacity:.75">
+<div><span class="muted">Previous SAVIOR token (retired)</span><a href="https://explorer.arc.io/address/0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3" target="_blank" rel="noopener">0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3</a></div>
+<div><span class="muted">Previous staking v2 (retired)</span><a href="https://explorer.arc.io/address/0x8807DA96A254B370e1E9ae8d3cc4163d1E2939bB" target="_blank" rel="noopener">0x8807DA96A254B370e1E9ae8d3cc4163d1E2939bB</a></div>
+<div><span class="muted">Previous staking v1 (retired)</span><a href="https://explorer.arc.io/address/0xBCA651C0A0540a1fCDef066B5476d714431fa525" target="_blank" rel="noopener">0xBCA651C0A0540a1fCDef066B5476d714431fa525</a></div>
+<div><span class="muted">Previous hook (retired)</span><a href="https://explorer.arc.io/address/0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0" target="_blank" rel="noopener">0xFfcf2eF82AA17Fb31F3618E0302F9adC92D060c0</a></div>
+      </div>
+      <p style="margin-top:12px">Pool ID: <span class="mono" style="word-break:break-all">0x8946abd242378490313560cdf60e13902ca24d84add48f0f223bc26de5bb145f</span> (USDC / SAVIOR, fee 10000, tick spacing 200). CCTP addresses verified against <a class="link" href="https://developers.circle.com/cctp/references/contract-addresses" target="_blank" rel="noopener">Circle's documentation</a>.</p>
     </section>
 
     <section id="risks" class="doc-sec">
@@ -157,7 +169,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <ul>
           <li><b>You can lose everything.</b> The price can drop to zero. Only use money you can afford to lose.</li>
           <li><b>Smart contract risk.</b> The token, hook, staking and bridge contracts can have bugs. They have not been formally audited.</li>
-          <li><b>Locked funds.</b> Half of every buy is locked for 5 to 10 days. You cannot sell locked SAVIOR until you claim it, even if the price falls.</li>
+          <li><b>Locked funds.</b> Half of every buy is locked for up to 10 days. You cannot sell locked SAVIOR until you claim it, even if the price falls.</li>
           <li><b>Low liquidity.</b> The pool is small, so prices move sharply and large sells may not be possible.</li>
           <li><b>Bridge risk.</b> Bridging relies on Circle CCTP and on the source chain. Delays or outages can hold up a transfer.</li>
           <li><b>Network risk.</b> Arc is a new network. Public RPC endpoints can be slow or rate-limited, so data in the app may lag.</li>
