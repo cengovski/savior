@@ -416,6 +416,23 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button class="btn-sm" onclick="fsLegacy()">Re-check owner() on-chain</button>
       <div class="result" id="fsLegacyRes">Waiting...</div>
     </div>
+
+    <div class="card" id="lrCard"><h2>Legacy recovery (old SAVIOR stack)</h2>
+      <div class="subtitle">Recover old SAVIOR from staking v2 0x8807...39bB and proxy 0xa9bd...9732, then sell it into the old pool through staking v2 (the old hook only accepts swaps from it). Every tx is simulated with eth_call first, then signed by the connected wallet. Works for the deployer 0x7185...20e7 and 0xb311...c7de: switch the account in your wallet, then press Refresh. Expected total for both wallets is only about 10 USDC (pool USDC = what buyers put in).</div>
+      <button class="btn-sm" onclick="lrRefresh()">Connect / Refresh legacy status</button>
+      <div class="result" id="lrStatus">Not loaded</div>
+      <div class="warning">Not recoverable (info only): legacy LP positions in proxy 0x61096C58...3c95 (owner 0x0, LP fees included); 59 SAVIOR surplus in 0xa9bd (owner 0x0); retired staking 0xBCA6...a525 (empty, owner 0x0). Old token owner is 0x0, so no minting.</div>
+      <h3>Emergency unlock all (v2, deployer only, irreversible)</h3>
+      <div class="subtitle">Makes every v2 lock claimable now for all users. Not needed if you can wait for the unlock dates. Type UNLOCK ALL to enable.</div>
+      <input id="lrConfirm" placeholder="Type UNLOCK ALL" oninput="lrGate()">
+      <button class="btn-sm btn-red" id="lrUnlockBtn" disabled onclick="lrUnlockAll()">Simulate + emergencyUnlockAll()</button>
+      <h3>Claim</h3>
+      <div id="lrClaimBtns"></div>
+      <h3>Sell old SAVIOR via staking v2</h3>
+      <button class="btn-sm" id="lrApproveBtn" disabled onclick="lrApprove()">Approve old SAVIOR to staking v2</button>
+      <button class="btn-sm btn-green" id="lrSellBtn" disabled onclick="lrSell()">Simulate + sell all (minOut = quote - 1%)</button>
+      <div class="result" id="lrRes">Waiting...</div>
+    </div>
   </div>
   <!-- /FRESH START -->
 </div>
@@ -2317,6 +2334,107 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       const o = await new ethers.Contract(FS.LEGACY_LP, ['function owner() view returns (address)'], p).owner();
       out('fsLegacyRes', 'legacy proxy ' + FS.LEGACY_LP + ' owner() = ' + o + (o === ethers.ZeroAddress ? '\nRenounced: no withdrawal path exists.' : '\nOwner is set: re-evaluate.'), o === ethers.ZeroAddress ? 'err' : 'ok');
     } catch(e){ out('fsLegacyRes', em(e), 'err'); }
+  };
+
+  // ---------- Legacy recovery ----------
+  const LR = {
+    TOKEN: '0xe4065efC5E19305e4ed1dfdB6542A32A34E0cAf3', V2: '0x8807DA96A254B370e1E9ae8d3cc4163d1E2939bB',
+    OLD: '0xA9Bd5FCa5EFD214fB42A5eDdbA87ae7E1ccA9732', B: '0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de',
+    TREASURY: '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787', OLD_UNLOCK: 1792360709,
+  };
+  const LR_V2 = ['function getLocks(address) view returns (tuple(uint128 amount,uint64 unlockAt)[])', 'function globalUnlock() view returns (bool)',
+    'function totalLocked() view returns (uint256)', 'function owner() view returns (address)', 'function emergencyUnlockAll()', 'function claim(uint256)',
+    'function swapExactIn(bool,uint256,uint256,uint256) returns (uint256)'];
+  const LR_OLD = ['function getLocks(address) view returns (tuple(uint256 amount,uint256 unlockAt)[])', 'function claim(uint256)'];
+  const LR_TOK = ['function balanceOf(address) view returns (uint256)', 'function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'];
+  let lr = {};
+  const lrNow = async () => BigInt((await rp().send('eth_getBlockByNumber', ['latest', false])).timestamp);
+  const cd = s => { s = Number(s); if (s <= 0) return 'unlocked'; const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d + 'd ' + h + 'h ' + m + 'm left'; };
+  const tr = ts => new Date(Number(ts) * 1000).toLocaleString('en-GB', { timeZone: 'Europe/Istanbul' }) + ' TR';
+  async function lrTx(c, fn, args, label){
+    out('lrRes', 'Simulating ' + label + ' (eth_call)...', '');
+    let sim;
+    try { sim = await c[fn].staticCall(...args); } catch(e){ throw new Error('Simulation failed for ' + label + ': ' + em(e)); }
+    const gas = await c[fn].estimateGas(...args);
+    if (!confirm('Simulation OK. Sign ' + label + '?')) throw new Error('Cancelled');
+    const tx = await c[fn](...args, { gasLimit: gas * 13n / 10n });
+    out('lrRes', 'Sent ' + tx.hash + ', waiting...', '');
+    await waitTx(tx);
+    return { sim, hash: tx.hash };
+  }
+  window.lrGate = function(){ $('lrUnlockBtn').disabled = !(lr.isOwner && !lr.global && $('lrConfirm').value.trim() === 'UNLOCK ALL'); };
+  window.lrRefresh = async function(){
+    try {
+      if (!provider) await connectWallet();
+      signer = await provider.getSigner(); deployer = await signer.getAddress();
+      const me = deployer, now = await lrNow();
+      const tok = new ethers.Contract(LR.TOKEN, LR_TOK, rp()), v2 = new ethers.Contract(LR.V2, LR_V2, rp()), old = new ethers.Contract(LR.OLD, LR_OLD, rp());
+      const [global, owner, tl, v2Bal, oldBal, trBal] = await Promise.all([v2.globalUnlock(), v2.owner(), v2.totalLocked(), tok.balanceOf(LR.V2), tok.balanceOf(LR.OLD), tok.balanceOf(LR.TREASURY)]);
+      lr = { me, global, isOwner: eq(owner, me) };
+      const L = ['Connected: ' + me + (eq(me, FS.DEPLOYER) ? ' (deployer, v2 owner)' : eq(me, LR.B) ? ' (0xb311)' : ' (not a known recovery wallet)'),
+        'v2 globalUnlock: ' + global + ', totalLocked ' + fmt6(tl) + ' SAVIOR (v2 holds ' + fmt6(v2Bal) + ', rescue surplus ' + fmt6(v2Bal > tl ? v2Bal - tl : 0n) + ')',
+        'treasury old SAVIOR: ' + fmt6(trBal) + ' (treasury key, not handled here)', ''];
+      for (const w of [FS.DEPLOYER, LR.B]) {
+        const [bal, locks] = await Promise.all([tok.balanceOf(w), v2.getLocks(w)]);
+        L.push(w + ': wallet ' + fmt6(bal) + ' SAVIOR');
+        locks.forEach((l, i) => { if (l.amount > 0n) L.push('  v2 lock #' + i + ': ' + fmt6(l.amount) + ' SAVIOR, unlockAt ' + tr(l.unlockAt) + ' (' + (global ? 'globalUnlock' : cd(BigInt(l.unlockAt) - now)) + ')'); });
+      }
+      const ol = await old.getLocks(FS.DEPLOYER);
+      ol.forEach((l, i) => { if (l.amount > 0n) L.push('0xa9bd proxy lock #' + i + ' (deployer): ' + fmt6(l.amount) + ' SAVIOR, unlockAt ' + tr(l.unlockAt) + ' (' + cd(BigInt(l.unlockAt) - now) + ')'); });
+      L.push('0xa9bd proxy holds ' + fmt6(oldBal) + ' SAVIOR (surplus above locks is stranded)');
+      // claim buttons for the connected wallet
+      const myLocks = await v2.getLocks(me);
+      let html = '';
+      myLocks.forEach((l, i) => { if (l.amount > 0n) { const okc = global || now >= BigInt(l.unlockAt);
+        html += '<button class="btn-sm" ' + (okc ? '' : 'disabled title="locked until ' + tr(l.unlockAt) + '" ') + 'onclick="lrClaimV2(' + i + ')">Claim v2 lock #' + i + ' (' + fmt6(l.amount) + ')' + (okc ? '' : ' - locked, ' + cd(BigInt(l.unlockAt) - now)) + '</button> '; } });
+      if (eq(me, FS.DEPLOYER)) ol.forEach((l, i) => { if (l.amount > 0n) { const okc = now >= BigInt(l.unlockAt);
+        html += '<button class="btn-sm" ' + (okc ? '' : 'disabled ') + 'onclick="lrClaimOld(' + i + ')">Claim 0xa9bd lock #' + i + ' (' + fmt6(l.amount) + ')' + (okc ? '' : ' - after ' + tr(l.unlockAt)) + '</button> '; } });
+      $('lrClaimBtns').innerHTML = html || '<div class="subtitle">No claimable locks for the connected wallet.</div>';
+      // sell state + quote
+      const [myBal, al] = await Promise.all([tok.balanceOf(me), tok.allowance(me, LR.V2)]);
+      lr.bal = myBal; lr.al = al;
+      if (myBal === 0n) L.push('', 'Sell: connected wallet holds no old SAVIOR.');
+      else if (al < myBal) L.push('', 'Sell: approve first (allowance ' + fmt6(al) + ' < balance ' + fmt6(myBal) + '); the quote needs the allowance.');
+      else { try { const q = await new ethers.Contract(LR.V2, LR_V2, signer).swapExactIn.staticCall(false, myBal, 1, now + 600n); lr.quote = q; L.push('', 'Sell quote (eth_call): ' + fmt6(myBal) + ' SAVIOR -> ' + fmt6(q) + ' USDC'); } catch(e){ L.push('', 'Quote failed: ' + em(e)); } }
+      $('lrApproveBtn').disabled = !(myBal > 0n && al < myBal);
+      $('lrSellBtn').disabled = !(myBal > 0n && al >= myBal);
+      out('lrStatus', L.join('\n'), 'ok');
+      lrGate();
+      if (!lr.isOwner) $('lrUnlockBtn').title = 'Only the v2 owner (deployer) can unlock';
+    } catch(e){ out('lrStatus', em(e), 'err'); }
+  };
+  window.lrUnlockAll = async function(){
+    try {
+      if (!lr.isOwner) throw new Error('Connected wallet is not the v2 owner');
+      if ($('lrConfirm').value.trim() !== 'UNLOCK ALL') throw new Error('Type UNLOCK ALL first');
+      if (!confirm('emergencyUnlockAll is IRREVERSIBLE and unlocks every v2 user. Continue?')) throw new Error('Cancelled');
+      const r = await lrTx(new ethers.Contract(LR.V2, LR_V2, signer), 'emergencyUnlockAll', [], 'emergencyUnlockAll()');
+      $('lrConfirm').value = ''; await lrRefresh(); out('lrRes', 'globalUnlock set. tx ' + r.hash, 'ok');
+    } catch(e){ out('lrRes', em(e), 'err'); }
+  };
+  window.lrClaimV2 = async function(i){
+    try { const r = await lrTx(new ethers.Contract(LR.V2, LR_V2, signer), 'claim', [i], 'v2 claim(' + i + ')'); await lrRefresh(); out('lrRes', 'Claimed v2 lock #' + i + '. tx ' + r.hash, 'ok'); } catch(e){ out('lrRes', em(e), 'err'); }
+  };
+  window.lrClaimOld = async function(i){
+    try { if (!eq(deployer, FS.DEPLOYER)) throw new Error('Only the deployer owns the 0xa9bd lock');
+      const r = await lrTx(new ethers.Contract(LR.OLD, LR_OLD, signer), 'claim', [i], '0xa9bd claim(' + i + ')'); await lrRefresh(); out('lrRes', 'Claimed 0xa9bd lock #' + i + '. tx ' + r.hash, 'ok'); } catch(e){ out('lrRes', em(e), 'err'); }
+  };
+  window.lrApprove = async function(){
+    try { const bal = await new ethers.Contract(LR.TOKEN, LR_TOK, rp()).balanceOf(deployer);
+      const r = await lrTx(new ethers.Contract(LR.TOKEN, LR_TOK, signer), 'approve', [LR.V2, bal], 'approve(staking v2, ' + fmt6(bal) + ' SAVIOR)'); await lrRefresh(); out('lrRes', 'Approved. tx ' + r.hash, 'ok'); } catch(e){ out('lrRes', em(e), 'err'); }
+  };
+  window.lrSell = async function(){
+    try {
+      const bal = await new ethers.Contract(LR.TOKEN, LR_TOK, rp()).balanceOf(deployer);
+      if (bal === 0n) throw new Error('Nothing to sell');
+      const v2 = new ethers.Contract(LR.V2, LR_V2, signer);
+      const dl = (await lrNow()) + 600n;
+      const q = await v2.swapExactIn.staticCall(false, bal, 1, dl);
+      const minOut = q * 99n / 100n;
+      if (minOut === 0n) throw new Error('Quote too small (minOut would be 0): ' + fmt6(q) + ' USDC');
+      const r = await lrTx(v2, 'swapExactIn', [false, bal, minOut, dl], 'sell ' + fmt6(bal) + ' SAVIOR for >= ' + fmt6(minOut) + ' USDC (quote ' + fmt6(q) + ')');
+      await lrRefresh(); out('lrRes', 'Sold ' + fmt6(bal) + ' SAVIOR. Quote ' + fmt6(q) + ' USDC, minOut ' + fmt6(minOut) + '. tx ' + r.hash, 'ok');
+    } catch(e){ out('lrRes', em(e), 'err'); }
   };
 })();
 </script>
