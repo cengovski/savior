@@ -6,7 +6,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PoolKey, IPoolManagerMinimal} from "../src/IV4Minimal.sol";
 import {SaviorTokenV2} from "../src/fresh/SaviorTokenV2.sol";
 import {SaviorStakingFresh, ILuckySink} from "../src/fresh/SaviorStakingFresh.sol";
-import {SaviorLuckyNFT} from "../src/fresh/SaviorLuckyNFT.sol";
 
 /// Exposes _pushPending so eligible (buy-created) locks can be made without a pool. Buy-path eligibility
 /// (>= 10 USDC gross input) is covered on the Arc fork in LuckySeaDropFork.t.sol.
@@ -26,10 +25,26 @@ contract RevertingSink {
     function onWin(address, uint256) external pure { revert("boom"); }
 }
 
+/// Test-only sink: records each win as a sequential id owned by the user (stands in for LuckyDistributor;
+/// the real SeaDrop path is covered on the Arc fork in LuckySeaDropFork.t.sol).
+contract RecordingSink {
+    address public immutable staking;
+    uint256 public totalSupply;
+    mapping(uint256 => address) public ownerOf;
+    mapping(address => uint256) public balanceOf;
+    error NotStaking();
+    constructor(address s) { staking = s; }
+    function onWin(address user, uint256) external {
+        if (msg.sender != staking) revert NotStaking();
+        ownerOf[++totalSupply] = user;
+        ++balanceOf[user];
+    }
+}
+
 contract LuckyNftTest is Test {
     SaviorTokenV2 token;
     StakingHarness st;
-    SaviorLuckyNFT nft;
+    RecordingSink nft;
     address owner = makeAddr("owner");
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -43,7 +58,7 @@ contract LuckyNftTest is Test {
         vm.roll(1000);
         token = new SaviorTokenV2(address(this), owner, "ipfs://x");
         address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
-        nft = new SaviorLuckyNFT(owner, predicted, 0, "ipfs://lucky/", false, "ipfs://lucky/contract.json");
+        nft = new RecordingSink(predicted);
         st = new StakingHarness(owner, IERC20(address(token)), _key(), ILuckySink(address(nft)));
         assertEq(address(st), predicted);
         token.transfer(address(st), 1_000_000e6);
@@ -157,12 +172,9 @@ contract LuckyNftTest is Test {
         assertEq(nft.ownerOf(1), alice);
     }
 
-    function test_only_staking_can_mint() public {
-        vm.expectRevert(SaviorLuckyNFT.NotMinter.selector);
+    function test_only_staking_can_call_sink() public {
+        vm.expectRevert(RecordingSink.NotStaking.selector);
         nft.onWin(alice, 0);
-        vm.expectRevert(SaviorLuckyNFT.NotMinter.selector);
-        vm.prank(owner);
-        nft.mint(alice);
     }
 
     function test_low_gas_reveal_reverts_not_skips() public {
@@ -188,22 +200,8 @@ contract LuckyNftTest is Test {
         assertEq(st.luckyFailed(alice), 1);
     }
 
-    function test_cap_returns_zero_never_reverts() public {
-        address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
-        nft = new SaviorLuckyNFT(owner, predicted, 1, "ipfs://u", true, "");
-        st = new StakingHarness(owner, IERC20(address(token)), _key(), ILuckySink(address(nft)));
-        uint256 a = _lock(alice, true, true);
-        vm.roll(block.number + 1);
-        uint256 b = _lock(bob, true, true);
-        _past();
-        st.reveal(alice, a);
-        st.reveal(bob, b);
-        assertEq(nft.totalSupply(), 1);
-        assertEq(nft.tokenURI(1), "ipfs://u");
-    }
-
-    /// Gas: own-ERC721 option, MAX_REVEAL_BATCH all winners.
-    function test_gas_batch_all_winners_ownNft() public {
+    /// Gas: staking-side cost with a minimal sink, MAX_REVEAL_BATCH all winners (SeaDrop cost: fork test).
+    function test_gas_batch_all_winners_minimalSink() public {
         uint256 n = st.MAX_REVEAL_BATCH();
         address[] memory us = new address[](n);
         uint256[] memory is_ = new uint256[](n);
@@ -216,7 +214,7 @@ contract LuckyNftTest is Test {
         uint256 g = gasleft();
         st.revealBatch(us, is_);
         uint256 used = g - gasleft();
-        console2.log("ownNFT revealBatch all winners, n", n);
+        console2.log("minimal sink revealBatch all winners, n", n);
         console2.log("gas", used);
         console2.log("per item", used / n);
         assertEq(nft.totalSupply(), n);

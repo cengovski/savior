@@ -20,7 +20,6 @@ import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBound
 ///      Arc ~0.51s/block ⇒ 8191-block window ≈ ~70 minutes. Site should still prompt reveal after buy.
 /// @notice Lucky NFT sink. Called once per winning lock with the LOCK OWNER (never msg.sender).
 ///         Option A: LuckyDistributor (OpenSea ERC721SeaDrop allowlist mint, winner pulls via claimNFT).
-///         Option B: SaviorLuckyNFT (own ERC-721, mints directly to user).
 interface ILuckySink {
     function onWin(address user, uint256 index) external;
 }
@@ -36,7 +35,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint64 targetBlock;
         uint64 revealDeadlineBlock; // targetBlock + HISTORY_SERVE_WINDOW (8191)
         bool pending; // true until successful reveal (or optional finalize after window)
-        bool lucky; // Lucky NFT eligible: set at buy time iff USDC actually received >= LUCKY_MIN_USDC
+        bool lucky; // Lucky NFT eligible: set at buy time iff USDC consumed (received - refunded leftover) >= LUCKY_MIN_USDC
     }
 
     /// @notice ABI-friendly view of a lock (includes computed revealableNow).
@@ -210,7 +209,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         } else if (lastBuyBlock[msg.sender] == block.number) {
             revert SameBlock();
         }
-        (uint256 received, uint256 out) = _pullAndSwap(zeroForOne, amountIn);
+        (uint256 received, uint256 out, uint256 used) = _pullAndSwap(zeroForOne, amountIn);
         address tokenOut = zeroForOne ? _c1 : _c0;
 
         // Fee rounds UP (audit B-4): no zero-fee dust swaps; at most 1 raw unit more than floor.
@@ -219,11 +218,11 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         if (net == 0 || net < minOut) revert Bad();
         if (fee != 0) IERC20(tokenOut).safeTransfer(treasury, fee);
 
-        uint256 locked = isBuy ? _payBuy(tokenOut, net, received >= LUCKY_MIN_USDC) : _paySell(tokenOut, net);
+        uint256 locked = isBuy ? _payBuy(tokenOut, net, used >= LUCKY_MIN_USDC) : _paySell(tokenOut, net); // L-2: consumed USDC
         emit Swapped(msg.sender, zeroForOne, received, out, fee, locked);
     }
 
-    function _pullAndSwap(bool zeroForOne, uint256 amountIn) internal returns (uint256 received, uint256 out) {
+    function _pullAndSwap(bool zeroForOne, uint256 amountIn) internal returns (uint256 received, uint256 out, uint256 used) {
         address tokenIn = zeroForOne ? _c0 : _c1;
         address tokenOut = zeroForOne ? _c1 : _c0;
 
@@ -237,6 +236,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         out = IERC20(tokenOut).balanceOf(address(this)) - outBefore;
         uint256 leftover = IERC20(tokenIn).balanceOf(address(this)) - inBefore;
         if (leftover != 0) IERC20(tokenIn).safeTransfer(msg.sender, leftover);
+        used = received - leftover; // input consumed by the pool (excludes the refunded leftover)
     }
 
     function _paySell(address tokenOut, uint256 net) internal returns (uint256) {

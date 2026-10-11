@@ -264,5 +264,41 @@ contract LuckySeaDropForkTest is FreshStackForkTest {
         vm.prank(alice);
         dist.claimNFT(id);
         assertEq(nft.ownerOf(id), alice);
+
+        // audit L-2: partial fill. Bob buys almost the whole ladder, then alice sends 20 USDC of which
+        // less than 10 is consumed (rest refunded): NOT eligible although 20 USDC were received.
+        vm.deal(bob, 100_000 ether);
+        vm.startPrank(bob);
+        IERC20(A.USDC).approve(s_, type(uint256).max);
+        uint256 snap = vm.snapshotState();
+        uint256 bb = IERC20(A.USDC).balanceOf(bob);
+        st.swapExactIn(true, 60_000e6, 1, block.timestamp); // measure remaining capacity (leftover refunded)
+        uint256 cap = bb - IERC20(A.USDC).balanceOf(bob);
+        vm.revertToState(snap);
+        snap = vm.snapshotState();
+        // (a) leave exactly 10 USDC of capacity: alice sends 20, consumes exactly the threshold -> eligible
+        st.swapExactIn(true, cap - 10e6, 1, block.timestamp);
+        vm.stopPrank();
+        {
+            uint256 a0 = IERC20(A.USDC).balanceOf(alice);
+            vm.prank(alice);
+            st.swapExactIn(true, 20e6, 1, block.timestamp);
+            uint256 sp10 = a0 - IERC20(A.USDC).balanceOf(alice);
+            console2.log("partial fill at threshold: consumed", sp10);
+            assertEq(sp10, 10e6);
+            assertTrue(st.luckyEligible(alice, 2));
+        }
+        vm.revertToState(snap);
+        // (b) leave ~5 USDC of capacity
+        vm.prank(bob);
+        st.swapExactIn(true, cap - 5e6, 1, block.timestamp);
+        uint256 b0 = IERC20(A.USDC).balanceOf(alice);
+        vm.prank(alice);
+        st.swapExactIn(true, 20e6, 1, block.timestamp);
+        uint256 spent = b0 - IERC20(A.USDC).balanceOf(alice);
+        console2.log("partial fill: consumed of 20 USDC", spent);
+        assertGt(spent, 0);
+        assertLt(spent, 10e6, "leftover refunded, consumed < threshold");
+        assertFalse(st.luckyEligible(alice, 2));
     }
 }
