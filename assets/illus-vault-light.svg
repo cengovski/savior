@@ -3,7 +3,66 @@
 <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0073E6"/><stop offset="1" stop-color="#8656EF"/></linearGradient>
 <radialGradient id="glow"><stop offset="0" stop-color="#0073E6" stop-opacity=".45"/><stop offset="1" stop-color="#0073E6" stop-opacity="0"/></radialGradient></defs>
 <rect width="480" height="320" rx="24" fill="url(#bg)"/><circle cx="240" cy="160" r="150" fill="url(#glow)"/>
-<g fill="none" stroke="#2F578C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="150" y="70" width="180" height="180" rx="28" fill="#FFFFFF"/><circle cx="240" cy="160" r="54" stroke="#0073E6" stroke-width="4"/>
-<circle cx="240" cy="160" r="14" fill="url(#g)" stroke="none"/><path d="M240 106v20M240 194v20M186 160h20M274 160h20" stroke="#0073E6" stroke-width="4"/>
-<path d="M330 120h20M330 200h20"/><path d="M100 160h40" stroke-dasharray="3 6"/><circle cx="80" cy="160" r="22" fill="url(#g)" stroke="none"/><circle cx="80" cy="160" r="15" stroke="#FFFFFF" stroke-opacity=".6"/><text x="80" y="166.16" font-family="DM Sans,Arial" font-weight="700" font-size="17.6" fill="#FFFFFF" stroke="none" text-anchor="middle">S</text>
-<text x="240" y="285" font-family="Space Mono,monospace" font-size="14" fill="#2F578C" stroke="none" text-anchor="middle">LOCKED 5 TO 10 DAYS</text></g></svg>
+<g fill="none" stroke="#2F578C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="160" y="70" width="180" height="180" rx="28" fill="#FFFFFF"/><circle cx="250" cy="160" r="58" stroke="#0073E6" stroke-width="4"/>
+<svg x="216" y="126" width="68" height="68" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+  <defs>
+    <radialGradient id="savior_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <linearGradient id="savior_shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="50%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00ff87"/>
+    </linearGradient>
+    <linearGradient id="savior_sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a8edff"/>
+    </linearGradient>
+    <filter id="savior_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="savior_softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  
+  <circle cx="100" cy="100" r="100" fill="url(#savior_bg)"/>
+
+  
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2" opacity="0.6"/>
+
+  
+  <path d="M100 28 L148 50 L148 100 Q148 138 100 165 Q52 138 52 100 L52 50 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.15"/>
+  <path d="M100 32 L144 53 L144 100 Q144 135 100 160 Q56 135 56 100 L56 53 Z"
+        fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2.5" filter="url(#savior_glow)"/>
+
+  
+  <path d="M100 44 L132 60 L132 100 Q132 124 100 142 Q68 124 68 100 L68 60 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.08"/>
+
+  
+  <text x="100" y="118"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="68"
+        font-weight="900"
+        text-anchor="middle"
+        fill="url(#savior_sGrad)"
+        filter="url(#savior_softglow)"
+        letter-spacing="-2">S</text>
+
+  
+  <circle cx="72" cy="155" r="3" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="100" cy="163" r="3" fill="#7b61ff" opacity="0.7"/>
+  <circle cx="128" cy="155" r="3" fill="#00ff87" opacity="0.7"/>
+</svg><path d="M340 120h20M340 200h20"/><path d="M98 160h50" stroke-dasharray="3 6"/><svg x="44" y="134" width="52" height="52" viewBox="0 0 96 96" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+<path d="M48 95C73.9574 95 95 73.9574 95 48C95 22.0426 73.9574 1 48 1C22.0426 1 1 22.0426 1 48C1 73.9574 22.0426 95 48 95Z" fill="#0B53BF"/>
+<path d="M56.4609 13.7778V19.8291C68.5341 23.4716 77.3759 34.6928 77.3759 47.9997C77.3759 61.3066 68.5341 72.5278 56.4609 76.1703V82.2216C71.8534 78.4616 83.2509 64.5672 83.2509 47.9997C83.2509 31.4322 71.8534 17.5378 56.4609 13.7778Z" fill="white"/>
+<path d="M18.625 47.9997C18.625 34.6928 27.4669 23.4716 39.54 19.8291V13.7778C24.1475 17.5378 12.75 31.4322 12.75 47.9997C12.75 64.5672 24.1475 78.4616 39.54 82.2216V76.1703C27.4669 72.5572 18.625 61.3066 18.625 47.9997Z" fill="white"/>
+<path d="M60.6319 54.5506C60.6319 42.5362 41.8025 47.4713 41.8025 40.8325C41.8025 38.4531 43.7119 36.9256 47.3544 36.9256C51.7019 36.9256 53.2 39.0406 53.67 41.89H59.6625C59.1279 36.5426 56.0588 33.1662 50.9382 32.1604V27.4375H45.0632V31.9918C39.4534 32.7062 35.9275 35.973 35.9275 40.8325C35.9275 52.9056 54.7863 48.3819 54.7863 54.9031C54.7863 57.3706 52.4069 59.0156 48.3825 59.0156C43.1244 59.0156 41.3913 56.695 40.745 53.4931H34.8994C35.2781 59.3502 38.8897 63.0159 45.0632 63.9307V68.5625H50.9382V63.9923C56.9633 63.2139 60.6319 59.7089 60.6319 54.5506Z" fill="white"/>
+</svg>
+<text x="250" y="285" font-family="Space Mono,monospace" font-size="14" fill="#2F578C" stroke="none" text-anchor="middle">LOCKED 5 TO 10 DAYS</text></g></svg>

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="50%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00ff87"/>
+    </linearGradient>
+    <linearGradient id="sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a8edff"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+
+  <!-- Outer ring -->
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#shieldGrad)" stroke-width="2" opacity="0.6"/>
+
+  <!-- Shield shape -->
+  <path d="M100 28 L148 50 L148 100 Q148 138 100 165 Q52 138 52 100 L52 50 Z"
+        fill="url(#shieldGrad)" opacity="0.15"/>
+  <path d="M100 32 L144 53 L144 100 Q144 135 100 160 Q56 135 56 100 L56 53 Z"
+        fill="none" stroke="url(#shieldGrad)" stroke-width="2.5" filter="url(#glow)"/>
+
+  <!-- Inner shield highlight -->
+  <path d="M100 44 L132 60 L132 100 Q132 124 100 142 Q68 124 68 100 L68 60 Z"
+        fill="url(#shieldGrad)" opacity="0.08"/>
+
+  <!-- S letter -->
+  <text x="100" y="118"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="68"
+        font-weight="900"
+        text-anchor="middle"
+        fill="url(#sGrad)"
+        filter="url(#softglow)"
+        letter-spacing="-2">S</text>
+
+  <!-- Bottom glow dots -->
+  <circle cx="72" cy="155" r="3" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="100" cy="163" r="3" fill="#7b61ff" opacity="0.7"/>
+  <circle cx="128" cy="155" r="3" fill="#00ff87" opacity="0.7"/>
+</svg>

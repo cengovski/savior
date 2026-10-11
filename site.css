@@ -131,8 +131,8 @@ img{max-width:100%;display:block}
 .field input::placeholder{color:var(--muted);opacity:.6}
 .amount-out{flex:1;min-width:0;font-size:28px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .token-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:var(--r-pill);padding:6px 12px 6px 6px;font-weight:700;font-size:14px;white-space:nowrap}
-.tok-ico{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
-.tok-usdc{background:#2775CA}.tok-sav{background:linear-gradient(135deg,#3898EC,#8656EF)}
+/* Logos: original files as <img>, never recolored or filtered (brand rules, see assets/logos). */
+.tok-ico{width:20px;height:20px;flex:none;object-fit:contain;margin-right:2px}
 .pcts{display:flex;gap:6px;margin:8px 0 4px}
 .pcts button{font-family:var(--mono);font-size:11px;border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 10px;color:var(--muted)}
 .pcts button:hover{color:var(--primary);border-color:var(--primary)}
@@ -212,8 +212,12 @@ img{max-width:100%;display:block}
 .step.active{color:var(--primary);border-color:var(--primary)}.step.active i{border-color:var(--primary);background:var(--primary)}
 .step.done{color:var(--success)}.step.done i{border-color:var(--success);background:var(--success)}
 .chains{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
-.chain{font-size:14px;font-weight:500;border:1px solid var(--border);border-radius:var(--r-pill);padding:8px 14px}
-.chain.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.chain{font-size:14px;font-weight:500;border:1px solid var(--border);border-radius:var(--r-pill);padding:8px 14px;display:inline-flex;align-items:center;gap:6px}
+.chain-logo{width:16px;height:16px;flex:none;object-fit:contain;margin:0 2px}
+.chain-logo[src$="arbitrum.svg"]{width:24px;height:24px;margin:-4px 0}
+.chain-dest{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0 4px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-pill);width:fit-content}
+/* active pill keeps a neutral background so original chain logos (e.g. Base blue) stay legible */
+.chain.active{background:var(--surface);border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary);color:var(--text)}
 .bridge-grid{display:grid;gap:10px}
 @media(min-width:640px){.bridge-grid{grid-template-columns:1fr 1fr}}
 .select,.text-in{width:100%;background:var(--surface-2);border:1px solid transparent;border-radius:var(--r-input);padding:12px 14px;font-size:15px;outline:0}
