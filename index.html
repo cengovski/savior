@@ -102,7 +102,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <button class="slip-pill" onclick="toggleSlipPanel()">Slippage <b id="slip-badge">0.5%</b></button>
       </div>
       <div class="field">
-        <div class="field-top"><span class="label">You pay</span><span class="sub">Balance: <span id="usdc-balance">-</span><span id="usdc-bal-ticker"> USDC</span><span id="savior-wallet-balance" class="hidden">-</span><span id="savior-bal-ticker" class="hidden"> SAVIOR</span></span></div>
+        <div class="field-top"><span class="label">You pay</span><span class="sub">Balance: <span id="usdc-balance">-</span><span id="usdc-bal-ticker"> USDC</span><span id="savior-wallet-balance" class="hidden">-</span><span id="savior-bal-ticker" class="hidden"> SAVIOR</span> <a href="javascript:void(0)" onclick="addSaviorToWallet()" title="Show SAVIOR in your wallet">+ add SAVIOR to wallet</a></span></div>
         <div class="field-row">
           <input id="swap-amount" type="number" min="0.000001" step="any" inputmode="decimal" placeholder="0.0" oninput="onSwapInput()" value="0.1" aria-label="Amount to pay"/>
           <span id="pay-token-pill" class="token-chip"><img class="tok-ico" src="assets/logos/usdc.svg" alt="" width="20" height="20"/>USDC</span>
@@ -687,6 +687,32 @@ function onSlipCustom() {
 
 function updateSlippage() { setSlippage(currentSlipBps); }
 
+const GAS_RESERVE_USDC = 20000n; // 0.02 USDC kept for gas on buys
+
+// Pre-flight balance check so the wallet never simulates a swap that must revert
+// ("ERC20: transfer amount exceeds balance").
+async function checkSwapBalance(isBuy, amountIn) {
+  const p = getReadProvider();
+  if (isBuy) {
+    const bal = await new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], p).balanceOf(userAddress);
+    if (amountIn + GAS_RESERVE_USDC > bal) {
+      const max = bal > GAS_RESERVE_USDC ? bal - GAS_RESERVE_USDC : 0n;
+      return 'Not enough USDC: you have ' + ethers.formatUnits(bal, 6) + ' USDC and about 0.02 USDC must stay for gas. Max buy: ' + ethers.formatUnits(max, 6) + ' USDC.';
+    }
+  } else {
+    const bal = await new ethers.Contract(TOKEN_ADDR, ["function balanceOf(address) view returns (uint256)"], p).balanceOf(userAddress);
+    if (amountIn > bal) return 'Not enough SAVIOR in your wallet: ' + ethers.formatUnits(bal, 6) + ' SAVIOR (locked SAVIOR is shown under your locks, not in the wallet).';
+  }
+  return '';
+}
+
+// Lets the wallet display the SAVIOR token (custom tokens are often hidden in Rabby/MetaMask).
+async function addSaviorToWallet() {
+  try {
+    await window.ethereum.request({ method: 'wallet_watchAsset', params: { type: 'ERC20', options: { address: TOKEN_ADDR, symbol: 'SAVIOR', decimals: 6, image: location.origin + '/logo.svg' } } });
+  } catch (e) { showStatus('Could not add the token: ' + (e.message || e), 'warn'); }
+}
+
 async function setPct(pct) {
   if (!userAddress) return;
   const provider = getProvider();
@@ -698,6 +724,8 @@ async function setPct(pct) {
     const savior = new ethers.Contract(TOKEN_ADDR, ERC20_ABI, provider);
     bal = await savior.balanceOf(userAddress);
   }
+  // Arc: USDC is also the gas token, so a buy must leave some USDC for gas.
+  if (swapMode === 'buy') bal = bal > GAS_RESERVE_USDC ? bal - GAS_RESERVE_USDC : 0n;
   const amt = Number(bal) * pct / 100 / 1e6;
   document.getElementById('swap-amount').value = amt > 0 ? amt.toFixed(6).replace(/\.?0+$/, '') : '';
   onSwapInput();
@@ -858,6 +886,7 @@ async function executeSwap() {
     if (swapMode === 'buy') {
       // USDC → SAVIOR
       const amountIn = BigInt(Math.round(amt * 1e6));
+      { const m = await checkSwapBalance(true, amountIn); if (m) { showStatus(m, 'warn'); btn.disabled = false; return; } }
       const usdc = new ethers.Contract(USDC_ADDR,
         ["function approve(address,uint256)", "function allowance(address,address) view returns (uint256)"],
         WalletConnector.signer);
@@ -888,6 +917,7 @@ async function executeSwap() {
     } else {
       // SAVIOR → USDC (sell)
       const amountIn = BigInt(Math.round(amt * 1e6));
+      { const m = await checkSwapBalance(false, amountIn); if (m) { showStatus(m, 'warn'); btn.disabled = false; return; } }
       const savior = new ethers.Contract(TOKEN_ADDR,
         ["function approve(address,uint256)", "function allowance(address,address) view returns (uint256)"],
         WalletConnector.signer);
