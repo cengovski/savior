@@ -15,10 +15,10 @@ const accounts = JSON.parse(cast('rpc eth_accounts'));
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
   const p = await ctx.newPage(); const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));
-  const shot = async (name, theme = 'light', w = 1280) => {
+  const shot = async (name, theme = 'light', w = 1280, sel = '#reveal-warning') => {
     await p.setViewportSize({ width: w, height: 900 });
     await p.evaluate((t) => { localStorage.setItem('savior.theme', t); document.documentElement.dataset.theme = t; document.documentElement.classList.toggle('dark', t === 'dark'); }, theme);
-    await p.evaluate(() => document.getElementById('locks').scrollIntoView()); await sleep(400);
+    await p.evaluate((sel) => { const e = document.querySelector(sel); (e && e.offsetParent ? e : document.getElementById('stakes-list')).scrollIntoView({ block: 'start' }); window.scrollBy(0, -90); }, sel); await sleep(400);
     await p.screenshot({ path: `${SHOTS}/reveal-${name}-${theme}-${w}.png` });
   };
   cast(`send ${A.USDC} "setBalance(address,uint256)" ${A.U0} 1000000000000 --unlocked --from ${A.U0}`);
@@ -52,14 +52,14 @@ const accounts = JSON.parse(cast('rpc eth_accounts'));
   R.closedRow = (await E.stakes(p)).find((x) => x.startsWith('#' + i1));
   await p.evaluate((i) => SaviorFresh.reveal(i), i1); await sleep(2500);
   R.closedRevealToasts = await toasts(p);
-  await shot('4-window-ended');
+  await shot('4-window-ended', 'light', 1280, '#stakes-list');
   // 5) Reveal all with > 25 locks (10 wallets x 3 buys = 30 locks) + U0's own
   const others = Array.from({ length: 10 }, (_, k) => E.synth(k + 1));
   for (const a of others) for (let k = 0; k < 3; k++) E.buy(a);
   mine(4); await settle();
   await p.evaluate(() => SaviorLocks.refresh(true)); await sleep(5000);
   R.lbBefore = await p.evaluate(() => [...document.querySelectorAll('#lb-body .lb-row')].slice(0, 4).map((r) => r.innerText.replace(/\s+/g, ' ')));
-  await shot('5-leaderboard-pending');
+  await shot('5-leaderboard-pending', 'light', 1280, '#reveal-all');
   await p.evaluate(() => SaviorFresh.revealAll());
   R.revealAll = await p.textContent('#reveal-all-status');
   const batches = JSON.parse(cast(`logs --from-block ${A.DEPLOY} --address ${A.ST} "RevealBatch(address,uint256,uint256)" --json`));
@@ -68,7 +68,7 @@ const accounts = JSON.parse(cast('rpc eth_accounts'));
   await sleep(4000); await p.evaluate(() => SaviorLocks.refresh(true)); await sleep(4000);
   R.lbAfter = await p.evaluate(() => [...document.querySelectorAll('#lb-body .lb-row')].slice(0, 4).map((r) => r.innerText.replace(/\s+/g, ' ')));
   R.feedTop = await p.evaluate(() => [...document.querySelectorAll('#feed-list .feed-row')].slice(0, 4).map((r) => r.innerText.replace(/\s+/g, ' ')));
-  await shot('5-reveal-all'); await shot('5-reveal-all', 'dark', 375);
+  await shot('5-reveal-all', 'light', 1280, '#reveal-all'); await shot('5-reveal-all', 'dark', 375, '#reveal-all');
   // 6) Lucky NFT: search for a winning committed hash (deterministic check via isLuckyWin before revealing), reveal in the UI, claimNFT
   async function findWin(tag) {
     for (let t = 0; t < 120; t++) {

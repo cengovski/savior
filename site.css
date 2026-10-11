@@ -307,3 +307,7 @@ html,body{overflow-x:clip}
 .nft-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .nft-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:12px}
 .reveal-all{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.pos-reveal{min-width:0}
+.reveal-box .btn{white-space:normal;text-align:left;max-width:100%}
+@media(max-width:639px){.pos-row .pos-reveal{grid-column:1/-1;order:5}.reveal-box .btn{width:100%;justify-content:center;text-align:center}}
+.lucky-chip-row{margin-left:0;display:inline-block;margin-top:4px}

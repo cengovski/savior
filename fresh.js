@@ -145,10 +145,11 @@
       total += l.amount; if (s === "claimable") claimable += l.amount;
       const row = el("div", "tr pos-row");
       const c1 = el("span", "mono", "#" + l.i);
-      if (state.lucky[l.i] && (s === "pending" || s === "revealable")) c1.appendChild(el("span", "lucky-chip", "NFT chance"));
       const c2 = el("span"); c2.appendChild(el("b", "mono", fmt(l.amount) + " SAVIOR"));
+      if (state.lucky[l.i] && (s === "pending" || s === "revealable")) { const d = el("div"); d.appendChild(el("span", "lucky-chip lucky-chip-row", "NFT chance")); c2.appendChild(d); }
       const c3 = el("span");
       if (s === "pending" || s === "revealable") {
+        c3.className = "pos-reveal";
         c3.appendChild(el("div", "mono", "10 days (default)"));
         if (s === "pending") c3.appendChild(el("div", "reveal-cd", "Reveal opens in " + clock(Math.max(1, l.target + 1 - b))));
         else {
