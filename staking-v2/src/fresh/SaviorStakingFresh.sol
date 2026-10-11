@@ -55,6 +55,9 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     uint64 public constant BLOCKHASH_WINDOW = 8191;
     /// @notice Minimum SAVIOR (6 decimals) accepted by stake/stakeFor = 1 SAVIOR.
     uint256 public constant MIN_STAKE = 1e6;
+    /// @notice Max items per `revealBatch`. Sized so worst-case gas stays ~well under Arc 30M block
+    ///         limit and typical wallet UX (~few M). See tests for measured per-item gas.
+    uint256 public constant MAX_REVEAL_BATCH = 40;
     uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%
 
     IERC20 public immutable savior;
@@ -88,6 +91,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         address indexed user, uint256 indexed index, uint64 unlockAt, uint64 duration, bool shortened
     );
     event LockRevealFinalized(address indexed user, uint256 indexed index, uint64 unlockAt);
+    event RevealBatch(address indexed caller, uint256 revealed, uint256 attempted);
     event Claimed(address indexed user, uint256 indexed index, uint256 amount);
     event EmergencyUnlockAll(address indexed by);
     event Rescued(address indexed token, address indexed to, uint256 amount);
@@ -109,6 +113,8 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     error RevealWindowClosed();
     error StillRevealable();
     error BelowMinStake();
+    error BatchLengthMismatch();
+    error BatchTooLarge();
 
     event Swapped(
         address indexed user, bool zeroForOne, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 locked
@@ -331,6 +337,11 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         bytes32 h = _ringBlockHash(l.targetBlock);
         if (h == bytes32(0)) revert RevealWindowClosed();
 
+        _applyReveal(user, i, l, h);
+    }
+
+    /// @dev Apply reveal given a non-zero hash. Assumes pending + in-window checks done.
+    function _applyReveal(address user, uint256 i, Lock storage l, bytes32 h) internal {
         uint256 r = uint256(keccak256(abi.encode(h, user, i, l.createdAt))) % (uint256(MAX_EXTRA_LOCK) + 1);
         uint64 duration = LOCK_DURATION + uint64(r);
         uint64 candidate = l.createdAt + duration;
@@ -340,6 +351,74 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         }
         l.pending = false;
         emit LockRevealed(user, i, l.unlockAt, duration, shortened);
+    }
+
+    /// @dev Try reveal without reverting on skippable conditions. Returns true if revealed.
+    function _tryReveal(address user, uint256 i) internal returns (bool) {
+        Lock[] storage ls = _locks[user];
+        if (i >= ls.length) return false;
+        Lock storage l = ls[i];
+        if (l.amount == 0 || !l.pending) return false;
+        if (block.number <= l.targetBlock) return false;
+        bytes32 h = _ringBlockHash(l.targetBlock);
+        if (h == bytes32(0)) return false;
+        _applyReveal(user, i, l, h);
+        return true;
+    }
+
+    /// @notice Batch reveal for many (user, index) pairs. Anyone. Skips (no revert): bad index,
+    ///         already revealed / zero amount, too early, window closed. Reverts only on length
+    ///         mismatch or `length > MAX_REVEAL_BATCH`.
+    /// @return revealed Number of locks successfully revealed in this call.
+    function revealBatch(address[] calldata users, uint256[] calldata indices)
+        external
+        returns (uint256 revealed)
+    {
+        uint256 n = users.length;
+        if (n != indices.length) revert BatchLengthMismatch();
+        if (n > MAX_REVEAL_BATCH) revert BatchTooLarge();
+        for (uint256 k = 0; k < n;) {
+            if (_tryReveal(users[k], indices[k])) {
+                unchecked {
+                    ++revealed;
+                }
+            }
+            unchecked {
+                ++k;
+            }
+        }
+        emit RevealBatch(msg.sender, revealed, n);
+    }
+
+    /// @notice Indices of `user` locks that are revealable now (pending + past target + hash available).
+    ///         Bounded by that user's lock count only — no global unbounded list.
+    function pendingRevealable(address user) external view returns (uint256[] memory indices) {
+        Lock[] storage ls = _locks[user];
+        uint256 n = ls.length;
+        uint256[] memory tmp = new uint256[](n);
+        uint256 m;
+        for (uint256 i = 0; i < n;) {
+            Lock storage l = ls[i];
+            if (
+                l.amount != 0 && l.pending && block.number > l.targetBlock
+                    && _ringBlockHash(l.targetBlock) != bytes32(0)
+            ) {
+                tmp[m] = i;
+                unchecked {
+                    ++m;
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        indices = new uint256[](m);
+        for (uint256 j = 0; j < m;) {
+            indices[j] = tmp[j];
+            unchecked {
+                ++j;
+            }
+        }
     }
 
     /// @notice After window closes, clear pending while keeping the default 10d unlockAt. Anyone.

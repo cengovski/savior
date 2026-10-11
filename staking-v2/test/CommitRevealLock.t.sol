@@ -256,4 +256,108 @@ contract CommitRevealLockTest is Test {
         staking.reveal(user, idx);
         assertFalse(staking.getLocks(user)[idx].revealableNow);
     }
+
+    function test_revealBatch_mixed_skips() public {
+        // i0: revealable, i1: already revealed, i2: too early (same target — make separate),
+        // plus bad index and window-closed via mock absence after roll far... keep simple.
+        uint256 i0 = _stakeAs(user, 10e6);
+        uint256 i1 = _stakeAs(user, 10e6);
+        uint256 target = staking.getLocks(user)[i0].targetBlock;
+        vm.roll(target + 1);
+        vm.setBlockhash(target, keccak256("batch"));
+        staking.reveal(user, i1); // already revealed
+
+        // too-early lock: stake now at current block → new target = now+3
+        uint256 i2 = _stakeAs(user, 10e6);
+        assertFalse(staking.revealableNow(user, i2));
+
+        address[] memory users = new address[](5);
+        uint256[] memory idxs = new uint256[](5);
+        users[0] = user; idxs[0] = i0; // ok
+        users[1] = user; idxs[1] = i1; // already revealed → skip
+        users[2] = user; idxs[2] = i2; // too early → skip
+        users[3] = user; idxs[3] = 999; // bad index → skip
+        users[4] = other; idxs[4] = 0; // no locks → skip
+
+        vm.prank(other);
+        uint256 revealed = staking.revealBatch(users, idxs);
+        assertEq(revealed, 1);
+        assertFalse(staking.isPending(user, i0));
+        assertTrue(staking.isPending(user, i2));
+    }
+
+    function test_revealBatch_length_mismatch_and_max() public {
+        address[] memory users = new address[](1);
+        uint256[] memory idxs = new uint256[](2);
+        users[0] = user;
+        vm.expectRevert(SaviorStakingFresh.BatchLengthMismatch.selector);
+        staking.revealBatch(users, idxs);
+
+        uint256 max = staking.MAX_REVEAL_BATCH();
+        address[] memory u2 = new address[](max + 1);
+        uint256[] memory i2 = new uint256[](max + 1);
+        vm.expectRevert(SaviorStakingFresh.BatchTooLarge.selector);
+        staking.revealBatch(u2, i2);
+    }
+
+    function test_revealBatch_anyone_and_pendingRevealable() public {
+        uint256 i0 = _stakeAs(user, 10e6);
+        uint256 i1 = _stakeAs(user, 10e6);
+        uint256 target = staking.getLocks(user)[i0].targetBlock;
+        vm.roll(target + 1);
+        vm.setBlockhash(target, keccak256("pr"));
+        uint256[] memory pend = staking.pendingRevealable(user);
+        assertEq(pend.length, 2);
+        assertEq(pend[0], i0);
+        assertEq(pend[1], i1);
+
+        address[] memory users = new address[](2);
+        uint256[] memory idxs = new uint256[](2);
+        users[0] = user; idxs[0] = i0;
+        users[1] = user; idxs[1] = i1;
+        vm.prank(other);
+        assertEq(staking.revealBatch(users, idxs), 2);
+        assertEq(staking.pendingRevealable(user).length, 0);
+    }
+
+    function test_revealBatch_gas_at_max() public {
+        uint256 max = staking.MAX_REVEAL_BATCH();
+        // fund and stake max locks for user
+        uint256 need = max * 10e6;
+        // user already has huge supply from token ctor
+        for (uint256 k = 0; k < max; k++) {
+            _stakeAs(user, 10e6);
+        }
+        uint256 target = staking.getLocks(user)[0].targetBlock;
+        vm.roll(target + 1);
+        vm.setBlockhash(target, keccak256("gasmax"));
+
+        address[] memory users = new address[](max);
+        uint256[] memory idxs = new uint256[](max);
+        for (uint256 k = 0; k < max; k++) {
+            users[k] = user;
+            idxs[k] = k;
+        }
+
+        uint256 g0 = gasleft();
+        uint256 revealed = staking.revealBatch(users, idxs);
+        uint256 used = g0 - gasleft();
+        assertEq(revealed, max);
+        // log for report
+        console2.log("MAX_REVEAL_BATCH", max);
+        console2.log("gas_batch_total", used);
+        console2.log("gas_per_item_approx", used / max);
+    }
+
+    function test_reveal_single_gas_baseline() public {
+        uint256 idx = _stakeAs(user, 10e6);
+        uint256 target = staking.getLocks(user)[idx].targetBlock;
+        vm.roll(target + 1);
+        vm.setBlockhash(target, keccak256("one"));
+        uint256 g0 = gasleft();
+        staking.reveal(user, idx);
+        uint256 used = g0 - gasleft();
+        console2.log("gas_single_reveal", used);
+    }
+
 }
