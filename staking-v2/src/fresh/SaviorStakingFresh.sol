@@ -8,44 +8,57 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {PoolKey, SwapParams, IPoolManagerMinimal, IUnlockCallback, TickMathBounds} from "../IV4Minimal.sol";
 
 /// @title SaviorStakingFresh
-/// @notice Drop-in replacement for the lock/claim part of the live SaviorStaking
-///         (0xBCA651C0A0540a1fCDef066B5476d714431fa525, Arc 5042). Interface reconstructed
-///         from on-chain bytecode: claim(uint256) 0x379607f5, getLocks(address) 0x719f3089,
-///         globalUnlock() 0x06aec0ef, emergencyUnlockAll() 0xe20cc079, rescue(address,uint256) 0x7a4e4ecf,
-///         errors Locked() 0x0f2e5b6c / NotOwner() replaced by OZ OwnableUnauthorizedAccount.
-///         Fresh-start staking for the new SAVIOR token. Lock duration uses commit-reveal:
-///         at stake/buy, lock is durationPending with targetBlock = block.number + REVEAL_DELAY_BLOCKS;
-///         anyone may reveal after that block; duration = 5d + keccak(blockhash(target), user, index, createdAt)
-///         % (5d+1). If blockhash is zero (older than 256 blocks), fallback = 10 days (max).
-///         Buy/sell via PoolManager.unlock same as v2; 0.3% treasury; buy 50/50 lock; SameBlock sell guard;
+/// @notice Fresh-start staking for the new SAVIOR token. Lock duration uses user-driven commit-reveal
+///         (no server/bot): at buy/stake, unlockAt defaults to createdAt+10d with isPending=true;
+///         targetBlock = block.number+REVEAL_DELAY_BLOCKS; revealDeadlineBlock = targetBlock+256
+///         (last height where blockhash(target) is still available). Anyone may reveal while
+///         block.number > targetBlock && blockhash(target) != 0; duration = 5d + keccak(...) % (5d+1);
+///         unlockAt = min(current, createdAt+duration) (never lengthens); isPending=false.
+///         After the window, 10d stands (claim may finalize pending). Claim auto-reveals if still in window.
+///         Buy/sell via PoolManager.unlock; 0.3% treasury; buy 50/50 lock; SameBlock sell guard;
 ///         swapExactIn deadline; MIN_STAKE on stake/stakeFor.
 /// @dev No proxy. Ownable2Step; renounceOwnership disabled. Does NOT replace deployed SaviorStakingV2.
+///      Arc ~0.5s blocks ⇒ 256-block reveal window ≈ ~2 minutes — site should prompt a second reveal tx
+///      right after buy/stake confirms (no server/bot; user wallet signs).
 contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
 
+    /// @dev Storage layout for each lock.
     struct Lock {
         uint128 amount;
-        uint64 unlockAt; // 0 while durationPending
+        uint64 unlockAt; // set immediately to createdAt+10d; may shorten on reveal
         uint64 createdAt;
         uint64 targetBlock;
+        uint64 revealDeadlineBlock; // targetBlock + BLOCKHASH_WINDOW
+        bool pending; // true until successful reveal (or optional finalize after window)
     }
 
-    uint64 public constant LOCK_DURATION = 5 days; // minimum lock
-    uint64 public constant MAX_EXTRA_LOCK = 5 days; // + up to 5 days on reveal
-    /// @dev Blocks to wait before reveal. Arc has sub-second deterministic finality and no reorgs
-    ///      (Malachite BFT), so 3 blocks (~seconds) is enough that the target blockhash is unknown
-    ///      at commit time while UX stays snappy. Larger N only delays reveal, not security vs users.
+    /// @notice ABI-friendly view of a lock (includes computed revealableNow).
+    struct LockView {
+        uint128 amount;
+        uint64 createdAt;
+        uint64 unlockAt;
+        bool isPending;
+        uint64 targetBlock;
+        uint64 revealDeadlineBlock;
+        bool revealableNow;
+    }
+
+    uint64 public constant LOCK_DURATION = 5 days; // minimum after reveal
+    uint64 public constant MAX_EXTRA_LOCK = 5 days; // + up to 5 days → max 10d default
+    uint64 public constant DEFAULT_LOCK = 10 days; // unlockAt at commit (= LOCK_DURATION + MAX_EXTRA_LOCK)
+    /// @dev Blocks to wait before reveal. Arc sub-second finality / no reorgs → 3 is enough.
     uint64 public constant REVEAL_DELAY_BLOCKS = 3;
-    /// @notice Minimum SAVIOR (6 decimals) accepted by stake/stakeFor = 1 SAVIOR. Blocks dust-lock spam
-    ///         (anyone can stakeFor any user). Buys are not subject to it (their lock is half the swap output).
+    /// @dev EVM retains blockhash for the 256 most recent blocks; last usable height is target+256.
+    uint64 public constant BLOCKHASH_WINDOW = 256;
+    /// @notice Minimum SAVIOR (6 decimals) accepted by stake/stakeFor = 1 SAVIOR.
     uint256 public constant MIN_STAKE = 1e6;
-    uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%, matches v1 trace
+    uint256 public constant TREASURY_FEE_BPS = 30; // 0.3%
 
     IERC20 public immutable savior;
     IPoolManagerMinimal public immutable poolManager;
     address public immutable treasury;
 
-    // pool key (immutable, so keySet() is always true)
     address internal immutable _c0;
     address internal immutable _c1;
     uint24 internal immutable _fee;
@@ -55,15 +68,24 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
 
     mapping(address => uint64) public lastBuyBlock;
 
-    /// @notice once true, every lock is claimable immediately (irreversible).
     bool public globalUnlock;
-    /// @notice SAVIOR currently owed to stakers; rescue can never dip below this.
     uint256 public totalLocked;
 
     mapping(address => Lock[]) private _locks;
 
-    event Staked(address indexed user, uint256 indexed index, uint256 amount, uint64 createdAt, uint64 targetBlock);
-    event LockRevealed(address indexed user, uint256 indexed index, uint64 unlockAt, uint64 duration, bool fallbackMax);
+    event Staked(
+        address indexed user,
+        uint256 indexed index,
+        uint256 amount,
+        uint64 createdAt,
+        uint64 unlockAt,
+        uint64 targetBlock,
+        uint64 revealDeadlineBlock
+    );
+    event LockRevealed(
+        address indexed user, uint256 indexed index, uint64 unlockAt, uint64 duration, bool shortened
+    );
+    event LockRevealFinalized(address indexed user, uint256 indexed index, uint64 unlockAt);
     event Claimed(address indexed user, uint256 indexed index, uint256 amount);
     event EmergencyUnlockAll(address indexed by);
     event Rescued(address indexed token, address indexed to, uint256 amount);
@@ -82,6 +104,8 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     error Expired();
     error TooEarly();
     error AlreadyRevealed();
+    error RevealWindowClosed();
+    error StillRevealable();
     error BelowMinStake();
 
     event Swapped(
@@ -111,8 +135,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         _saviorIsCurrency1 = key_.currency1 == address(saviorToken);
     }
 
-    // ---------------------------------------------------------------- pool views (v1-compatible)
-
     function key()
         public
         view
@@ -121,7 +143,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         return (_c0, _c1, _fee, _tickSpacing, _hooks);
     }
 
-    /// @notice v1 compat (0x788499c0). Key is fixed at construction.
     function keySet() external pure returns (bool) {
         return true;
     }
@@ -130,14 +151,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         return PoolKey(_c0, _c1, _fee, _tickSpacing, _hooks);
     }
 
-    // ---------------------------------------------------------------- buy & lock / sell
-
-    /// @notice Exact-input swap through the SAVIOR v4 pool.
-    ///         Buy (tokenIn = quote, tokenOut = SAVIOR): net SAVIOR split 50% to caller, 50% locked for 5-10 days.
-    ///         Sell (tokenIn = SAVIOR): net quote token to caller. 0.3% of output goes to treasury.
-    /// @param zeroForOne v4 direction (currency0 -> currency1). On the live pool currency0 = USDC, so true = buy.
-    /// @param minOut minimum net output (after treasury fee) the caller accepts.
-    /// @param deadline unix timestamp after which the swap reverts with Expired().
     function swapExactIn(bool zeroForOne, uint256 amountIn, uint256 minOut, uint256 deadline)
         external
         nonReentrant
@@ -163,7 +176,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         emit Swapped(msg.sender, zeroForOne, received, out, fee, locked);
     }
 
-    /// @dev pull tokenIn, swap through PoolManager.unlock, refund unswapped input; returns (received, gross out)
     function _pullAndSwap(bool zeroForOne, uint256 amountIn) internal returns (uint256 received, uint256 out) {
         address tokenIn = zeroForOne ? _c0 : _c1;
         address tokenOut = zeroForOne ? _c1 : _c0;
@@ -176,7 +188,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         uint256 outBefore = IERC20(tokenOut).balanceOf(address(this));
         poolManager.unlock(abi.encode(zeroForOne, received));
         out = IERC20(tokenOut).balanceOf(address(this)) - outBefore;
-        // refund any unswapped input (price-limit partial fill)
         uint256 leftover = IERC20(tokenIn).balanceOf(address(this)) - inBefore;
         if (leftover != 0) IERC20(tokenIn).safeTransfer(msg.sender, leftover);
     }
@@ -186,7 +197,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         return 0;
     }
 
-    /// @dev buy: lock half of the net SAVIOR for the caller, send the rest
     function _payBuy(address tokenOut, uint256 net) internal returns (uint256 locked) {
         locked = net / 2;
         if (locked != 0) {
@@ -196,7 +206,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         IERC20(tokenOut).safeTransfer(msg.sender, net - locked);
     }
 
-    /// @inheritdoc IUnlockCallback
     function unlockCallback(bytes calldata data) external returns (bytes memory) {
         if (msg.sender != address(poolManager)) revert OnlyPoolManager();
         (bool zeroForOne, uint256 amountIn) = abi.decode(data, (bool, uint256));
@@ -222,12 +231,10 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         return "";
     }
 
-    /// @notice Lock `amount` (>= MIN_STAKE) SAVIOR for 5-10 days (same pseudo-random schedule as buys).
     function stake(uint256 amount) external nonReentrant returns (uint256 index) {
         return _stake(msg.sender, amount);
     }
 
-    /// @notice Lock on behalf of `user` (funds pulled from msg.sender) - used for migration/airdrops.
     function stakeFor(address user, uint256 amount) external nonReentrant returns (uint256 index) {
         if (user == address(0)) revert ZeroAddress();
         return _stake(user, amount);
@@ -238,7 +245,7 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         if (amount < MIN_STAKE) revert BelowMinStake();
         uint256 before = savior.balanceOf(address(this));
         savior.safeTransferFrom(msg.sender, address(this), amount);
-        uint256 received = savior.balanceOf(address(this)) - before; // fee-on-transfer safe
+        uint256 received = savior.balanceOf(address(this)) - before;
         if (received < MIN_STAKE) revert BelowMinStake();
         if (received > type(uint128).max) revert AmountTooLarge();
         index = _pushPending(user, uint128(received));
@@ -247,71 +254,139 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
     function _pushPending(address user, uint128 amount) internal returns (uint256 index) {
         index = _locks[user].length;
         uint64 createdAt = uint64(block.timestamp);
+        uint64 unlockAt = createdAt + DEFAULT_LOCK; // 10 days immediately
         uint64 target = uint64(block.number + REVEAL_DELAY_BLOCKS);
-        _locks[user].push(Lock(amount, 0, createdAt, target));
+        uint64 deadline = target + BLOCKHASH_WINDOW;
+        _locks[user].push(Lock({
+            amount: amount,
+            unlockAt: unlockAt,
+            createdAt: createdAt,
+            targetBlock: target,
+            revealDeadlineBlock: deadline,
+            pending: true
+        }));
         totalLocked += amount;
-        emit Staked(user, index, amount, createdAt, target);
+        emit Staked(user, index, amount, createdAt, unlockAt, target, deadline);
     }
 
-    /// @notice True if lock exists, has amount, and unlockAt == 0 (duration not yet revealed).
+    /// @notice True if lock still awaits a successful reveal (may still be true after window with 10d final).
     function isPending(address user, uint256 i) public view returns (bool) {
         Lock[] storage ls = _locks[user];
         if (i >= ls.length) return false;
-        return ls[i].amount != 0 && ls[i].unlockAt == 0;
+        return ls[i].amount != 0 && ls[i].pending;
     }
 
-    /// @notice Reveal lock duration once `block.number > targetBlock`. Callable by anyone.
+    /// @notice True if reveal can succeed now (pending, past target, blockhash available).
+    function revealableNow(address user, uint256 i) public view returns (bool) {
+        Lock[] storage ls = _locks[user];
+        if (i >= ls.length) return false;
+        Lock storage l = ls[i];
+        if (l.amount == 0 || !l.pending) return false;
+        if (block.number <= l.targetBlock) return false;
+        return blockhash(l.targetBlock) != bytes32(0);
+    }
+
+    /// @notice True if pending and the EVM blockhash window for targetBlock has closed.
+    function revealWindowClosed(address user, uint256 i) public view returns (bool) {
+        Lock[] storage ls = _locks[user];
+        if (i >= ls.length) return false;
+        Lock storage l = ls[i];
+        if (l.amount == 0 || !l.pending) return false;
+        if (block.number <= l.targetBlock) return false;
+        return blockhash(l.targetBlock) == bytes32(0);
+    }
+
+    /// @notice Reveal while blockhash(target) is available. Callable by anyone (user-driven; no bot).
+    ///         Shortens unlockAt via min(...); never lengthens. Sets pending=false.
     function reveal(address user, uint256 i) public {
         Lock[] storage ls = _locks[user];
         if (i >= ls.length) revert BadIndex();
         Lock storage l = ls[i];
         if (l.amount == 0) revert NothingToClaim();
-        if (l.unlockAt != 0) revert AlreadyRevealed();
+        if (!l.pending) revert AlreadyRevealed();
         if (block.number <= l.targetBlock) revert TooEarly();
 
         bytes32 h = blockhash(l.targetBlock);
-        uint64 duration;
-        bool usedFallback;
-        if (h == bytes32(0)) {
-            duration = LOCK_DURATION + MAX_EXTRA_LOCK; // 10 days
-            usedFallback = true;
-        } else {
-            uint256 r = uint256(keccak256(abi.encode(h, user, i, l.createdAt))) % (uint256(MAX_EXTRA_LOCK) + 1);
-            duration = LOCK_DURATION + uint64(r);
+        if (h == bytes32(0)) revert RevealWindowClosed();
+
+        uint256 r = uint256(keccak256(abi.encode(h, user, i, l.createdAt))) % (uint256(MAX_EXTRA_LOCK) + 1);
+        uint64 duration = LOCK_DURATION + uint64(r);
+        uint64 candidate = l.createdAt + duration;
+        bool shortened = candidate < l.unlockAt;
+        if (shortened) {
+            l.unlockAt = candidate;
         }
-        l.unlockAt = l.createdAt + duration;
-        emit LockRevealed(user, i, l.unlockAt, duration, usedFallback);
+        l.pending = false;
+        emit LockRevealed(user, i, l.unlockAt, duration, shortened);
     }
 
-    /// @notice Claim lock `i`. Auto-reveals if still pending. Reverts Locked() before unlockAt unless globalUnlock.
+    /// @notice After window closes, clear pending while keeping the default 10d unlockAt. Anyone.
+    function finalizeExpired(address user, uint256 i) public {
+        Lock[] storage ls = _locks[user];
+        if (i >= ls.length) revert BadIndex();
+        Lock storage l = ls[i];
+        if (l.amount == 0) revert NothingToClaim();
+        if (!l.pending) revert AlreadyRevealed();
+        if (block.number <= l.targetBlock) revert TooEarly();
+        if (blockhash(l.targetBlock) != bytes32(0)) revert StillRevealable();
+        l.pending = false;
+        emit LockRevealFinalized(user, i, l.unlockAt);
+    }
+
+    /// @notice Claim lock `i`. Auto-reveals if still in window; else finalizes 10d if window closed.
     function claim(uint256 i) external nonReentrant {
         Lock[] storage ls = _locks[msg.sender];
         if (i >= ls.length) revert BadIndex();
         Lock storage l = ls[i];
         uint256 amt = l.amount;
         if (amt == 0) revert NothingToClaim();
-        if (l.unlockAt == 0) {
-            reveal(msg.sender, i);
+        if (l.pending) {
+            if (block.number > l.targetBlock) {
+                bytes32 h = blockhash(l.targetBlock);
+                if (h != bytes32(0)) {
+                    reveal(msg.sender, i);
+                } else {
+                    // window closed → keep 10d
+                    l.pending = false;
+                    emit LockRevealFinalized(msg.sender, i, l.unlockAt);
+                }
+            }
+            // if still before targetBlock, leave pending; unlockAt is already 10d
         }
         if (!globalUnlock && block.timestamp < l.unlockAt) revert Locked();
         l.amount = 0;
+        l.pending = false;
         totalLocked -= amt;
         savior.safeTransfer(msg.sender, amt);
         emit Claimed(msg.sender, i, amt);
     }
 
-    /// @notice Locks for `user`. `unlockAt == 0` means durationPending (see `targetBlock` / `createdAt`).
-    function getLocks(address user) external view returns (Lock[] memory) {
-        return _locks[user];
+    /// @notice Locks for `user` with pending / revealableNow computed for UI.
+    function getLocks(address user) external view returns (LockView[] memory out) {
+        Lock[] storage ls = _locks[user];
+        uint256 n = ls.length;
+        out = new LockView[](n);
+        for (uint256 i = 0; i < n; i++) {
+            Lock storage l = ls[i];
+            bool pending = l.amount != 0 && l.pending;
+            bool canReveal = pending && block.number > l.targetBlock && blockhash(l.targetBlock) != bytes32(0);
+            out[i] = LockView({
+                amount: l.amount,
+                createdAt: l.createdAt,
+                unlockAt: l.unlockAt,
+                isPending: pending,
+                targetBlock: l.targetBlock,
+                revealDeadlineBlock: l.revealDeadlineBlock,
+                revealableNow: canReveal
+            });
+        }
     }
 
-    /// @notice Owner-only emergency switch: makes every lock claimable now. Irreversible.
     function emergencyUnlockAll() external onlyOwner {
         globalUnlock = true;
         emit EmergencyUnlockAll(msg.sender);
     }
 
-    /// @notice Recover tokens sent by mistake. SAVIOR only above totalLocked (surplus).
     function rescue(address token, uint256 amount) external onlyOwner nonReentrant {
         _rescue(token, owner(), amount);
     }
@@ -330,7 +405,6 @@ contract SaviorStakingFresh is Ownable2Step, ReentrancyGuard, IUnlockCallback {
         emit Rescued(token, to, amount);
     }
 
-    /// @dev Disable renounce so emergency unlock can never become unreachable (the v1 bug).
     function renounceOwnership() public view override onlyOwner {
         revert("renounce disabled");
     }

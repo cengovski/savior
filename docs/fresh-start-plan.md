@@ -28,7 +28,7 @@
 | 2026-10-11 | **Token rescue = option (a):** owner rescues **foreign ERC-20 + native only**; **never** own SAVIOR (`CannotRescueOwnToken`). `to != 0`, **Ownable2Step**, `Rescued` event. **No** EIP-2612 permit. |
 | 2026-10-11 | **Logo:** `logoURI` + `setLogoURI` (**onlyOwner**), `LogoURIUpdated` (also emitted in ctor). Owner-updatable; ownership is **never renounced** (renounceOwnership reverts). Prefer `ipfs://` or data-URI (~3KB svg). Wallets mostly ignore contract field — also tokenlists / Trust / explorer / CoinGecko. |
 | 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Prefer **fixed 7 days** for fresh-start unless product needs jitter; else commit-reveal or D20DAO VRF on Arc. |
-| 2026-10-11 | **Lock duration = commit-reveal 5–10 days, NO VRF.** Implemented in `staking-v2/src/fresh/SaviorStakingFresh.sol` (fresh-start only; does **not** change `feature/deployed-v2` / live SaviorStakingV2 semantics). `REVEAL_DELAY_BLOCKS = 3` (Arc sub-second finality). Fallback if `blockhash(target)==0` → 10 days. Tests: `CommitRevealLock.t.sol`. D20DAO VRF rejected (native `msg.value` fee, async fulfill, complexity). |
+| 2026-10-11 | **Lock duration = commit-reveal 5–10 days, NO VRF, no server/bot — user reveals.** `SaviorStakingFresh`: at buy/stake `unlockAt=createdAt+10d` + `pending=true`, `targetBlock=n+3`, `revealDeadlineBlock=target+256`. Reveal (anyone) only while `blockhash(target)!=0`; shortens via `min`, never lengthens. Window miss → 10d final. Arc ~0.51s/block ⇒ **256-block window ≈ 130s (~2.2 min)** — site must prompt reveal tx after buy. Tests: `CommitRevealLock.t.sol`. |
 
 ## Owner powers (token)
 
@@ -221,9 +221,10 @@ Recompute exactly after final supply-in-ladder is fixed (Decision A).
 - [ ] Swap/stake/estimate against **new** staking (`SaviorStakingFresh`) only.
 - [ ] Leaderboard/feed seed from new staking deploy block.
 - [ ] Copy: no promise about old pool liquidity.
-- [ ] **Claim flow:** before/inside claim, UI may call `reveal(user, i)` if pending; contract `claim` also **auto-reveals** — either path OK. Prefer eth_call to detect pending (`unlockAt==0`) and show “duration revealing…” then refresh.
-- [ ] **Lock sorting:** sort claimable first (`unlockAt != 0 && now >= unlockAt`), then revealed-waiting, then pending (`unlockAt==0`); never treat `unlockAt==0` as “unlocked”.
-- [ ] After buy/stake: show “pending 5–10 days (reveal in ~N blocks)” not a fake fixed unlock time.
+- [ ] **After buy/stake:** show default **unlockAt = +10d** and a **reveal countdown** to `revealDeadlineBlock` (~2 min on Arc). Prompt user for a **second tx** `reveal(user,i)` as soon as `revealableNow` (no server/bot).
+- [ ] **Claim flow:** if `revealableNow`, prefer explicit `reveal` then later `claim`; `claim` also auto-reveals in-window. Never assume `unlockAt==0` (it is set at commit).
+- [ ] **Lock sorting:** claimable (`now >= unlockAt`) → pending+revealable → pending (countdown) → waiting on unlockAt.
+- [ ] Display fields from `getLocks`: `amount`, `createdAt`, `unlockAt`, `isPending`, `targetBlock`, `revealDeadlineBlock`, `revealableNow`.
 
 ### 6.4 Auditor checklist
 - [ ] Token: no post-ctor mint; no proxy; burn correct; no hidden admin.
@@ -378,35 +379,25 @@ PoC: `staking-v2/test/LockBiasPoC.t.sol` (ARC_FORK).
 - `block.prevrandao` on Arc = **0** ([docs.arc.io](https://docs.arc.io/arc/references/evm-differences)); Malachite/Tendermint PoA, no RANDAO.
 - VRF on Arc: **D20DAO** coordinator `0xd20da057469C45928912d983F45790C41e290571`, `quoteFee` ≈ **0.02 USDC** (measured); Chainlink VRF / Pyth Entropy / Gelato VRF — **no Arc addresses found** in public docs searched.
 
-### Decision (2026-10-11): commit-reveal 5–10 days, NO VRF
+### Decision (2026-10-11, updated): user-driven commit-reveal, default 10d
 
-Implemented: `staking-v2/src/fresh/SaviorStakingFresh.sol` + `test/CommitRevealLock.t.sol`.
+Implemented: `staking-v2/src/fresh/SaviorStakingFresh.sol` + `test/CommitRevealLock.t.sol`. **No server/bot** — the **user** (or anyone) calls `reveal`.
 
 | Step | Behavior |
 |------|----------|
-| Commit (buy/stake) | Lock pushed with `unlockAt=0`, `createdAt=now`, `targetBlock=block.number+REVEAL_DELAY_BLOCKS` (**N=3**). Event `Staked(..., targetBlock)`. |
-| Why N=3 | Arc has **sub-second deterministic finality** and **no reorgs** (Malachite BFT / PoA). 3 blocks ≈ seconds — enough that `blockhash(target)` is unknown at commit, UX stays snappy. Larger N only delays reveal. |
-| Reveal | `reveal(user, i)` by **anyone** once `block.number > targetBlock`. `duration = 5d + keccak(blockhash(target), user, i, createdAt) % (5d+1)`; `unlockAt = createdAt + duration`. Event `LockRevealed`. |
-| Fallback | If `blockhash(target)==0` (older than 256 blocks): **10 days** (max). Delaying reveal only hurts the staker. |
-| Claim | Auto-calls `reveal` if still pending, then enforces `unlockAt`. |
-| Views | `getLocks` returns struct (`unlockAt==0` ⇒ pending); `isPending(user,i)`. |
-| Seed binding | Hash includes `user`, lock **index**, `createdAt` — multiple locks in the same block get different durations; nobody can change the seed after commit. |
+| Commit (buy/stake) | `unlockAt = createdAt + 10d` immediately; `pending=true`; `targetBlock=block.number+3`; `revealDeadlineBlock=targetBlock+256`. Event `Staked`. |
+| Reveal window | Open when `block.number > targetBlock` and `blockhash(target) != 0` (EVM last usable height ≈ `target+256`). |
+| Reveal | Anyone: `duration = 5d + keccak(blockhash,user,i,createdAt)%(5d+1)`; `unlockAt = min(unlockAt, createdAt+duration)` (**never lengthens**); `pending=false`. `LockRevealed`. |
+| Miss window | Keep 10d; `reveal` reverts `RevealWindowClosed`; optional `finalizeExpired` clears pending. |
+| Claim | Auto-reveal if still in window; else finalize 10d if closed. |
+| Views | `getLocks` → `LockView{amount,createdAt,unlockAt,isPending,targetBlock,revealDeadlineBlock,revealableNow}`. |
 
-**Why not D20DAO VRF:** fee is **native USDC `msg.value`** (not buyer ERC-20), async fulfill, coordinator dependency, ~0.02 USDC/request — rejected for lock jitter (PoC `D20VrfFeePoC`).
+#### Arc reveal-window timing (measured 2026-10-11, RPC `rpc.mainnet.arc.io`)
 
-**Attack / fairness notes (tests):**
-- Attacker contract with conditional revert **cannot** know duration at buy time (future blockhash).
-- Precompute of final duration at commit **fails**.
-- Withholding reveal past 256 blocks → only **10d fallback** (worse for attacker/staker).
-- Selective reveal irrelevant: result is deterministic once `targetBlock` exists.
-- Anyone can reveal (no grief beyond gas; claim also reveals).
+| Sample | Avg block time | 256 blocks |
+|--------|----------------|------------|
+| last 100 / 500 / 2000 / 5000 blocks | **≈ 0.51 s** | **≈ 130 s (~2.2 min)** |
 
-### Arc block-producer risk (Malachite BFT)
+UX: user must reveal within **~2 minutes** after `targetBlock` (≈ seconds after buy for N=3). **Site should fire a second `reveal(user,i)` tx right after buy/stake confirms** (wallet-signed; no backend). Countdown = blocks until `revealDeadlineBlock` × ~0.51s.
 
-- Arc uses **Malachite** (Tendermint-style BFT) with **PoA validators**, **deterministic finality &lt;1s**, **no reorgs** once committed ([docs.arc.io consensus](https://docs.arc.io/arc/concepts/consensus-layer)).
-- A **rotating proposer** assembles the block; &gt;2/3 precommits finalize it. The proposer influences **which txs** enter *their* proposed block and thus can slightly bias the block’s content hash — but cannot rewrite a finalized hash, and cannot grind across reorgs.
-- **Cost / practicality of biasing our seed:** to favor a short lock, a malicious proposer would need to be the proposer of the specific `targetBlock` (or collude) and search for a block body whose hash yields a short `keccak(...) % (5d+1)`. With sub-second blocks and PoA reputation/slashing-style governance (permissioned set), grinding many candidate bodies per slot is expensive and visible; benefit is only ±5 days on one lock, not MEV on a large pool. Collusion of &gt;1/3 validators to censor/reorg is out of threat model (BFT assumption).
-- **AMP** (multi-proposer) is exploratory and would further constrain assembler discretion; not assumed deployed.
-- **Residual risk:** accepted as low vs old v2 same-block / parent-hash grind. Fallback-to-max removes incentive to stall reveal. No mainnet tx in this work.
-
-**Branch note:** `SaviorStakingFresh` lives under `staking-v2/src/fresh/` on `feature/fresh-start` only. Shared files (e.g. `IV4Minimal.sol`) unchanged in semantics for deployed-v2; do not merge lock logic into live `SaviorStakingV2` without an explicit decision.
+**Branch note:** `SaviorStakingFresh` on `feature/fresh-start` only; live `SaviorStakingV2` unchanged.
