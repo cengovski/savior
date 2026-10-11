@@ -1,16 +1,47 @@
 {
- "generated": "2026-10-11T13:11:13.879Z",
- "fresh": true,
- "scanned": 25416613,
- "wallets": {},
- "locksAt": 1791724273880,
- "locks": {},
- "trades": [],
- "v2": {
-  "address": "0xffaed084d0186fa96138d523f9292fd4e47dad63",
-  "deployBlock": 25416100,
-  "scanned": 25416613,
-  "wallets": {},
-  "locks": {}
- }
+ "generated": "2026-10-11T19:41:51.942Z",
+ "staking": "0xffaed084d0186fa96138d523f9292fd4e47dad63",
+ "scanned": 25462773,
+ "wallets": {
+  "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": 25446854
+ },
+ "locksAt": 1791747711946,
+ "locks": {
+  "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de": [
+   {
+    "i": 0,
+    "amount": "9610107982",
+    "unlockAt": 1792409565,
+    "createdAt": 1791739615,
+    "pending": false,
+    "target": 25446857,
+    "deadline": 25455048,
+    "revealable": false
+   }
+  ]
+ },
+ "trades": [
+  {
+   "tx": "0x807089f744122c50e9aa263b2378ebbf50607ca6c2f8b49168be6de56d1beaed",
+   "block": 25446936,
+   "idx": 3,
+   "kind": "REVEAL",
+   "who": "0xb31113ceaad11cadbfebe5ae8420fa09f8f1c7de",
+   "text": "Lock #0 revealed: 7.75 days, shortened",
+   "unlock": 1792409565,
+   "locked": null
+  },
+  {
+   "kind": "BUY",
+   "text": "0.1 USDC to 19,278.0501 SAVIOR",
+   "who": "0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de",
+   "tx": "0xc2c04c23223b36de884a23d40ec846ddfdfd5b174079c5c65785127290367b9b",
+   "block": 25446854,
+   "idx": 2,
+   "big": false,
+   "locked": "9610107982",
+   "unlock": 1792409565,
+   "pending": false
+  }
+ ]
 }

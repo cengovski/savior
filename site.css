@@ -289,7 +289,7 @@ html,body{overflow-x:clip}
 .src-tag{font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:999px;padding:1px 7px;color:var(--muted);margin-left:6px;vertical-align:middle}
 @media(max-width:639px){.lb-addr-wrap{grid-area:addr}}
 
-/* Fresh start: lock reveal states, Reveal all, Lucky NFT */
+/* Lock reveal states, Reveal all, Lucky NFT */
 .lb-badges{position:absolute;right:12px;top:6px;display:flex;gap:6px}
 .lb-badges .lb-badge{position:static}
 .lb-badge.lb-pending{color:var(--primary);border-color:color-mix(in srgb,var(--primary) 50%,transparent)}
