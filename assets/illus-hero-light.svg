@@ -3,6 +3,74 @@
 <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0073E6"/><stop offset="1" stop-color="#8656EF"/></linearGradient>
 <radialGradient id="glow"><stop offset="0" stop-color="#0073E6" stop-opacity=".45"/><stop offset="1" stop-color="#0073E6" stop-opacity="0"/></radialGradient></defs>
 <rect width="480" height="320" rx="24" fill="url(#bg)"/><circle cx="240" cy="160" r="150" fill="url(#glow)"/>
-<g fill="none" stroke="#2F578C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="240" cy="160" rx="190" ry="60" stroke-dasharray="4 8"/><ellipse cx="240" cy="160" rx="130" ry="110" transform="rotate(30 240 160)" stroke="#0073E6" stroke-opacity=".6"/>
-<circle cx="240" cy="160" r="62" fill="url(#g)" stroke="none"/><circle cx="240" cy="160" r="55" stroke="#FFFFFF" stroke-opacity=".6"/><text x="240" y="177.36" font-family="DM Sans,Arial" font-weight="700" font-size="49.6" fill="#FFFFFF" stroke="none" text-anchor="middle">S</text><circle cx="70" cy="140" r="8" fill="#8656EF" stroke="none"/><circle cx="400" cy="200" r="6" fill="#0073E6" stroke="none"/><circle cx="330" cy="60" r="5" fill="#1F9D6B" stroke="none"/>
-<path d="M240 40v20M240 260v20M120 160h-20M380 160h-20" stroke="#0073E6"/></g></svg>
+<g fill="none" stroke="#2F578C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="240" cy="160" rx="200" ry="70" stroke-dasharray="4 8"/><ellipse cx="240" cy="160" rx="140" ry="112" transform="rotate(30 240 160)" stroke="#0073E6" stroke-opacity=".6"/>
+<svg x="176" y="96" width="128" height="128" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+  <defs>
+    <radialGradient id="savior_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <linearGradient id="savior_shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="50%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00ff87"/>
+    </linearGradient>
+    <linearGradient id="savior_sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a8edff"/>
+    </linearGradient>
+    <filter id="savior_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="savior_softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  
+  <circle cx="100" cy="100" r="100" fill="url(#savior_bg)"/>
+
+  
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2" opacity="0.6"/>
+
+  
+  <path d="M100 28 L148 50 L148 100 Q148 138 100 165 Q52 138 52 100 L52 50 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.15"/>
+  <path d="M100 32 L144 53 L144 100 Q144 135 100 160 Q56 135 56 100 L56 53 Z"
+        fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2.5" filter="url(#savior_glow)"/>
+
+  
+  <path d="M100 44 L132 60 L132 100 Q132 124 100 142 Q68 124 68 100 L68 60 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.08"/>
+
+  
+  <text x="100" y="118"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="68"
+        font-weight="900"
+        text-anchor="middle"
+        fill="url(#savior_sGrad)"
+        filter="url(#savior_softglow)"
+        letter-spacing="-2">S</text>
+
+  
+  <circle cx="72" cy="155" r="3" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="100" cy="163" r="3" fill="#7b61ff" opacity="0.7"/>
+  <circle cx="128" cy="155" r="3" fill="#00ff87" opacity="0.7"/>
+</svg><svg x="38" y="126" width="48" height="48" viewBox="0 0 96 96" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+<path d="M48 95C73.9574 95 95 73.9574 95 48C95 22.0426 73.9574 1 48 1C22.0426 1 1 22.0426 1 48C1 73.9574 22.0426 95 48 95Z" fill="#0B53BF"/>
+<path d="M56.4609 13.7778V19.8291C68.5341 23.4716 77.3759 34.6928 77.3759 47.9997C77.3759 61.3066 68.5341 72.5278 56.4609 76.1703V82.2216C71.8534 78.4616 83.2509 64.5672 83.2509 47.9997C83.2509 31.4322 71.8534 17.5378 56.4609 13.7778Z" fill="white"/>
+<path d="M18.625 47.9997C18.625 34.6928 27.4669 23.4716 39.54 19.8291V13.7778C24.1475 17.5378 12.75 31.4322 12.75 47.9997C12.75 64.5672 24.1475 78.4616 39.54 82.2216V76.1703C27.4669 72.5572 18.625 61.3066 18.625 47.9997Z" fill="white"/>
+<path d="M60.6319 54.5506C60.6319 42.5362 41.8025 47.4713 41.8025 40.8325C41.8025 38.4531 43.7119 36.9256 47.3544 36.9256C51.7019 36.9256 53.2 39.0406 53.67 41.89H59.6625C59.1279 36.5426 56.0588 33.1662 50.9382 32.1604V27.4375H45.0632V31.9918C39.4534 32.7062 35.9275 35.973 35.9275 40.8325C35.9275 52.9056 54.7863 48.3819 54.7863 54.9031C54.7863 57.3706 52.4069 59.0156 48.3825 59.0156C43.1244 59.0156 41.3913 56.695 40.745 53.4931H34.8994C35.2781 59.3502 38.8897 63.0159 45.0632 63.9307V68.5625H50.9382V63.9923C56.9633 63.2139 60.6319 59.7089 60.6319 54.5506Z" fill="white"/>
+</svg><svg x="338" y="224" width="92" height="31.506849315068493" viewBox="0 0 292 100" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+<path d="M47.8828 0C62.2413 0 75.005 12.3958 83.8252 34.9043C88.4125 46.6111 91.7876 60.5208 93.7871 75.6523C93.9659 77.0038 94.1183 78.3775 94.2744 79.748C94.3252 79.8326 94.3552 79.9115 94.3447 79.9756C94.3447 79.9756 95.5209 87.2895 95.7705 100H95.6377C93.8946 98.5745 73.3379 82.4781 39.2617 87.1387C39.7759 81.3926 40.4821 75.8016 41.3955 70.4424C41.4421 70.1686 41.4964 69.9036 41.5439 69.6318C54.9094 69.2302 66.6083 70.7768 75.5791 72.8037C75.5457 72.5916 75.5175 72.3733 75.4834 72.1621C73.6394 60.7195 70.9188 50.2435 67.4111 41.291C61.676 26.6528 54.192 17.5576 47.8828 17.5576C41.574 17.5581 34.0904 26.6532 28.3555 41.291C26.9672 44.8318 25.7037 48.6079 24.5703 52.5908C22.977 58.1717 21.6384 64.1547 20.5693 70.4414C18.987 79.7259 17.9979 89.6835 17.6338 100H0C0.813667 75.5187 4.97869 52.6703 11.9414 34.9043C20.7594 12.396 33.5247 0.000279101 47.8828 0ZM263.318 33.3066C269.062 33.3066 273.925 34.3919 277.906 36.5576C281.885 38.7255 285.003 41.5469 287.261 45.0215C289.517 48.4983 290.933 52.1572 291.508 56L284.245 57.4717C283.833 54.2826 282.809 51.3597 281.168 48.7012C279.525 46.0451 277.229 43.917 274.274 42.3223C271.32 40.7276 267.667 39.9307 263.318 39.9307C258.968 39.9307 255.072 40.9329 251.625 42.9355C248.178 44.9404 245.449 47.7618 243.438 51.3994C241.427 55.0393 240.423 59.3539 240.423 64.3408V65.3223C240.423 70.3109 241.427 74.6251 243.438 78.2627C245.449 81.9025 248.178 84.7238 251.625 86.7266C255.072 88.7314 258.968 89.7324 263.318 89.7324C269.883 89.7324 274.89 88.036 278.337 84.6416C281.783 81.249 283.916 77.098 284.737 72.1914L292 73.6631C291.262 77.5077 289.723 81.1665 287.384 84.6416C285.045 88.1182 281.885 90.9398 277.906 93.1055C273.925 95.2712 269.062 96.3564 263.318 96.3564C257.491 96.3564 252.301 95.1086 247.747 92.6152C243.193 90.1218 239.602 86.5428 236.977 81.8818C234.349 77.2204 233.037 71.7424 233.037 65.4443V64.2178C233.037 57.8393 234.349 52.3406 236.977 47.7197C239.602 43.1007 243.193 39.5432 247.747 37.0479C252.302 34.5545 257.491 33.3067 263.318 33.3066ZM195.164 94.6387H186.917L179.531 71.8232H140.386L133 94.6387H124.753L152.942 8.77344H166.975L195.164 94.6387ZM232.946 41.6465H225.068C220.554 41.6465 216.944 42.9157 214.236 45.4492C211.528 47.985 210.174 51.9504 210.174 57.3477V94.6377H202.788V35.0225H209.928V42.5049H211.405C212.553 39.8064 214.255 37.8437 216.513 36.6172C218.769 35.3907 221.908 34.7774 225.93 34.7773H232.946V41.6465ZM142.602 64.709H177.315L160.697 13.4346H159.22L142.602 64.709Z" fill="url(#arclogogradient_paint0_linear_3761_908)"/>
+<defs>
+<linearGradient id="arclogogradient_paint0_linear_3761_908" x1="53.0261" y1="-3.5" x2="53.0261" y2="103.5" gradientUnits="userSpaceOnUse">
+<stop stop-color="#1C2998"/>
+<stop offset="0.528846" stop-color="#3E2B63"/>
+<stop offset="1" stop-color="#942753"/>
+</linearGradient>
+</defs>
+</svg><circle cx="330" cy="62" r="5" fill="#1F9D6B" stroke="none"/><circle cx="150" cy="262" r="6" fill="#8656EF" stroke="none"/></g></svg>

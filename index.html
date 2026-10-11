@@ -105,7 +105,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <div class="field-top"><span class="label">You pay</span><span class="sub">Balance: <span id="usdc-balance">-</span><span id="usdc-bal-ticker"> USDC</span><span id="savior-wallet-balance" class="hidden">-</span><span id="savior-bal-ticker" class="hidden"> SAVIOR</span></span></div>
         <div class="field-row">
           <input id="swap-amount" type="number" min="0.000001" step="any" inputmode="decimal" placeholder="0.0" oninput="onSwapInput()" value="0.1" aria-label="Amount to pay"/>
-          <span id="pay-token-pill" class="token-chip"><span class="tok-ico tok-usdc">$</span>USDC</span>
+          <span id="pay-token-pill" class="token-chip"><img class="tok-ico" src="assets/logos/usdc.svg" alt="" width="20" height="20"/>USDC</span>
         </div>
         <div class="pcts"><button onclick="setPct(25)">25%</button><button onclick="setPct(50)">50%</button><button onclick="setPct(75)">75%</button><button onclick="setPct(100)">Max</button></div>
       </div>
@@ -114,7 +114,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <div class="field-top"><span class="label">You receive (est.)</span><span class="sub" id="receive-token-label">$SAVIOR</span></div>
         <div class="field-row">
           <div class="amount-out" id="savior-out-display">-</div>
-          <span id="receive-token-pill" class="token-chip"><span class="tok-ico tok-sav">S</span>SAVIOR</span>
+          <span id="receive-token-pill" class="token-chip"><img class="tok-ico" src="assets/logos/savior.svg" alt="" width="20" height="20"/>SAVIOR</span>
         </div>
       </div>
       <div id="lock-preview" class="split hidden">
@@ -211,9 +211,11 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div class="label">From chain</div>
       <input type="hidden" id="bridge-from" value="Base"/>
       <div class="chains" id="bridge-chains">
-        <button class="chain" data-chain="Ethereum">Ethereum</button><button class="chain active" data-chain="Base">Base</button><button class="chain" data-chain="Arbitrum">Arbitrum</button><button class="chain" data-chain="Optimism">OP Mainnet</button><button class="chain" data-chain="Avalanche">Avalanche</button><button class="chain" data-chain="Polygon">Polygon PoS</button><button class="chain" data-chain="Linea">Linea</button><button class="chain" data-chain="Unichain">Unichain</button>
+        <button class="chain" data-chain="Ethereum"><img class="chain-logo" src="assets/logos/ethereum.svg" alt="" width="16" height="16"/>Ethereum</button><button class="chain active" data-chain="Base"><img class="chain-logo" src="assets/logos/base.svg" alt="" width="16" height="16"/>Base</button><button class="chain" data-chain="Arbitrum"><img class="chain-logo" src="assets/logos/arbitrum.svg" alt="" width="24" height="24"/>Arbitrum</button><button class="chain" data-chain="Optimism"><img class="chain-logo" src="assets/logos/op-mainnet.svg" alt="" width="16" height="16"/>OP Mainnet</button><button class="chain" data-chain="Avalanche"><img class="chain-logo" src="assets/logos/avalanche.svg" alt="" width="16" height="16"/>Avalanche</button><button class="chain" data-chain="Polygon"><img class="chain-logo" src="assets/logos/polygon.svg" alt="" width="16" height="16"/>Polygon PoS</button><button class="chain" data-chain="Linea"><img class="chain-logo" src="assets/logos/linea.svg" alt="" width="16" height="16"/>Linea</button><button class="chain" data-chain="Unichain"><img class="chain-logo" src="assets/logos/unichain.svg" alt="" width="16" height="16"/>Unichain</button>
       </div>
-      <div class="field"><div class="field-top"><span class="label">Amount (USDC)</span></div><div class="field-row"><input id="bridge-amount" type="text" inputmode="decimal" placeholder="250.00" aria-label="Amount of USDC to bridge"/><span class="token-chip"><span class="tok-ico tok-usdc">$</span>USDC</span></div></div>
+      <div class="label" style="margin-top:12px">To chain</div>
+      <div class="chain-dest"><img class="theme-light-only" src="assets/logos/arc-logo-gradient.svg" alt="Arc" height="22"/><img class="theme-dark-only" src="assets/logos/arc-logo-ondark.svg" alt="Arc" height="22"/><span class="sub">Arc Mainnet (CCTP domain 26)</span></div>
+      <div class="field"><div class="field-top"><span class="label">Amount (USDC)</span></div><div class="field-row"><input id="bridge-amount" type="text" inputmode="decimal" placeholder="250.00" aria-label="Amount of USDC to bridge"/><span class="token-chip"><img class="tok-ico" src="assets/logos/usdc.svg" alt="" width="20" height="20"/>USDC</span></div></div>
       <div class="bridge-grid">
         <label><span class="label">Recipient on Arc (optional)</span><input id="bridge-recipient" class="text-in mono" type="text" placeholder="0x... (defaults to your wallet)" style="margin-top:6px;font-size:13px"/></label>
         <label><span class="label">Speed</span><select id="bridge-speed" class="select" style="margin-top:6px"><option value="FAST">Fast (small fee)</option><option value="SLOW">Standard (no fast fee)</option></select></label>
@@ -574,8 +576,8 @@ async function connectWallet() {
 
 let swapMode = 'buy'; // 'buy' | 'sell'
 
-const USDC_CHIP = '<span class="tok-ico tok-usdc">$</span>USDC';
-const SAV_CHIP  = '<span class="tok-ico tok-sav">S</span>SAVIOR';
+const USDC_CHIP = '<img class="tok-ico" src="assets/logos/usdc.svg" alt="" width="20" height="20"/>USDC';
+const SAV_CHIP  = '<img class="tok-ico" src="assets/logos/savior.svg" alt="" width="20" height="20"/>SAVIOR';
 function setSwapMode(mode) {
   swapMode = mode;
   const buy = mode === 'buy';

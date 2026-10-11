@@ -3,7 +3,172 @@
 <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3898EC"/><stop offset="1" stop-color="#8656EF"/></linearGradient>
 <radialGradient id="glow"><stop offset="0" stop-color="#3898EC" stop-opacity=".45"/><stop offset="1" stop-color="#3898EC" stop-opacity="0"/></radialGradient></defs>
 <rect width="480" height="320" rx="24" fill="url(#bg)"/><circle cx="240" cy="160" r="150" fill="url(#glow)"/>
-<g fill="none" stroke="#ACC6E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M120 230h240" /><path d="M150 230c0-40 40-60 90-60s90 20 90 60" fill="#153655"/>
-<circle cx="200" cy="110" r="30" fill="url(#g)" stroke="none"/><circle cx="200" cy="110" r="23" stroke="#FFFFFF" stroke-opacity=".6"/><text x="200" y="118.4" font-family="DM Sans,Arial" font-weight="700" font-size="24.0" fill="#FFFFFF" stroke="none" text-anchor="middle">S</text><circle cx="280" cy="80" r="24" fill="url(#g)" stroke="none"/><circle cx="280" cy="80" r="17" stroke="#FFFFFF" stroke-opacity=".6"/><text x="280" y="86.72" font-family="DM Sans,Arial" font-weight="700" font-size="19.200000000000003" fill="#FFFFFF" stroke="none" text-anchor="middle">S</text><circle cx="250" cy="150" r="20" fill="url(#g)" stroke="none"/><circle cx="250" cy="150" r="13" stroke="#FFFFFF" stroke-opacity=".6"/><text x="250" y="155.6" font-family="DM Sans,Arial" font-weight="700" font-size="16.0" fill="#FFFFFF" stroke="none" text-anchor="middle">S</text>
-<circle cx="360" cy="90" r="26" fill="#4FD1A1" stroke="none"/><path d="M348 90l9 9 16-18" stroke="#FFFFFF" stroke-width="4"/>
-<path d="M200 60v-20M280 40v-14M250 112v-10" stroke="#3898EC" stroke-dasharray="2 6"/></g></svg>
+<g fill="none" stroke="#ACC6E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M110 240h260"/><path d="M150 240c0-40 40-60 90-60s90 20 90 60" fill="#153655"/>
+<svg x="164" y="74" width="64" height="64" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+  <defs>
+    <radialGradient id="savior_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <linearGradient id="savior_shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="50%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00ff87"/>
+    </linearGradient>
+    <linearGradient id="savior_sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a8edff"/>
+    </linearGradient>
+    <filter id="savior_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="savior_softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  
+  <circle cx="100" cy="100" r="100" fill="url(#savior_bg)"/>
+
+  
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2" opacity="0.6"/>
+
+  
+  <path d="M100 28 L148 50 L148 100 Q148 138 100 165 Q52 138 52 100 L52 50 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.15"/>
+  <path d="M100 32 L144 53 L144 100 Q144 135 100 160 Q56 135 56 100 L56 53 Z"
+        fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2.5" filter="url(#savior_glow)"/>
+
+  
+  <path d="M100 44 L132 60 L132 100 Q132 124 100 142 Q68 124 68 100 L68 60 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.08"/>
+
+  
+  <text x="100" y="118"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="68"
+        font-weight="900"
+        text-anchor="middle"
+        fill="url(#savior_sGrad)"
+        filter="url(#savior_softglow)"
+        letter-spacing="-2">S</text>
+
+  
+  <circle cx="72" cy="155" r="3" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="100" cy="163" r="3" fill="#7b61ff" opacity="0.7"/>
+  <circle cx="128" cy="155" r="3" fill="#00ff87" opacity="0.7"/>
+</svg><svg x="260" y="48" width="52" height="52" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+  <defs>
+    <radialGradient id="savior_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <linearGradient id="savior_shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="50%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00ff87"/>
+    </linearGradient>
+    <linearGradient id="savior_sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a8edff"/>
+    </linearGradient>
+    <filter id="savior_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="savior_softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  
+  <circle cx="100" cy="100" r="100" fill="url(#savior_bg)"/>
+
+  
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2" opacity="0.6"/>
+
+  
+  <path d="M100 28 L148 50 L148 100 Q148 138 100 165 Q52 138 52 100 L52 50 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.15"/>
+  <path d="M100 32 L144 53 L144 100 Q144 135 100 160 Q56 135 56 100 L56 53 Z"
+        fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2.5" filter="url(#savior_glow)"/>
+
+  
+  <path d="M100 44 L132 60 L132 100 Q132 124 100 142 Q68 124 68 100 L68 60 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.08"/>
+
+  
+  <text x="100" y="118"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="68"
+        font-weight="900"
+        text-anchor="middle"
+        fill="url(#savior_sGrad)"
+        filter="url(#savior_softglow)"
+        letter-spacing="-2">S</text>
+
+  
+  <circle cx="72" cy="155" r="3" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="100" cy="163" r="3" fill="#7b61ff" opacity="0.7"/>
+  <circle cx="128" cy="155" r="3" fill="#00ff87" opacity="0.7"/>
+</svg><svg x="228" y="126" width="44" height="44" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" stroke="none" stroke-width="0">
+  <defs>
+    <radialGradient id="savior_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <linearGradient id="savior_shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="50%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00ff87"/>
+    </linearGradient>
+    <linearGradient id="savior_sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#a8edff"/>
+    </linearGradient>
+    <filter id="savior_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="savior_softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  
+  <circle cx="100" cy="100" r="100" fill="url(#savior_bg)"/>
+
+  
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2" opacity="0.6"/>
+
+  
+  <path d="M100 28 L148 50 L148 100 Q148 138 100 165 Q52 138 52 100 L52 50 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.15"/>
+  <path d="M100 32 L144 53 L144 100 Q144 135 100 160 Q56 135 56 100 L56 53 Z"
+        fill="none" stroke="url(#savior_shieldGrad)" stroke-width="2.5" filter="url(#savior_glow)"/>
+
+  
+  <path d="M100 44 L132 60 L132 100 Q132 124 100 142 Q68 124 68 100 L68 60 Z"
+        fill="url(#savior_shieldGrad)" opacity="0.08"/>
+
+  
+  <text x="100" y="118"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="68"
+        font-weight="900"
+        text-anchor="middle"
+        fill="url(#savior_sGrad)"
+        filter="url(#savior_softglow)"
+        letter-spacing="-2">S</text>
+
+  
+  <circle cx="72" cy="155" r="3" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="100" cy="163" r="3" fill="#7b61ff" opacity="0.7"/>
+  <circle cx="128" cy="155" r="3" fill="#00ff87" opacity="0.7"/>
+</svg>
+<circle cx="372" cy="92" r="26" fill="#4FD1A1" stroke="none"/><path d="M360 92l9 9 16-18" stroke="#FFFFFF" stroke-width="4"/>
+<path d="M196 54v-20M286 34v-10" stroke="#3898EC" stroke-dasharray="2 6"/><text x="240" y="276" font-family="Space Mono,monospace" font-size="13" fill="#ACC6E9" stroke="none" text-anchor="middle">CLAIMABLE</text></g></svg>
