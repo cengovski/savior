@@ -54,7 +54,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   <div class="container nav-in">
     <a href="../" class="brand"><img src="../logo.svg" alt="$SAVIOR logo" width="32" height="32"/>$SAVIOR</a>
     <nav class="nav-links" aria-label="Docs sections">
-      <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks</a><a href="#bridge">Bridge</a><a href="#contracts">Contracts</a><a href="#risks">Risks</a>
+      <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks</a><a href="#nft">NFT</a><a href="#bridge">Bridge</a><a href="#contracts">Contracts</a><a href="#risks">Risks</a>
     </nav>
     <div class="nav-right">
       <span class="pill-net">DOCS</span>
@@ -76,7 +76,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 <main class="container docs">
   <nav class="toc" aria-label="On this page">
     <span class="label">On this page</span>
-    <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks and claims</a><a href="#bridge">Bridge</a><a href="#contracts">Contract addresses</a><a href="#risks">Risks</a>
+    <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks and claims</a><a href="#nft">Savior Weapons NFT</a><a href="#bridge">Bridge</a><a href="#contracts">Contract addresses</a><a href="#risks">Risks</a>
   </nav>
   <div>
     <section id="how" class="doc-sec">
@@ -121,6 +121,26 @@ document.documentElement.setAttribute('data-theme',t);})();
         <li><b>Nothing expires:</b> an unlocked position stays claimable. You do not lose it if you wait.</li>
         <li><b>Leaderboard:</b> the public Locks Leaderboard shows every wallet's locked total, read directly from the staking contract. Locks unlocking within 24 hours are highlighted.</li>
       </ul>
+    </section>
+
+    <section id="nft" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-vault"/></svg></span>Savior Weapons NFT <span class="nft-soon" style="margin-left:8px;vertical-align:middle">Coming soon</span></h2>
+      <div class="nft-doc">
+        <img src="../assets/nft/savior-weapons.gif" alt="Sealed Savior Weapons crate" width="160" height="160" loading="lazy" decoding="async"/>
+        <p>Savior Weapons is an NFT collection on Arc, an OpenSea drop at <a class="mono" href="https://explorer.arc.io/address/0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c" target="_blank" rel="noopener">0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c</a> with a max supply of <b>1,111</b>. The NFTs will be part of a game developed in the future with treasury funds. What they hold stays sealed for now.</p>
+      </div>
+      <p><b>How to win one</b></p>
+      <ol class="nft-steps">
+        <li><b>Buy 10 USDC or more</b> of SAVIOR on this site.</li>
+        <li><b>Reveal your lock</b> within about 70 minutes of the buy.</li>
+        <li><b>Each reveal has a 5% chance</b> to win a Savior Weapons NFT.</li>
+        <li><b>Claim it here</b> with Claim NFT. It then shows in your wallet and on OpenSea.</li>
+      </ol>
+      <ul class="nft-notes">
+        <li>Missed the reveal window? Then there is no draw for that lock.</li>
+        <li>Locks opened with stake are not eligible. Only buys count.</li>
+      </ul>
+      <p>A win is reserved for the wallet that owns the lock, even if someone else pressed reveal. Claim it in the Lucky NFT card under My Locked Positions. <a href="https://opensea.io/collection/0xf9cedaa96278462f9b85adfbb4ea0bdfc38f383c" target="_blank" rel="noopener">View the collection on OpenSea</a>.</p>
     </section>
 
     <section id="bridge" class="doc-sec">
