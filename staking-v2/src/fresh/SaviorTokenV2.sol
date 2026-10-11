@@ -5,15 +5,16 @@ import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Fresh-start SAVIOR: fixed supply, no mint after ctor, burn, Ownable2Step rescue
-///         of foreign ERC-20/native only (never own token). Optional logoURI set once.
+///         of foreign ERC-20/native only (never own token). logoURI owner-updatable.
 /// @dev Prototype for feature/fresh-start — audit before mainnet.
+///      If ownership is renounced, logoURI can no longer be changed.
 contract SaviorTokenV2 is Ownable2Step {
     string public constant name = "SAVIOR";
     string public constant symbol = "SAVIOR";
     uint8 public constant decimals = 6;
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000e6; // 1B
 
-    /// @notice Wallet/metadata logo. Set once in constructor; no setter.
+    /// @notice Wallet/metadata logo. Owner may update via {setLogoURI}; fixed after renounce.
     ///         Prefer `ipfs://…` or HTTPS; on-chain `data:image/svg+xml;base64,…` OK if small (~3KB).
     string public logoURI;
 
@@ -24,6 +25,7 @@ contract SaviorTokenV2 is Ownable2Step {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Rescued(address indexed token, address indexed to, uint256 amount);
+    event LogoURIUpdated(string logoURI);
 
     error ZeroAddress();
     error CannotRescueOwnToken();
@@ -31,9 +33,16 @@ contract SaviorTokenV2 is Ownable2Step {
     constructor(address recipient, address initialOwner, string memory logoURI_) Ownable(initialOwner) {
         if (recipient == address(0) || initialOwner == address(0)) revert ZeroAddress();
         logoURI = logoURI_;
+        emit LogoURIUpdated(logoURI_);
         totalSupply = TOTAL_SUPPLY;
         balanceOf[recipient] = TOTAL_SUPPLY;
         emit Transfer(address(0), recipient, TOTAL_SUPPLY);
+    }
+
+    /// @notice Update logo URI. Only owner; becomes immutable in practice if ownership is renounced.
+    function setLogoURI(string calldata newLogoURI) external onlyOwner {
+        logoURI = newLogoURI;
+        emit LogoURIUpdated(newLogoURI);
     }
 
     function approve(address spender, uint256 amount) external returns (bool) {

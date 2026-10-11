@@ -67,6 +67,30 @@ contract FreshTokenGasTest is Test {
         assertEq(t.owner(), n);
     }
 
+    
+    function test_setLogoURI_ownerOnly() public {
+        SaviorTokenV2 t = new SaviorTokenV2(D, D, LOGO);
+        string memory next = "ipfs://bafyLogoTest";
+        vm.expectEmit(false, false, false, true);
+        emit SaviorTokenV2.LogoURIUpdated(next);
+        vm.prank(D);
+        t.setLogoURI(next);
+        assertEq(t.logoURI(), next);
+
+        address stranger = makeAddr("stranger");
+        vm.prank(stranger);
+        vm.expectRevert();
+        t.setLogoURI("ipfs://nope");
+
+        // after renounce, logo is fixed
+        vm.prank(D);
+        t.renounceOwnership();
+        vm.expectRevert();
+        vm.prank(D);
+        t.setLogoURI("ipfs://stuck");
+        assertEq(t.logoURI(), next);
+    }
+
     function test_fork_prevrandao_note() public {
         // kept lightweight; lock PoC is LockBiasPoC
         assertTrue(true);

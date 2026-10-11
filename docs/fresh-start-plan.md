@@ -26,7 +26,7 @@
 | Date | Decision |
 |------|----------|
 | 2026-10-11 | **Token rescue = option (a):** owner rescues **foreign ERC-20 + native only**; **never** own SAVIOR (`CannotRescueOwnToken`). `to != 0`, **Ownable2Step**, `Rescued` event. **No** EIP-2612 permit. |
-| 2026-10-11 | **Logo:** `logoURI` set once in constructor (no setter). Prefer `ipfs://` CID of repo `logo.svg`; on-chain `data:image/svg+xml;base64,…` feasible (~3KB for current svg). Wallets mostly ignore contract logo — also publish tokenlists / Trust / explorer / CoinGecko. |
+| 2026-10-11 | **Logo:** `logoURI` + `setLogoURI` (**onlyOwner**), `LogoURIUpdated` (also emitted in ctor). **Not** immutable — if ownership is renounced, logo becomes fixed. Prefer `ipfs://` or data-URI (~3KB svg). Wallets mostly ignore contract field — also tokenlists / Trust / explorer / CoinGecko. |
 | 2026-10-11 | Lock duration bias: current `blockhash(n-1)+nonce` seed is **grindable across blocks** (PoC `staking-v2/test/LockBiasPoC.t.sol`). Prefer **fixed 7 days** for fresh-start unless product needs jitter; else commit-reveal or D20DAO VRF on Arc. |
 
 ## 1) New token design
@@ -47,7 +47,7 @@
 | Burn | `burn(uint256)` by holder | Optional supply reduction / deprecate leftovers |
 | Upgrade | **None** (no proxy) | Avoids UUPS / renounce traps seen on legacy liquidity proxy |
 | Ownable / rescue | **Ownable2Step** + `rescue` foreign ERC-20/native only (decision **a**); never `address(this)`; `to != 0` + `Rescued` | Mistaken SAVIOR sent to token contract stays stuck — accepted |
-| logoURI | Constructor-only string (`ipfs://` or data-URI) | Wallets rarely read it; still useful for explorers/dapps |
+| logoURI | Owner-updatable via `setLogoURI` (`ipfs://` or data-URI); event on set | Fixed after `renounceOwnership`; wallets rarely read it |
 | Permit | **None** (decided) | Keep surface minimal |
 | Transfer tax / rebase | **None** | Staking and V4 assume vanilla ERC-20 |
 
@@ -327,7 +327,7 @@ Re-estimate on fork immediately before launch (`cast estimate` / forge gas repor
 | `https://…` raw GitHub / CDN | Short | Mutable if URL content changes; explorers may hotlink. |
 | `data:image/svg+xml;base64,…` | Current repo logo ≈ **2255 B** raw → URI ≈ **3034 chars** | Fits comfortably in ctor; increases initcode calldata gas (~few cents USDC on Arc). No dependency on IPFS. |
 
-**Recommendation:** ship `logoURI` as `ipfs://` (pin `logo.svg`) **or** embed data-URI if you want zero off-chain dependency at launch; keep PNG 256×256 for Trust Wallet PRs separately.
+**Recommendation:** ship initial `logoURI` as `ipfs://` (pin `logo.svg`) **or** data-URI; owner can update later via `setLogoURI` until renounce. Keep PNG 256×256 for Trust Wallet PRs separately.
 
 ### Where wallets actually read logos (sources)
 | Client | Source | Contract `logoURI`? |
