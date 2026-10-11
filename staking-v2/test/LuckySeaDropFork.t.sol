@@ -220,7 +220,7 @@ contract LuckySeaDropForkTest is FreshStackForkTest {
         _clone();
         SaviorTokenV2 t = _token(false);
         vm.prank(D);
-        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode));
+        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode), 1_000_000_000e6);
         (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
         uint256 total = t.balanceOf(D);
         vm.prank(D);
@@ -229,9 +229,10 @@ contract LuckySeaDropForkTest is FreshStackForkTest {
         LuckyDistributor wrong = new LuckyDistributor(D, address(0xdead), ISeaDrop(SEADROP), IERC721(address(nft)), OS_FEE, _params(0, 1e6));
         sink = address(wrong);
         bytes memory code = type(SaviorStakingFresh).creationCode;
+        uint160 sp = f.expectedSqrtPrice();
         vm.expectRevert(FreshDeployer.BadLuckySink.selector);
         vm.prank(D);
-        f.deploy(salt, 1, 0, "", code, sink);
+        f.deploy(salt, sp, total, "", code, sink);
         dist = new LuckyDistributor(D, f.predictStaking(), ISeaDrop(SEADROP), IERC721(address(nft)), OS_FEE, _params(0, 1e6));
         _setRoot();
         sink = address(dist);

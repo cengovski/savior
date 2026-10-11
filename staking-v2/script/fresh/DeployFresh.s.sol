@@ -8,22 +8,40 @@ import {SaviorStakingFresh} from "../../src/fresh/SaviorStakingFresh.sol";
 import {HookMiner} from "../../src/fresh/HookMiner.sol";
 import {FreshLadder} from "../../src/fresh/FreshLadder.sol";
 import {ArcAddresses as A} from "../../src/ArcAddresses.sol";
+import {LuckyDistributor, MintParams, ISeaDrop} from "../../src/fresh/LuckyDistributor.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+struct AllowListData {
+    bytes32 merkleRoot;
+    string[] publicKeyURIs;
+    string allowListURI;
+}
+
+interface ISeaDropNftAdmin {
+    function updateAllowList(address seaDrop, AllowListData calldata) external;
+    function updateAllowedFeeRecipient(address seaDrop, address feeRecipient, bool allowed) external;
+    function updateCreatorPayoutAddress(address seaDrop, address payout) external;
+}
 
 /// Fresh-start deploy, one STEP per run (ordered; each step verifies the previous on-chain state).
 /// NEVER broadcast from CI/bots. Default = simulation (no --broadcast). Owner signs via admin tab or:
 ///   STEP=1 forge script script/fresh/DeployFresh.s.sol --rpc-url arc_mainnet --sender $DEPLOYER
 ///   STEP=1 ... --account <keystore> --broadcast        (only with Dzengo's explicit go)
-/// Steps (audit N-1: ladder minted inside the factory deploy tx, no init/liquidity gap):
-///   1 token    : SaviorTokenV2(recipient=DEPLOYER, owner=DEPLOYER, LOGO_URI)
-///   2 factory  : FreshDeployer(admin=DEPLOYER, TOKEN, USDC, PoolManager, TREASURY, 10000, 200, Posm, Permit2)
-///                FACTORY must be taken from THIS tx receipt (audit N-3), never from user input.
-///   3 approve  : SAVIOR.approve(FACTORY, LADDER_AMOUNT)
-///   4 deploy   : mine hook salt (0x2080) -> factory.deploy(salt, startSqrtPrice, LADDER_AMOUNT)
-///                = staking + hook + PoolManager.initialize + 20 Posm NFTs to DEPLOYER, one tx
-///   5 verify   : read-only checks (wiring, 20 NFTs, balances)
-/// Env: STEP, TOKEN (after 1), FACTORY (after 2), LOGO_URI (step 1), LADDER_AMOUNT (default = full balance)
+/// Steps (same order as the admin "Fresh start" tab):
+///   1 token     : SaviorTokenV2(recipient=DEPLOYER, owner=DEPLOYER, LOGO_URI)
+///   2 factory   : FreshDeployer(..., Posm, Permit2, stakingCodeHash, LADDER_AMOUNT). FACTORY only from THIS receipt (N-3).
+///   3 lucky     : LUCKY_NFT = ERC721SeaDropCloneable created by DEPLOYER in OpenSea Studio (or a manual clone of impl
+///                 0x09a2...Dd6A), then LuckyDistributor(staking = factory.predictStaking()). LUCKY_NFT unset = no lucky.
+///   4 allowlist : nft.updateAllowList(SeaDrop, root = distributor.allowListLeaf()) (+ payout, fee recipient, maxSupply)
+///   5 approve   : SAVIOR.approve(FACTORY, LADDER_AMOUNT)
+///   6 deploy    : mine hook salt (0x2080) -> factory.deploy(salt, expectedSqrtPrice, LADDER_AMOUNT, ladderData, stakingCode, sink)
+///                 factory enforces sqrtP, amount and keccak(ladderData) == expectedLadderHash(hook) (R3-1/R3-5)
+///   7 verify    : read-only
+/// Env: STEP, TOKEN, FACTORY, LOGO_URI, LADDER_AMOUNT (default full balance), LUCKY_NFT, DISTRIBUTOR, LUCKY_PAYOUT
 contract DeployFresh is Script {
     uint160 constant FLAGS = uint160((1 << 13) | (1 << 7));
+    address constant SEADROP = 0x00005EA00Ac477B1030CE78506496e8C2dE24bf5;
+    address constant OS_FEE = 0x0000a26b00c1F0DF003000390027140000fAa719;
 
     function run() external {
         require(block.chainid == A.CHAIN_ID || vm.envOr("ALLOW_OTHER_CHAIN", false), "not Arc");
@@ -45,10 +63,11 @@ contract DeployFresh is Script {
         require(SaviorTokenV2(payable(token)).owner() == deployer, "TOKEN owner != sender");
 
         if (step == 2) {
+            uint256 amt2 = vm.envOr("LADDER_AMOUNT", SaviorTokenV2(payable(token)).balanceOf(deployer));
             vm.startBroadcast();
             FreshDeployer f = new FreshDeployer(
                 deployer, token, A.USDC, A.POOL_MANAGER, A.TREASURY, A.POOL_FEE, A.POOL_TICK_SPACING,
-                A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode)
+                A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode), amt2
             );
             vm.stopBroadcast();
             console2.log("FACTORY", address(f));
@@ -59,9 +78,36 @@ contract DeployFresh is Script {
         FreshDeployer fac = FreshDeployer(vm.envAddress("FACTORY"));
         require(fac.admin() == deployer && fac.token() == token, "FACTORY mismatch");
         require(fac.positionManager() == A.POSITION_MANAGER && fac.permit2() == A.PERMIT2, "FACTORY periphery mismatch");
-        uint256 amt = vm.envOr("LADDER_AMOUNT", SaviorTokenV2(payable(token)).balanceOf(deployer));
+        require(fac.stakingCodeHash() == keccak256(type(SaviorStakingFresh).creationCode), "stakingCodeHash mismatch");
+        uint256 amt = fac.expectedLadderAmount();
+        address nft = vm.envOr("LUCKY_NFT", address(0));
 
         if (step == 3) {
+            require(nft != address(0), "LUCKY_NFT (OpenSea clone) required");
+            vm.startBroadcast();
+            LuckyDistributor d = new LuckyDistributor(
+                deployer, fac.predictStaking(), ISeaDrop(SEADROP), IERC721(nft), OS_FEE,
+                MintParams(0, 1_000_000, block.timestamp, type(uint64).max, 1, 1_000_000, 1000, true)
+            );
+            vm.stopBroadcast();
+            console2.log("DISTRIBUTOR", address(d));
+            return;
+        }
+
+        address sink = vm.envOr("DISTRIBUTOR", address(0));
+        if (sink != address(0)) require(LuckyDistributor(payable(sink)).staking() == fac.predictStaking(), "DISTRIBUTOR not bound");
+
+        if (step == 4) {
+            require(sink != address(0) && nft != address(0), "DISTRIBUTOR + LUCKY_NFT required");
+            vm.startBroadcast();
+            ISeaDropNftAdmin(nft).updateAllowList(SEADROP, AllowListData(LuckyDistributor(payable(sink)).allowListLeaf(), new string[](0), ""));
+            ISeaDropNftAdmin(nft).updateAllowedFeeRecipient(SEADROP, OS_FEE, true);
+            ISeaDropNftAdmin(nft).updateCreatorPayoutAddress(SEADROP, vm.envOr("LUCKY_PAYOUT", deployer));
+            vm.stopBroadcast();
+            return;
+        }
+
+        if (step == 5) {
             require(!fac.deployed(), "already deployed");
             vm.startBroadcast();
             SaviorTokenV2(payable(token)).approve(address(fac), amt);
@@ -70,27 +116,27 @@ contract DeployFresh is Script {
             return;
         }
 
-        if (step == 4) {
+        if (step == 6) {
             require(!fac.deployed(), "already deployed");
-            require(SaviorTokenV2(payable(token)).allowance(deployer, address(fac)) >= amt, "step 3 first");
-            require(SaviorTokenV2(payable(token)).balanceOf(deployer) >= amt, "balance < ladder amount");
+            require(SaviorTokenV2(payable(token)).allowance(deployer, address(fac)) >= amt, "step 5 first");
+            require(SaviorTokenV2(payable(token)).balanceOf(deployer) == amt, "balance != ladder amount");
             (bytes32 salt, address hook) = HookMiner.find(address(fac), FLAGS, fac.hookInitCodeHash(), 0, 500_000);
             uint160 sqrtP = FreshLadder.startSqrtPrice(fac.saviorIsCurrency0());
+            require(sqrtP == fac.expectedSqrtPrice(), "sqrtP mismatch");
+            bytes memory ladder = FreshLadder.build(fac.poolKey(hook), fac.saviorIsCurrency0(), amt, deployer);
+            require(keccak256(ladder) == fac.expectedLadderHash(hook), "ladder hash mismatch");
             console2.log("hook salt");
             console2.logBytes32(salt);
             console2.log("HOOK (predicted)", hook);
-            console2.log("STAKING (predicted)", fac.predictStaking());
-            console2.log("startSqrtPriceX96", sqrtP);
-            bytes memory ladder = FreshLadder.build(fac.poolKey(hook), fac.saviorIsCurrency0(), amt, deployer);
             vm.startBroadcast();
-            fac.deploy(salt, sqrtP, amt, ladder, type(SaviorStakingFresh).creationCode, vm.envOr("LUCKY_SINK", address(0)));
+            fac.deploy(salt, sqrtP, amt, ladder, type(SaviorStakingFresh).creationCode, sink);
             vm.stopBroadcast();
             require(fac.hook() == hook && fac.staking() == fac.predictStaking(), "post-deploy mismatch");
             return;
         }
 
-        if (step == 5) {
-            require(fac.deployed(), "step 4 first");
+        if (step == 7) {
+            require(fac.deployed(), "step 6 first");
             console2.log("STAKING", fac.staking());
             console2.log("HOOK", fac.hook());
             console2.log("deployer SAVIOR left", SaviorTokenV2(payable(token)).balanceOf(deployer));

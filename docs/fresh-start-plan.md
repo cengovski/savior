@@ -454,3 +454,10 @@ Ordered steps 1–5 as above; each button enabled only if the previous step veri
 - Option B (kept, not wired by default): `SaviorLuckyNFT` own ERC-721 (immutable staking minter, mints straight to user, cap returns 0 never reverts, tokenURI/contractURI/ERC-4906/ERC-2981 optional).
 - Binding/ordering: token -> factory (ctor now takes `stakingCodeHash`) -> NFT clone + LuckyDistributor(staking = factory.predictStaking()) -> NFT allow-list root -> approve -> `deploy(salt, sqrtP, ladderAmount, ladderData, stakingCode, luckySink)`. Factory checks `keccak256(stakingCode) == stakingCodeHash` and `luckySink.staking() == predictStaking()`. Staking initcode is calldata now, so FreshDeployer is 9.2 KB (was 24.4 KB).
 - MAX_REVEAL_BATCH 40 -> 25: fork-measured all-winners SeaDrop batch 4.48M gas (179k/item), own-ERC721 1.80M (72k/item), no winners ~17k/item. Arc block gas limit 30M.
+
+## RAPOR3 fixes
+- R3-1: FreshDeployer ctor takes `expectedLadderAmount` (immutable). `deploy` requires `sqrtPriceX96 == expectedSqrtPrice()` (FreshLadder table, by ordering), `ladderAmount == expectedLadderAmount`, and `keccak256(ladderData) == expectedLadderHash(hook)` = keccak of `FreshLadder.build(poolKey(hook), saviorIsCurrency0, expectedLadderAmount, admin)`. Tick table and per-tranche liquidity are therefore fixed on-chain; the auditor skewed-ladder PoC reverts `BadLadder`. Post-checks (20 NFTs, owner, PoolKey) stay.
+- R3-2: Permit2 internal allowance factory->Posm reset to 0 after the ladder.
+- R3-5: `ladderAmount == 0` (and ctor 0) revert `BadLadderAmount`.
+- R3-6: `FreshSizeGuard` test keeps every fresh contract >= 1 KB under EIP-170 (FreshDeployer now 12.5 KB).
+- Script steps now match the admin tab: 1 token, 2 factory, 3 lucky (OpenSea clone + distributor), 4 allow-list root, 5 approve, 6 deploy, 7 verify.

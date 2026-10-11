@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PoolKey, IPoolManagerMinimal} from "../IV4Minimal.sol";
 
 import {SaviorHookFresh} from "./SaviorHookFresh.sol";
+import {FreshLadder} from "./FreshLadder.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IPosmLadder {
@@ -50,6 +51,8 @@ contract FreshDeployer {
     /// @notice keccak256(type(SaviorStakingFresh).creationCode). Staking initcode is passed as calldata to
     ///         deploy() and must match (keeps this factory under EIP-170; admin tab checks it vs artifact).
     bytes32 public immutable stakingCodeHash;
+    /// @notice Exact SAVIOR amount the ladder must use (audit R3-1/R3-5). Non-zero.
+    uint256 public immutable expectedLadderAmount;
 
     address public staking;
     address public hook;
@@ -66,6 +69,8 @@ contract FreshDeployer {
     error BadLadder();
     error BadStakingCode();
     error BadLuckySink();
+    error BadSqrtPrice();
+    error BadLadderAmount();
 
     /// @dev Post-check each new NFT: owner == admin and its PoolKey (first 5 words of
     ///      Posm.getPoolAndPositionInfo) == this pool's key. Raw compare keeps bytecode small (EIP-170).
@@ -90,8 +95,11 @@ contract FreshDeployer {
         int24 tickSpacing_,
         address positionManager_,
         address permit2_,
-        bytes32 stakingCodeHash_
+        bytes32 stakingCodeHash_,
+        uint256 expectedLadderAmount_
     ) {
+        if (expectedLadderAmount_ == 0) revert BadLadderAmount();
+        expectedLadderAmount = expectedLadderAmount_;
         stakingCodeHash = stakingCodeHash_;
         positionManager = positionManager_;
         permit2 = permit2_;
@@ -159,6 +167,9 @@ contract FreshDeployer {
         if (msg.sender != admin) revert NotAdmin();
         if (deployed) revert AlreadyDeployed();
         if (!isValidHookSalt(salt)) revert BadHookFlags();
+        // Audit R3-1/R3-5: price, amount and the full ladder geometry are fixed on-chain.
+        if (ladderAmount == 0 || ladderAmount != expectedLadderAmount) revert BadLadderAmount();
+        if (sqrtPriceX96 != expectedSqrtPrice()) revert BadSqrtPrice();
         deployed = true;
         staking_ = _createStaking(stakingCode, luckySink, computeHookAddress(salt));
         hook_ = _createHook(salt, staking_);
@@ -167,7 +178,7 @@ contract FreshDeployer {
         staking = staking_;
         hook = hook_;
         emit FreshDeployed(staking_, hook_, tick, salt);
-        if (ladderAmount != 0) _ladder(hook_, ladderAmount, ladderData);
+        _ladder(hook_, ladderAmount, ladderData);
     }
 
     function _createHook(bytes32 salt, address staking_) internal returns (address hook_) {
@@ -194,7 +205,19 @@ contract FreshDeployer {
         if (staking_ != predictedStaking) revert StakingAddressMismatch();
     }
 
+    /// @notice Start price fixed by the FreshLadder constant table (depends only on token ordering).
+    function expectedSqrtPrice() public view returns (uint160) {
+        return FreshLadder.startSqrtPrice(saviorIsCurrency0());
+    }
+
+    /// @notice keccak256 of the only acceptable ladderData for `hook_` (FreshLadder constant tick table,
+    ///         per-tranche liquidity from expectedLadderAmount, owner = admin). Panel/script compare to it.
+    function expectedLadderHash(address hook_) public view returns (bytes32) {
+        return keccak256(FreshLadder.build(poolKey(hook_), saviorIsCurrency0(), expectedLadderAmount, admin));
+    }
+
     function _ladder(address hook_, uint256 amount, bytes calldata data) internal {
+        if (keccak256(data) != expectedLadderHash(hook_)) revert BadLadder();
         SafeERC20.safeTransferFrom(IERC20(token), admin, address(this), amount);
         SafeERC20.forceApprove(IERC20(token), permit2, amount);
         IPermit2Approve(permit2).approve(token, positionManager, uint160(amount), uint48(block.timestamp));
@@ -206,6 +229,7 @@ contract FreshDeployer {
             _checkNft(first + i, kh);
         }
         SafeERC20.forceApprove(IERC20(token), permit2, 0);
+        IPermit2Approve(permit2).approve(token, positionManager, 0, 0); // R3-2: clear Permit2 residue
         uint256 left = IERC20(token).balanceOf(address(this));
         if (left != 0) SafeERC20.safeTransfer(IERC20(token), admin, left);
         emit LadderMinted(amount, left);

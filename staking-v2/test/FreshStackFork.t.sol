@@ -71,7 +71,7 @@ contract FreshStackForkTest is Test {
     {
         t = _token(saviorC0);
         vm.prank(D);
-        f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode));
+        f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode), 1_000_000_000e6);
         assertEq(f.saviorIsCurrency0(), saviorC0, "ordering");
         (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
         console2.log("mined salt", uint256(salt));
@@ -111,7 +111,7 @@ contract FreshStackForkTest is Test {
     function _badLadder(bool c0) internal {
         SaviorTokenV2 t = _token(c0);
         vm.prank(D);
-        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode));
+        FreshDeployer f = new FreshDeployer(D, address(t), A.USDC, A.POOL_MANAGER, A.TREASURY, 10000, 200, A.POSITION_MANAGER, A.PERMIT2, keccak256(type(SaviorStakingFresh).creationCode), 1_000_000_000e6);
         (bytes32 salt, address predicted) = HookMiner.find(address(f), uint160((1 << 13) | (1 << 7)), f.hookInitCodeHash(), 0, 200_000);
         uint256 total = t.balanceOf(D);
         bytes memory bad = FreshLadder.build(f.poolKey(predicted), c0, total, makeAddr("thief"));
