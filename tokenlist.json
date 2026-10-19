@@ -1,6 +1,6 @@
 {
   "name": "Savior Token List",
-  "logoURI": "https://cengovski.github.io/savior/logo.svg",
+  "logoURI": "https://arcsavior.trade/logo.svg",
   "keywords": [
     "savior",
     "arc",
@@ -18,9 +18,9 @@
       "name": "Savior",
       "symbol": "SAVIOR",
       "decimals": 6,
-      "logoURI": "https://cengovski.github.io/savior/logo.svg",
+      "logoURI": "https://arcsavior.trade/logo.svg",
       "extensions": {
-        "link": "https://cengovski.github.io/savior/"
+        "link": "https://arcsavior.trade/"
       }
     }
   ],

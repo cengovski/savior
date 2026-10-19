@@ -21,7 +21,7 @@ Upstream failover: `rpc.mainnet.arc.io`, then `arc-rpc.publicnode.com`, `5042.rp
 Safety:
 - Read-only allowlist of methods. `eth_sendRawTransaction` and anything else not listed is refused:
   wallets keep sending transactions through their own RPC.
-- CORS only for `cengovski.github.io`, `savior-cengovski.vercel.app`, Vercel previews and localhost.
+- CORS only for `arcsavior.trade`, `www.arcsavior.trade`, `cengovski.github.io` (old URL, redirects), `savior-cengovski.vercel.app`, Vercel previews and localhost.
 - Batches capped at 20 requests. An optional per-IP rate limit is sketched in `wrangler.toml`.
 - No secrets. If a keyed RPC is added later, store its URL with `wrangler secret put` and never commit it.
 
