@@ -5,7 +5,7 @@
 // 0.3% treasury fee on the output and the 50/50 instant/locked split for buys.
 (function () {
   const PM = "0x8366a39CC670B4001A1121B8F6A443A643e40951";
-  const POOL_ID = (window.SAVIOR_CONFIG && window.SAVIOR_CONFIG.poolId) || "0x004d7e7f668a78ea18228d753008ccf0c2b6b9e7c6c03d7a44d7cd954d072ab6"; // live pool unless fresh mode
+  const POOL_ID = window.SAVIOR_CONFIG.poolId; // computed in config.js from the pool key
   const TICK_SPACING = 200, POOLS_SLOT = 6n, TREASURY_BPS = 30n, MAX_STEPS = 80;
   const Q96 = 1n << 96n, MIN_TICK = -887272, MAX_TICK = 887272;
   const abi = ethers.AbiCoder.defaultAbiCoder();
@@ -92,7 +92,7 @@
   // Public API: amounts in base units (6 decimals for both tokens).
   async function quote(provider, isBuy, amountIn) {
     tickCache.clear();
-    // Live pool: USDC is currency0, so a buy is zeroForOne. A fresh pool may sort SAVIOR first (config.saviorIsCurrency0).
+    // A buy is zeroForOne when USDC is currency0 (config.saviorIsCurrency0 is false).
     const s0 = !!(window.SAVIOR_CONFIG && window.SAVIOR_CONFIG.saviorIsCurrency0);
     const gross = await simulate(provider, isBuy !== s0, amountIn);
     const fee = (gross * TREASURY_BPS) / 10000n;
@@ -100,13 +100,10 @@
     if (isBuy) { const locked = net / 2n; return { gross, fee, net, immediate: net - locked, locked }; }
     return { gross, fee, net };
   }
-  // minOut for swapExactIn. v1 checks it against the GROSS pool output; v2 (SaviorStakingV2) checks the NET output
-  // after the 0.3% treasury fee. Fee and the 50/50 split are identical in v1 and v2, so quote() needs no change.
-  // isV2: the swap goes through v2 (the hook points at v2). Defaults to the configured v2 address for older callers.
-  function minOut(q, slipBps, isV2 = !!(window.SAVIOR_CONFIG && window.SAVIOR_CONFIG.v2)) {
-    const base = isV2 ? q.net : q.gross;
-    const m = base > 0n ? (base * BigInt(10000 - slipBps)) / 10000n : 1n;
-    return m > 0n ? m : 1n; // fresh staking reverts ZeroMinOut on 0
+  // minOut for swapExactIn: the staking contract checks it against the NET output (after the 0.3% treasury fee).
+  function minOut(q, slipBps) {
+    const m = q.net > 0n ? (q.net * BigInt(10000 - slipBps)) / 10000n : 1n;
+    return m > 0n ? m : 1n; // the staking contract reverts ZeroMinOut on 0
   }
   window.SaviorQuote = { quote, simulate, readState, sqrtAtTick, minOut };
 })();

@@ -5,7 +5,7 @@
 set -euo pipefail
 rm -rf dist && mkdir dist
 tar -cf - \
-  --exclude=./dist --exclude=./.git --exclude=./admin --exclude=./scripts \
+  --exclude=./dist --exclude=./.git --exclude=./admin --exclude=./scripts --exclude=./tools \
   --exclude=./node_modules --exclude=./vercel.json --exclude=./.vercelignore \
   --exclude='./*.md' --exclude=./admin.html --exclude=./docs/admin.html \
   . | tar -xf - -C dist
