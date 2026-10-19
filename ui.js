@@ -170,10 +170,11 @@
     select(input.value || window.SAVIOR_DEFAULT_BRIDGE_CHAIN || chains[0].key, false);
     window.SaviorChainSelect = { open, close, select, get value() { return input.value; } };
   })();
-  window.setBridgeStep = (active, done = []) => {
+  window.setBridgeStep = (active, done = [], failed = null) => {
     document.querySelectorAll("#bridge-steps .step").forEach((s) => {
-      s.classList.toggle("done", done.includes(s.dataset.step));
+      s.classList.toggle("done", done.includes(s.dataset.step) && s.dataset.step !== failed);
       s.classList.toggle("active", s.dataset.step === active);
+      s.classList.toggle("err", s.dataset.step === failed);
     });
   };
 

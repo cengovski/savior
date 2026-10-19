@@ -406,3 +406,5 @@ html,body{overflow-x:clip}
 .nav-links a{white-space:nowrap}
 @media(min-width:1024px) and (max-width:1279px){.nav-links{gap:18px;font-size:14px}}
 @media(min-width:1280px){.nav-links{gap:24px}}
+.step.err{color:var(--danger);border-color:var(--danger)}.step.err i{border-color:var(--danger);background:var(--danger)}
+.log a{color:var(--primary);text-decoration:underline}
