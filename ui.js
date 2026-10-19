@@ -170,10 +170,11 @@
     select(input.value || window.SAVIOR_DEFAULT_BRIDGE_CHAIN || chains[0].key, false);
     window.SaviorChainSelect = { open, close, select, get value() { return input.value; } };
   })();
-  window.setBridgeStep = (active, done = []) => {
+  window.setBridgeStep = (active, done = [], failed = null) => {
     document.querySelectorAll("#bridge-steps .step").forEach((s) => {
-      s.classList.toggle("done", done.includes(s.dataset.step));
+      s.classList.toggle("done", done.includes(s.dataset.step) && s.dataset.step !== failed);
       s.classList.toggle("active", s.dataset.step === active);
+      s.classList.toggle("err", s.dataset.step === failed);
     });
   };
 
@@ -188,6 +189,7 @@
 
   // ---------- on-chain stats: price and supply ----------
   async function stats() {
+    if (!$("pool-price") && !$("tok-supply")) return; // these stats live on the Docs page now
     if (typeof ethers === "undefined" || !window.SaviorQuote) return setTimeout(stats, 500);
     try {
       const p = window.SaviorRPC.provider();
@@ -196,12 +198,11 @@
       // sqrtPriceX96 = sqrt(SAVIOR/USDC); USDC per SAVIOR = (2^96/sqrtP)^2; both 6 decimals
       // (if the pool sorts SAVIOR first, sqrtP = sqrt(USDC/SAVIOR) instead)
       const x = window.SAVIOR_CONFIG.saviorIsCurrency0 ? Number(st.sqrtP * 1000000n / (1n << 96n)) / 1e6 : Number((1n << 96n) * 1000000n / st.sqrtP) / 1e6;
-      $("pool-price").textContent = (x * x * 1e6).toLocaleString("en-US", { maximumFractionDigits: 4 }) + " USDC";
+      if ($("pool-price")) $("pool-price").textContent = (x * x * 1e6).toLocaleString("en-US", { maximumFractionDigits: 4 }) + " USDC";
       const tok = new ethers.Contract(window.SAVIOR_CONFIG.contracts.token, ["function totalSupply() view returns (uint256)"], p);
       const sup = await run(() => tok.totalSupply());
       const n = Number(ethers.formatUnits(sup, 6));
-      $("tok-supply").textContent = n.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 2 });
-      $("tok-supply").title = n.toLocaleString("en-US") + " SAVIOR";
+      if ($("tok-supply")) { $("tok-supply").textContent = n.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 2 }); $("tok-supply").title = n.toLocaleString("en-US") + " SAVIOR"; }
     } catch (e) { console.warn("stats", e); setTimeout(stats, 30000); } // keep last value, try again later
   }
 

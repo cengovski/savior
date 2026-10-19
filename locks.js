@@ -125,32 +125,19 @@
   const dateStr = (ts) => new Date(ts * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   let rows = [];
 
+  // Leaderboard: wallet and total locked SAVIOR only, ranked by total (descending).
   function render() {
     const body = $("lb-body"); if (!body) return;
-    const now = Math.floor(Date.now() / 1000), soon = now + 86400;
-    let total = 0n, soonAmt = 0n, holders = 0, nLocks = 0;
-    for (const r of rows) { total += r.total; holders++; nLocks += r.count; soonAmt += r.soonAmt; }
-    $("lb-total").textContent = fmt(total) + " SAVIOR";
-    $("lb-holders").textContent = holders + (holders === 1 ? " wallet, " : " wallets, ") + nLocks + (nLocks === 1 ? " lock" : " locks");
-    $("lb-soon").textContent = fmt(soonAmt) + " SAVIOR";
     body.replaceChildren();
     if (!rows.length) { body.appendChild(el("div", "lb-empty", "No active locks found yet.")); return; }
     rows.forEach((r, idx) => {
-      const isSoon = r.next && r.next <= soon && r.next > now;
-      const row = el("div", "tr lb-row" + (isSoon ? " lb-soon" : ""));
-      row.appendChild(el("span", "lb-rank", "#" + (idx + 1)));
-      const a = el("a", "lb-addr", short(r.addr)); a.href = C.explorer + "/address/" + r.addr; a.target = "_blank"; a.rel = "noopener";
-      row.appendChild(a);
-      row.appendChild(el("span", "lb-amt", fmt(r.total)));
-      row.appendChild(el("span", "lb-count", String(r.count)));
-      const nx = el("span", "lb-time lb-next"); nx.appendChild(el("b", null, r.allUnlocked ? "Unlocked" : countdown(r.next))); nx.appendChild(el("small", null, dateStr(r.next)));
-      const ls = el("span", "lb-time lb-last"); ls.appendChild(el("b", null, r.allUnlocked ? "Unlocked" : countdown(r.lastU))); ls.appendChild(el("small", null, dateStr(r.lastU)));
-      row.appendChild(nx); row.appendChild(ls);
-      const bw = el("span", "lb-badges");
-      if (r.claimableCount) bw.appendChild(el("span", "lb-badge lb-claimable", "Claimable"));
-      if (isSoon) bw.appendChild(el("span", "lb-badge", "Unlocking in 24h"));
-      if (r.pendingCount) bw.appendChild(el("span", "lb-badge lb-pending", r.pendingCount === r.count ? "Pending reveal" : r.pendingCount + " pending reveal"));
-      if (bw.childNodes.length) row.appendChild(bw);
+      const row = el("div", "tr lb-row"); row.setAttribute("role", "row");
+      const w = el("span", "lb-wallet"); w.setAttribute("role", "cell");
+      w.appendChild(el("span", "lb-rank", "#" + (idx + 1)));
+      const a = el("a", "lb-addr", short(r.addr)); a.href = C.explorer + "/address/" + r.addr; a.target = "_blank"; a.rel = "noopener"; a.title = r.addr;
+      w.appendChild(a);
+      const amt = el("span", "lb-amt", fmt(r.total)); amt.setAttribute("role", "cell");
+      row.append(w, amt);
       body.appendChild(row);
     });
   }
@@ -170,8 +157,7 @@
       r.group = r.claimableCount ? 0 : r.pendingCount === r.count ? 2 : 1;
       return r;
     }).filter(Boolean)
-      // claimable first, then waiting, then pending; within a group by total locked
-      .sort((a, b) => (a.group !== b.group ? a.group - b.group : b.total > a.total ? 1 : b.total < a.total ? -1 : 0));
+      .sort((a, b) => (b.total > a.total ? 1 : b.total < a.total ? -1 : 0)); // by total locked, descending
   }
   // Lock still pending reveal: window not closed yet (closed window = final 10 days, treated as waiting).
   function isPendingLive(x) {
