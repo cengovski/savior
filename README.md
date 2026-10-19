@@ -5,9 +5,9 @@
 **Token:** $SAVIOR  
 **Tema:** Trench'lerin Kurtarıcısı (Meme + Arc + Kahramanlık)
 
-Bu rehber, projeyi sıfırdan kurmak, kontratları deploy etmek, siteyi (GitHub Pages) hazırlamak ve bir AI ajanına (Cursor, Claude, Devin vb.) vererek tam projeyi geliştirtmek için **tam kapsamlı** dokümantasyondur. 
+Bu dosya, eski prototip tasarımından kalan notları da içerir; canlı dağıtımın eksiksiz teknik dokümantasyonu değildir. 
 
-Tüm kontratlar, mimari, frontend kodu, deployment adımları ve güvenlik notları burada. 
+Canlı kontrat adresleri ve kaynak kodları ayrıca doğrulanmalıdır; aşağıdaki örnekler canlı dağıtımla eşleştirilmiş değildir. 
 
 > **⚠️ ÖNEMLİ UYARI:** Bu proje yüksek riskli Uniswap V4 Hook + custom Vault + timelock mekanizması içerir. Production için **mutlaka profesyonel audit** (Cantina, Spearbit, Certik vb.) yaptırın. Hook'lar çok güçlüdür, exploit riski yüksektir.
 
@@ -35,14 +35,13 @@ Tüm kontratlar, mimari, frontend kodu, deployment adımları ve güvenlik notla
   - Arc Mainnet hedefli arayüz; eski Base temalı kopyalar prototip kalıntısıdır.
   - USDC ↔ $SAVIOR arayüzü (slippage ayarlanabilir).
   - Bağlanan cüzdanın Vault kontrat(lar)ı listesi + unlock countdown + Claim butonu.
-  - Pool'a likidite ekleme (slider ile anlık ETH/SAVIOR hesabı).
-  - Custom RPC seçici (5 public RPC + manuel giriş).
+  - Arayüzdeki likidite/kontrat araçları yalnızca doğru Arc kontrat adresleriyle ayrıca doğrulanmalıdır.
+  - Arc Mainnet RPC yapılandırması.
 
 ### Tokenomics (Önerilen)
-- Toplam Supply: 1.000.000.000 $SAVIOR (tamamı initial liquidity için)
-- %100 Fair Launch (sadece pool'a mint)
-- Fee: %2 (sadece treasury'ye, no team allocation)
-- Lock: Alımların %48'i 5-10 gün kilitli (anti-dump)
+- Arayüzün gösterdiği hedef dağılım: %50 anında kullanılabilir, %50 5–10 gün kilitli.
+- Arayüzün gösterdiği hedef ücret: swap başına %2 treasury fee.
+- Toplam arz, likidite dağılımı ve ücret uygulaması canlı kontrat verileriyle doğrulanmadı; bu değerleri doğrulanmış tokenomics olarak kabul etmeyin.
 
 ---
 
@@ -60,7 +59,7 @@ SaviorHook (V4 Hook)
     ├── afterSwap: %2 fee → Treasury
     └── (lock mantığı Vault'ta centralized)
           ↓
-Uniswap V4 Pool (Base) + PositionManager
+Uniswap V4 Pool (Arc Mainnet — only if verified/deployed) + PositionManager
           ↓
 SaviorToken (ERC20)
 ```
