@@ -12,7 +12,7 @@ Canlı kontrat adresleri ve kaynak kodları ayrıca doğrulanmalıdır; aşağı
 > **⚠️ ÖNEMLİ UYARI:** Bu proje yüksek riskli Uniswap V4 Hook + custom Vault + timelock mekanizması içerir. Production için **mutlaka profesyonel audit** (Cantina, Spearbit, Certik vb.) yaptırın. Hook'lar çok güçlüdür, exploit riski yüksektir.
 
 
-> **Durum ve güvenlik notu (19 Ekim 2026):** Yayındaki arayüz `docs/index.html` Arc Mainnet'i (Chain ID `5042`) hedefler; gas varlığı USDC'dir. Bu README içindeki Base/ETH, %48 kilit ve Vault/Hook örneklerinin bir bölümü eski prototip/skeleton tasarımdan kalmıştır. Örnek kontratlarda tamamlanmamış `TODO` ve `revert` yolları vardır; bunlar canlı uygulamanın gerçek davranışını kanıtlamaz ve production deploy için kullanılmamalıdır. Arayüzde gösterilen %50 kilit ve %2 treasury fee de yalnızca kontrat adresleri ve zincir üstü işlemler doğrulanırsa uygulanıyor kabul edilmelidir. Proje denetlenmiş olarak sunulmamaktadır. Herhangi bir işlemden önce doğru ağ, kontrat adresleri, doğrulanabilir kaynak kodu ve cüzdan imzasındaki calldata kontrol edilmelidir.
+> **Durum ve güvenlik notu (19 Ekim 2026):** Yayındaki arayüz `docs/index.html` Arc Mainnet'i (Chain ID `5042`) hedefler; gas varlığı USDC'dir. Bu README içindeki Base/ETH, %48 kilit ve Vault/Hook örneklerinin bir bölümü eski prototip/skeleton tasarımdan kalmıştır. Örnek kontratlarda tamamlanmamış `TODO` ve `revert` yolları vardır; bunlar canlı uygulamanın gerçek davranışını kanıtlamaz ve production deploy için kullanılmamalıdır. Arayüzde gösterilen %50 kilit ve %2 treasury fee de yalnızca kontrat adresleri ve zincir üstü işlemler doğrulanırsa uygulanıyor kabul edilmelidir. Proje denetlenmiş olarak sunulmamaktadır. Repository'de admin panelinin gömdüğü TOKEN_BC/HOOK_BC/STAKING_BC bytecode sabitleri dışında bunlarla eşleştiği doğrulanmış Solidity kaynak dosyaları bulunmuyor; README'deki skeleton kodlar deployed bytecode'ın kaynak eşdeğeri olarak görülmemelidir. Herhangi bir işlemden önce doğru ağ, kontrat adresleri, doğrulanabilir kaynak kodu ve cüzdan imzasındaki calldata kontrol edilmelidir.
 
 ---
 
@@ -25,11 +25,11 @@ Canlı kontrat adresleri ve kaynak kodları ayrıca doğrulanmalıdır; aşağı
 - **Kişisel Kasa (Vault) Sistemi:**
   - Her alım yapan cüzdan için **otomatik / ilk seferde deploy** edilen kişisel Vault kontratı.
   - **Eski tasarım notu:** Bu örnek %48 kilit öngörür; güncel arayüzdeki %50 açıklamasıyla aynı değildir. Canlı kontratla doğrulanmadan kullanmayın.
-  - Kilit süresi **tx anında** belirlenir (block verisi ile pseudo-rastgele), önceden simüle edilemez.
-  - Vault sahibi = alım yapan cüzdan. Sadece sahibi claim edebilir, başkası etkileşemez.
+  - Eski prototip rastgele kilit süresi amaçlar; zincir üstünde doğrulanmış davranış değildir.
+  - Hedef tasarımda claim yalnızca sahibi tarafından yapılır; canlı kontratla doğrulanmalıdır.
   - Bu enforce iddiası, verilen skeleton kodla doğrulanmış değildir; canlı hook/pool kodu ve başarılı/başarısız swap testleri gerekir.
 - **Ücret:** Arayüz %2 treasury fee gösterir. Aşağıdaki eski örnek kod bu davranışın canlı kontratta uygulandığını kanıtlamaz.
-  - Treasury: `0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787`
+  - Treasury: set explicitly at deployment after independent verification; the old hard-coded address is not authoritative.
 - **Pool kısıtlaması:** Diğer havuzlarda işlem yapılamayacağı iddiası, token transferleri ve hook davranışı zincir üzerinde test edilmeden doğrulanmış sayılmaz.
 - **Site (GitHub Pages):** 
   - Arc Mainnet hedefli arayüz; eski Base temalı kopyalar prototip kalıntısıdır.
@@ -88,6 +88,12 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract SaviorToken is ERC20, Ownable {
     constructor(address initialOwner) ERC20("$SAVIOR", "SAVIOR") Ownable(initialOwner) {}
+
+    // Match the admin deployment flow (which mints using 6-decimal units).
+    // Verify this source matches the published bytecode before any deployment.
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
 
     function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
