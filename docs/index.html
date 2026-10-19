@@ -608,7 +608,6 @@ const STAKING_ABI = [
   'function globalUnlock() external view returns (bool)',
   'function keySet() external view returns (bool)',
   'function key() external view returns (address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)',
-  'function poolManager() external view returns (address)',
   'function treasury() external view returns (address)',
   'function approve(address spender, uint256 amount) external returns (bool)',
 ];
@@ -750,12 +749,10 @@ async function getSwapContext(provider){
   if(quoterCode === '0x') throw new Error('Uniswap V4 Quoter code was not found on Arc.');
 
   const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, provider);
-  const [keySet, key, treasury, configuredPoolManager] = await Promise.all([
-    staking.keySet(), staking.key(), staking.treasury(), staking.poolManager()
+  const [keySet, key, treasury] = await Promise.all([
+    staking.keySet(), staking.key(), staking.treasury()
   ]);
   if(!keySet) throw new Error('Pool key is not configured.');
-  if(ethers.getAddress(configuredPoolManager) !== ethers.getAddress(POOL_MANAGER))
-    throw new Error('Staking contract is not configured for the canonical Arc Uniswap V4 PoolManager.');
 
   const currency0 = ethers.getAddress(key.currency0 ?? key[0]);
   const currency1 = ethers.getAddress(key.currency1 ?? key[1]);
@@ -776,11 +773,22 @@ async function getSwapContext(provider){
     throw new Error('The configured hook address does not match the pool key.');
   if(await provider.getCode(hooks) === '0x') throw new Error('The configured hook address has no contract code.');
   try {
-    const hook = new ethers.Contract(hooks, ['function stakingContract() view returns (address)'], provider);
-    if(ethers.getAddress(await hook.stakingContract()) !== ethers.getAddress(STAKING_ADDR))
+    const hook = new ethers.Contract(hooks, [
+      'function staking() view returns (address)',
+      'function poolManager() view returns (address)',
+      'function treasury() view returns (address)'
+    ], provider);
+    const [hookStaking, hookPoolManager, hookTreasury] = await Promise.all([
+      hook.staking(), hook.poolManager(), hook.treasury()
+    ]);
+    if(ethers.getAddress(hookStaking) !== ethers.getAddress(STAKING_ADDR))
       throw new Error('Hook is not wired to the configured staking contract.');
+    if(ethers.getAddress(hookPoolManager) !== ethers.getAddress(POOL_MANAGER))
+      throw new Error('Hook is not configured for the canonical Arc Uniswap V4 PoolManager.');
+    if(ethers.getAddress(hookTreasury) !== ethers.getAddress(treasury))
+      throw new Error('Treasury reported by hook and staking contract does not match.');
   } catch(e) {
-    throw new Error('Cannot verify the hook-to-staking connection; swap disabled. ' + (e.message || '')); 
+    throw new Error('Cannot verify the hook-to-staking connection; swap disabled. ' + (e.message || ''));
   }
 
   if(!ethers.isAddress(treasury) || ethers.getAddress(treasury) === ethers.ZeroAddress)
