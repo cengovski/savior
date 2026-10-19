@@ -921,15 +921,35 @@ function getReadProvider() { return _readProvider || (_readProvider = window.Sav
 
 // ── Execute Swap (Buy: USDC → SAVIOR) ─────────────────────────────────
 let _swapToast = null;
-function showStatus(msg, type, link) {
+function showStatus(msg, type, link, opts) {
   const el = document.getElementById('swap-status');
   el.className = 'status ' + (type || 'info');
   el.textContent = msg;
   if (link) { const a = document.createElement('a'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' View on explorer'; el.appendChild(a); }
+  const retry = opts && opts.retry;
+  if (retry) { el.appendChild(document.createTextNode(' ')); const b = document.createElement('button'); b.className = 'link'; b.id = 'swap-retry'; b.textContent = 'Retry'; b.onclick = () => retry(); el.appendChild(b); }
   const kind = type === 'ok' ? 'success' : type === 'err' ? 'error' : type === 'warn' ? 'error' : 'pending';
   const title = type === 'ok' ? 'Swap confirmed' : type === 'err' ? 'Swap failed' : type === 'warn' ? 'Check your input' : 'Swap pending';
-  if (_swapToast) _swapToast.update(kind, title, msg, { link }); else _swapToast = toast(kind, title, msg, { link });
+  const topts = retry ? { link, retry } : { link };
+  if (_swapToast) _swapToast.update(kind, title, msg, topts); else _swapToast = toast(kind, title, msg, topts);
   if (kind !== 'pending') _swapToast = null;
+}
+
+// Swap protection: minOut always comes from a fresh, valid quote and the user's slippage.
+// If the quote cannot be read (RPC error, empty pool, zero or tiny output), the swap is NOT sent.
+async function freshMinOut(isBuy, amountIn, slipBps) {
+  let lastErr;
+  for (let i = 0; i < 2; i++) { // one quick retry for a flaky RPC
+    try {
+      const q = await window.SaviorQuote.quote(getReadProvider(), isBuy, amountIn);
+      const m = window.SaviorQuote.minOut(q, slipBps); // net output after the treasury fee; throws when invalid
+      if (typeof m !== 'bigint' || m <= 1n) throw window.SaviorQuote.quoteError('minimum received too small');
+      return m;
+    } catch (e) { lastErr = e; if (i === 0) await new Promise(r => setTimeout(r, 800)); }
+  }
+  console.warn('swap blocked: no valid quote', lastErr);
+  const err = window.SaviorQuote.quoteError((lastErr && (lastErr.why || lastErr.message)) || 'quote failed');
+  throw err;
 }
 
 async function executeSwap() {
@@ -952,14 +972,12 @@ async function executeSwap() {
       const route = await getSwapRoute();
       const allowance = await usdc.allowance(userAddress, route.addr);
       if (allowance < amountIn) {
+        await freshMinOut(true, amountIn, slipBps); // no approval if no price is available
         showStatus('Approving USDC...', 'info');
         await (await usdc.approve(route.addr, ethers.MaxUint256)).wait();
       }
-      let minOut = 1n;
-      try {
-        const q = await window.SaviorQuote.quote(getReadProvider(), true, amountIn);
-        minOut = window.SaviorQuote.minOut(q, slipBps); // net output after the treasury fee
-      } catch(e) { console.warn('quote failed, minOut=1', e); }
+      // Fresh quote right before sending (the approval above can take a while). Throws if no valid quote.
+      const minOut = await freshMinOut(true, amountIn, slipBps);
       showStatus('Sending swap...', 'info');
       const call = buildSwapCall(route, !window.SAVIOR_CONFIG.saviorIsCurrency0, amountIn, minOut); // buy
       const staking = new ethers.Contract(call.to, call.abi, WalletConnector.signer);
@@ -981,14 +999,12 @@ async function executeSwap() {
       const route = await getSwapRoute();
       const allowance = await savior.allowance(userAddress, route.addr);
       if (allowance < amountIn) {
+        await freshMinOut(false, amountIn, slipBps); // no approval if no price is available
         showStatus('Approving SAVIOR...', 'info');
         await (await savior.approve(route.addr, ethers.MaxUint256)).wait();
       }
-      let minOut = 1n;
-      try {
-        const q = await window.SaviorQuote.quote(getReadProvider(), false, amountIn);
-        minOut = window.SaviorQuote.minOut(q, slipBps); // net output after the treasury fee
-      } catch(e) { console.warn('quote failed, minOut=1', e); }
+      // Fresh quote right before sending (the approval above can take a while). Throws if no valid quote.
+      const minOut = await freshMinOut(false, amountIn, slipBps);
       showStatus('Sending sell...', 'info');
       const call = buildSwapCall(route, !!window.SAVIOR_CONFIG.saviorIsCurrency0, amountIn, minOut); // sell
       const staking = new ethers.Contract(call.to, call.abi, WalletConnector.signer);
@@ -1000,6 +1016,7 @@ async function executeSwap() {
       loadSaviorWalletBalance();
     }
   } catch(e) {
+    if (e && e.code === 'SAVIOR_QUOTE') { showStatus('Could not get a price quote. Please try again.', 'err', null, { retry: executeSwap }); return; }
     let msg = e.shortMessage || e.reason || e.message || String(e);
     const rv = stakingErrorName(e); // decoded staking custom error
     if (rv === 'Bad') msg = 'Price moved beyond your slippage, or the amount is invalid. Try again or increase tolerance.';
