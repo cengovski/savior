@@ -595,6 +595,10 @@ window.WalletConnector = WalletConnector;
 // ── Constants ──────────────────────────────────────────────────────────
 const ARC_CHAIN_ID = 5042n;
 const ARC_RPC_URL = 'https://rpc.mainnet.arc.io';
+// Deliberately unset until canonical token/staking/hook addresses and deployed source are verified.
+// Browser localStorage is user-editable and must never establish trust for a contract that can receive funds.
+const CANONICAL_SAVIOR_DEPLOYMENT = null;
+const DEPLOYMENT_BLOCK_MESSAGE = 'Trading and claims are disabled: this repository does not yet publish a verified canonical SAVIOR deployment. Do not trust contract addresses entered in browser storage.';
 const USDC_ADDR    = '0x3600000000000000000000000000000000000000';
 const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
 const QUOTER_ADDR  = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
@@ -727,7 +731,11 @@ function formatTokenAmount(raw, decimals){
 }
 
 async function getSwapContext(provider){
+  if (!CANONICAL_SAVIOR_DEPLOYMENT) throw new Error(DEPLOYMENT_BLOCK_MESSAGE);
   STAKING_ADDR = localStorage.getItem('savior_staking') || '';
+  if (ethers.getAddress(STAKING_ADDR) !== ethers.getAddress(CANONICAL_SAVIOR_DEPLOYMENT.staking) ||
+      ethers.getAddress(TOKEN_ADDR) !== ethers.getAddress(CANONICAL_SAVIOR_DEPLOYMENT.token))
+    throw new Error('Configured token/staking addresses do not match the canonical deployment registry.');
   TOKEN_ADDR = localStorage.getItem('savior_token') || '';
   const configuredHook = localStorage.getItem('savior_hook') || '';
 
@@ -893,6 +901,7 @@ async function updateSwapQuote(){
 }
 
 async function executeSwap(){
+  if (!CANONICAL_SAVIOR_DEPLOYMENT) { alert(DEPLOYMENT_BLOCK_MESSAGE); return; }
   if(!window.WalletConnector?.signer){alert('Connect wallet first');return;}
   const rawAmount = document.getElementById('swap-amount').value.trim();
   if(!rawAmount || Number(rawAmount)<=0){alert('Enter a valid USDC amount');return;}
@@ -992,8 +1001,8 @@ async function refreshStakes(){
               <div class="text-xs text-white/30 mt-0.5">Lock #${i} · ${matured?'<span class="text-emerald-400">Claimable now</span>':'~'+days+'d '+hours+'h remaining'}</div>
             </div>
             ${matured
-              ?`<button onclick="claim(${i})" id="claim-${i}" class="btn-ghost btn-sm text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
-                  <i class="fa-solid fa-unlock text-xs"></i>Claim
+              ?`<button disabled title="${DEPLOYMENT_BLOCK_MESSAGE}" id="claim-${i}" class="btn-ghost btn-sm opacity-50 cursor-not-allowed flex items-center gap-1.5">
+                  <i class="fa-solid fa-lock text-xs"></i>Claim disabled (unverified)
                 </button>`
               :`<span class="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">${days}d left</span>`
             }
@@ -1012,6 +1021,7 @@ async function refreshStakes(){
 }
 
 async function unstake(lockIndex){
+  if (!CANONICAL_SAVIOR_DEPLOYMENT) { alert(DEPLOYMENT_BLOCK_MESSAGE); return; }
   if(!WalletConnector?.signer){alert('Connect wallet');return;}
   const btn=document.getElementById(`unstake-${lockIndex}`);
   if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner spin text-xs"></i>';}
