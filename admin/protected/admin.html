@@ -381,6 +381,16 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
       <button class="btn-sm" id="fsLuckyLookupBtn" disabled onclick="fsLuckyLookup()">Lookup user</button>
       <button class="btn-sm btn-green" id="fsRetryBtn" disabled onclick="fsRetryMint()">Simulate + retryMint(user)</button>
       <div class="result" id="fsLuckyRes">Waiting...</div>
+
+      <div id="tvBox" style="margin-top:18px;border-top:1px solid #1e293b;padding-top:14px">
+        <h3 style="margin:0 0 6px;font-size:15px">NFT transfer validator (claimNFT fix)</h3>
+        <div class="subtitle">Savior Weapons NFT <span class="mono">0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c</span>. While the Limit Break transfer validator is set, claimNFT reverts with CreatorTokenTransferValidator__OTCNotAllowedForSmartWallets (0x42d0e0e4), because the LuckyDistributor contract cannot transfer the NFTs it holds. Owner only: setTransferValidator(address(0)) fixes claims. Works without the deploy steps above; only needs a connected owner wallet.</div>
+        <button class="btn-sm" id="tvRefreshBtn" onclick="tvRefresh()">Refresh validator status</button>
+        <button class="btn-sm btn-green" id="tvDisableBtn" onclick="tvSet(false)">Disable transfer validator (fix claims)</button>
+        <button class="btn-sm btn-red" id="tvEnableBtn" onclick="tvSet(true)">Re-enable validator</button>
+        <div class="result" id="tvStatus">Loading...</div>
+        <div class="result" id="tvTx">No transaction yet</div>
+      </div>
     </div>
 
     <div class="card"><h2>Collect fees (20 ladder NFTs)</h2>
@@ -2436,6 +2446,111 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       await lrRefresh(); out('lrRes', 'Sold ' + fmt6(bal) + ' SAVIOR. Quote ' + fmt6(q) + ' USDC, minOut ' + fmt6(minOut) + '. tx ' + r.hash, 'ok');
     } catch(e){ out('lrRes', em(e), 'err'); }
   };
+})();
+</script>
+<script>
+// ---------- NFT transfer validator (Lucky NFT claims) ----------
+(function(){
+  const NFT = '0xf9cEdaA96278462f9b85ADfbB4ea0Bdfc38f383c';
+  const LB_VALIDATOR = '0x721C008fdff27BF06E7E123956E2Fe03B63342e3';
+  const CHAIN_HEX = '0x13b2'; // Arc Mainnet 5042
+  const EXPLORER = 'https://explorer.arc.io';
+  let IFACE = null;
+  async function ready(){ await loadEthers(); if (!IFACE) IFACE = new ethers.Interface(['function getTransferValidator() view returns (address)','function owner() view returns (address)','function setTransferValidator(address)']); }
+  const rpcOverride = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get('rpc');
+  const RPC = rpcOverride || 'https://rpc.mainnet.arc.io';
+  let ro = null;
+  const reader = () => ro || (ro = new ethers.JsonRpcProvider(RPC, 5042, { staticNetwork: true }));
+  const $ = id => document.getElementById(id);
+  const out = (id, msg, cls) => { const el = $(id); el.textContent = msg; el.className = 'result' + (cls ? ' ' + cls : ''); };
+  const eq = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  const nft = () => new ethers.Contract(NFT, IFACE, reader());
+  const wErr = e => (e && (e.data && e.data.message || e.shortMessage || e.reason || e.message)) || String(e);
+  let busy = false;
+
+  async function status(){
+    await ready();
+    const c = nft();
+    const [v, owner] = await Promise.all([c.getTransferValidator(), c.owner()]);
+    const off = v === ethers.ZeroAddress;
+    return { v, owner, off };
+  }
+  window.tvRefresh = async function(){
+    try {
+      out('tvStatus', 'Reading getTransferValidator() and owner()...', '');
+      const s = await status();
+      const who = (typeof deployer === 'string' && deployer) ? deployer : null;
+      const lines = [
+        (s.off ? 'Validator disabled: claims work' : 'Validator active: claims blocked'),
+        'getTransferValidator(): ' + s.v + (eq(s.v, LB_VALIDATOR) ? ' (Limit Break CreatorTokenTransferValidator)' : ''),
+        'NFT owner(): ' + s.owner,
+        'Connected wallet: ' + (who || 'not connected') + (who ? (eq(who, s.owner) ? ' (owner)' : ' (NOT the owner, sending is blocked)') : ''),
+      ];
+      out('tvStatus', lines.join('\n'), s.off ? 'ok' : 'err');
+      $('tvDisableBtn').disabled = busy || s.off;
+      $('tvEnableBtn').disabled = busy || !s.off;
+      return s;
+    } catch (e) { out('tvStatus', 'Could not read status: ' + wErr(e), 'err'); }
+  };
+
+  async function waitReceipt(hash){
+    for (let i = 0; i < 180; i++) {
+      const rc = await reader().getTransactionReceipt(hash).catch(() => null)
+        || await window.ethereum.request({ method: 'eth_getTransactionReceipt', params: [hash] }).catch(() => null);
+      if (rc) return rc;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    throw new Error('No receipt after 180s, check the explorer and press Refresh');
+  }
+
+  window.tvSet = async function(enable){
+    if (busy) return;
+    const target = enable ? LB_VALIDATOR : ethers.ZeroAddress;
+    const label = 'setTransferValidator(' + target + ')';
+    try {
+      busy = true; $('tvDisableBtn').disabled = $('tvEnableBtn').disabled = true;
+      if (!window.ethereum) throw new Error('No wallet found. Install or open a wallet first.');
+      if (typeof connectWallet === 'function' && !(typeof deployer === 'string' && deployer)) await connectWallet();
+      const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const from = accs && accs[0] ? ethers.getAddress(accs[0]) : null;
+      if (!from) throw new Error('Wallet not connected');
+      const s = await status();
+      if (!eq(from, s.owner)) throw new Error('Connected wallet ' + from + ' is not the NFT owner (' + s.owner + '). Switch to the owner wallet and try again.');
+      if (eq(s.v, target)) { out('tvTx', 'Nothing to do: validator is already ' + target, 'ok'); return; }
+      const msg = enable
+        ? 'Re-enable the Limit Break transfer validator (' + LB_VALIDATOR + ')?\n\nWARNING: while it is enabled, new Lucky NFT wins can NOT be claimed (claimNFT reverts with 0x42d0e0e4).'
+        : 'Disable the transfer validator (set it to address(0))?\n\nTrade-off: this turns off Limit Break on-chain royalty enforcement for Savior Weapons. Marketplaces will no longer be forced to pay creator royalties, and OTC / smart wallet transfers become possible. Lucky NFT claims (claimNFT) will work again.\n\nYou can re-enable it later.';
+      if (!confirm(msg)) throw new Error('Cancelled');
+      const cur = await window.ethereum.request({ method: 'eth_chainId' });
+      if (Number(cur) !== 5042) {
+        out('tvTx', 'Switching the wallet to Arc Mainnet...', '');
+        try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_HEX }] }); }
+        catch (e) {
+          if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ''))) {
+            await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CHAIN_HEX, chainName: 'Arc Mainnet', nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 }, rpcUrls: ['https://rpc.mainnet.arc.io'], blockExplorerUrls: [EXPLORER] }] });
+          } else throw e;
+        }
+      }
+      const data = IFACE.encodeFunctionData('setTransferValidator', [target]);
+      out('tvTx', 'Simulating ' + label + ' from ' + from + ' (eth_call + eth_estimateGas)...', '');
+      await reader().call({ from, to: NFT, data });
+      const est = await reader().estimateGas({ from, to: NFT, data });
+      const gas = '0x' + (est * 13n / 10n + 10000n).toString(16);
+      out('tvTx', 'Simulation OK. Confirm ' + label + ' in your wallet...', '');
+      const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: NFT, data, value: '0x0', chainId: CHAIN_HEX, gas }] });
+      const link = EXPLORER + '/tx/' + hash;
+      const showTx = (text, cls) => { const el = $('tvTx'); el.className = 'result' + (cls ? ' ' + cls : ''); el.textContent = text + '\ntx ' + hash + '\n'; const a = document.createElement('a'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = link; a.style.color = '#60a5fa'; el.appendChild(a); };
+      showTx('Sent, waiting for confirmation...', '');
+      const rc = await waitReceipt(hash);
+      const okTx = rc.status === 1 || rc.status === '0x1';
+      showTx(okTx ? label + ' confirmed.' : label + ' REVERTED.', okTx ? 'ok' : 'err');
+    } catch (e) {
+      const m = wErr(e);
+      out('tvTx', (/rejected|denied|cancel/i.test(m) ? 'Cancelled: ' : 'Error: ') + m, 'err');
+    } finally { busy = false; await tvRefresh(); }
+  };
+  if (window.ethereum && window.ethereum.on) window.ethereum.on('accountsChanged', () => setTimeout(tvRefresh, 300));
+  setTimeout(tvRefresh, 500);
 })();
 </script>
 </body>

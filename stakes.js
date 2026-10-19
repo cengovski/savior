@@ -28,6 +28,7 @@
     "function claimNFT(uint256 id)", "function retryMint(address user)", "function nft() view returns (address)",
     "event Reserved(address indexed user, uint256 indexed tokenId)", "event NftClaimed(address indexed user, uint256 indexed tokenId)",
     "error NotReserved()", "error NothingOwed()",
+    "error CreatorTokenTransferValidator__OTCNotAllowedForSmartWallets()", // 0x42d0e0e4, bubbled up from the NFT transfer
   ];
   const sI = new ethers.Interface(STAKING_ABI), dI = new ethers.Interface(DIST_ABI);
   const MESSAGES = {
@@ -40,6 +41,7 @@
     Locked: "This lock is still locked.", NothingToClaim: "Nothing to claim on this lock.",
     NotReserved: "This NFT is not reserved for your wallet.", NothingOwed: "There is no pending NFT mint for this wallet.",
     BadIndex: "This lock does not exist.",
+    CreatorTokenTransferValidator__OTCNotAllowedForSmartWallets: "NFT transfers are temporarily restricted. Please try again later.",
   };
   function errMsg(e) {
     let name = e && e.revert && e.revert.name;
@@ -48,6 +50,8 @@
       if (typeof hex === "string" && hex.length >= 10) for (const i of [sI, dI]) { try { name = i.parseError(hex).name; break; } catch (x) {} }
       if (name) break;
     }
+    if (!name) { let raw = ""; try { raw = String((e && (e.message || e.shortMessage)) || "") + JSON.stringify((e && (e.data || (e.info && e.info.error) || e.error)) || "", (k, v) => (typeof v === "bigint" ? String(v) : v)); } catch (x) {}
+      if (/0x42d0e0e4/i.test(raw)) name = "CreatorTokenTransferValidator__OTCNotAllowedForSmartWallets"; }
     if (name && MESSAGES[name]) return MESSAGES[name];
     if (e && (e.code === "ACTION_REJECTED" || e.code === 4001)) return "Request cancelled in the wallet.";
     return (e && (e.shortMessage || e.reason || e.message)) || String(e);
