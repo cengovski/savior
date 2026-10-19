@@ -1,4 +1,4 @@
-// stakes.js: My Stakes (paginated lock reads, lock reveal, claim), Reveal all and the Lucky NFT card.
+// stakes.js: My Stakes (paginated lock reads, lock reveal, claim), Personal reveal, the reveal hint, Reveal all and the Lucky NFT card.
 // Reads use ONLY the paginated views getLocks(user, offset, limit) and pendingRevealable(user, offset, limit).
 (function () {
   const C = window.SAVIOR_CONFIG;
@@ -127,7 +127,9 @@
       const st = el("span", "sub mono"); st.id = "reveal-all-status";
       st.textContent = "Anyone can reveal open locks for everyone, in batches of 25.";
       box.append(b, st);
-      const sub = $("lb-status").closest(".sub-h"); sub.parentNode.insertBefore(box, sub.nextSibling);
+      const slot = $("preveal-all-slot");
+      if (slot) { slot.appendChild(el("div", "label", "Help everyone")); slot.appendChild(box); }
+      else { const sub = $("lb-status").closest(".sub-h"); sub.parentNode.insertBefore(box, sub.nextSibling); }
     }
   }
 
@@ -153,7 +155,7 @@
         if (s === "pending") c3.appendChild(el("div", "reveal-cd", "Reveal opens in " + clock(Math.max(1, l.target + 1 - b))));
         else {
           const box = el("div", "reveal-box");
-          const btn = el("button", "btn btn-primary btn-sm", "Reveal your lock: it can drop to 5-10 days"); btn.id = "reveal-" + l.i;
+          const btn = el("button", "btn btn-primary btn-sm", "Reveal your lock: it can drop to 5-10 days"); btn.id = "reveal-" + l.i; btn.dataset.reveal = String(l.i);
           btn.onclick = () => reveal(l.i);
           box.append(btn, el("div", "reveal-cd", "Window closes in " + clock(l.deadline - b) + " (block " + l.deadline.toLocaleString("en-US") + ")"));
           c3.appendChild(box);
@@ -175,7 +177,52 @@
     $("reveal-warning").classList.toggle("hidden", !rows.some((r) => r.s === "pending" || r.s === "revealable"));
     if (!rows.length) { loading.textContent = "No active locks yet. Buy SAVIOR to start."; loading.classList.remove("hidden"); } else loading.classList.add("hidden");
     renderNft();
+    renderPersonal(rows, b);
   }
+  // ---------- Personal reveal (section below Swap): only this wallet's locks that can still be revealed ----------
+  const revealing = new Set();
+  function setBadge(n) {
+    const badge = $("preveal-badge");
+    if (badge) { badge.textContent = n ? `${n} to reveal` : ""; badge.classList.toggle("hidden", !n); }
+    document.querySelectorAll(".nav-reveal").forEach((a) => { a.classList.toggle("has-dot", !!n); a.setAttribute("aria-label", n ? `Reveal (${n} lock${n > 1 ? "s" : ""} waiting)` : "Reveal"); });
+  }
+  function renderPersonal(rows, b) {
+    const list = $("preveal-list"), empty = $("preveal-empty");
+    if (!list || !empty) return;
+    if (!user()) {
+      list.replaceChildren(); setBadge(0);
+      empty.innerHTML = 'Connect your wallet to see the locks you can reveal. <div style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="connectWallet()"><svg class="ico-18"><use href="#i-wallet"/></svg>Connect Wallet</button></div>';
+      empty.classList.remove("hidden"); return;
+    }
+    const open = (rows || []).filter((r) => r.s === "pending" || r.s === "revealable").sort((x, y) => x.l.deadline - y.l.deadline);
+    setBadge(open.length);
+    list.replaceChildren();
+    for (const { l, s } of open) {
+      const row = el("div", "preveal-row" + (s === "revealable" ? " is-open" : ""));
+      const left = el("div", "preveal-main");
+      const top = el("div", "preveal-top");
+      top.append(el("span", "mono preveal-id", "Lock #" + l.i), el("b", "mono", fmt(l.amount) + " SAVIOR"));
+      if (state.lucky[l.i]) top.appendChild(el("span", "lucky-chip", "NFT chance"));
+      left.appendChild(top);
+      const span = Math.max(1, l.deadline - l.target), leftBlocks = Math.max(0, l.deadline - b);
+      const cd = el("div", "preveal-cd");
+      if (s === "pending") cd.textContent = "Reveal opens in " + clock(Math.max(1, l.target + 1 - b));
+      else { cd.append("Time left to reveal: "); cd.appendChild(el("b", "mono", clock(leftBlocks))); }
+      left.appendChild(cd);
+      const bar = el("div", "preveal-bar"); const fill = el("i"); fill.style.width = Math.min(100, Math.max(0, (leftBlocks / span) * 100)).toFixed(1) + "%";
+      if (leftBlocks / span < 0.2) bar.classList.add("low");
+      bar.appendChild(fill); left.appendChild(bar);
+      left.appendChild(el("div", "sub", "Now: 10 days. After reveal: 5 to 10 days" + (state.lucky[l.i] ? ", plus a 5% Lucky NFT draw." : ".")));
+      const btn = el("button", "btn btn-primary btn-sm preveal-btn", s === "revealable" ? "Reveal" : "Opening soon");
+      btn.dataset.reveal = String(l.i); btn.disabled = s !== "revealable" || revealing.has(l.i);
+      if (revealing.has(l.i)) btn.textContent = "Revealing...";
+      btn.onclick = () => reveal(l.i);
+      row.append(left, btn); list.appendChild(row);
+    }
+    if (!open.length) { empty.textContent = "No locks waiting for a reveal. Each buy creates a lock you can reveal for about 70 minutes."; empty.classList.remove("hidden"); }
+    else empty.classList.add("hidden");
+  }
+
   function countdown(s) { s = Math.max(0, s); const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return `in ${d}d ${h}h ${m}m`; }
 
   function renderNft() {
@@ -207,7 +254,7 @@
     if (!user()) {
       $("stakes-list").replaceChildren(); loading.textContent = "Connect wallet to see your positions"; loading.classList.remove("hidden");
       ["total-locked-display", "claimable-display", "my-stakes-count"].forEach((id) => { $(id).textContent = "-"; });
-      $("reveal-warning").classList.add("hidden"); state.ids = []; state.owed = 0n; state.failed = 0n; renderNft(); return;
+      $("reveal-warning").classList.add("hidden"); state.ids = []; state.owed = 0n; state.failed = 0n; renderNft(); renderPersonal([], 0); return;
     }
     if (!state.at) { loading.textContent = "Loading..."; loading.classList.remove("hidden"); }
     try { await load(user()); renderStakes(); }
@@ -229,6 +276,7 @@
     if (!signer()) { window.toast("error", "Connect your wallet first"); return null; }
     const t = window.toast("pending", pending, "Confirm in your wallet");
     try {
+      if (window.WalletConnector.ensureArc) await window.WalletConnector.ensureArc(); // back to Arc after a bridge
       await fn(true);                     // simulate first (readable revert before signing)
       const tx = await fn(false);
       t.update("pending", pending, "Waiting for confirmation");
@@ -240,14 +288,15 @@
   const parse = (rc, iface, name) => (rc ? rc.logs.map((l) => { try { return iface.parseLog(l); } catch (e) { return null; } }).filter((x) => x && x.name === name) : []);
 
   async function reveal(i) {
-    const btn = $("reveal-" + i); if (btn) btn.disabled = true;
+    const btns = () => document.querySelectorAll('[data-reveal="' + i + '"]');
+    revealing.add(i); btns().forEach((x) => { x.disabled = true; });
     const c = new ethers.Contract(ST, STAKING_ABI, signer());
     const rc = await send((sim) => (sim ? c.reveal.staticCall(user(), i) : c.reveal(user(), i)), "Revealing lock...", (rc) => {
       const ev = parse(rc, sI, "LockRevealed")[0];
       return ev ? `Lock revealed: unlocks ${dateStr(Number(ev.args.unlockAt))} (${(Number(ev.args.duration) / 86400).toLocaleString("en-US", { maximumFractionDigits: 2 })} days)` : "Lock revealed";
     });
     if (rc && parse(rc, sI, "LuckyWin").length) window.toast("success", "You won a Lucky NFT!", "It is reserved for your wallet. Claim it in the Lucky NFT card.");
-    if (btn) btn.disabled = false;
+    revealing.delete(i); btns().forEach((x) => { x.disabled = false; });
     await refreshStakes(); window.SaviorLocks && window.SaviorLocks.refresh(true);
   }
 
@@ -312,7 +361,32 @@
     finally { btn.disabled = false; window.SaviorLocks && window.SaviorLocks.refresh(true); refreshStakes(); }
   }
 
+  // ---------- Reveal hint after a buy ----------
+  // Shown after every successful buy until the user ticks "Don't show this again" and closes it.
+  const HINT_KEY = "savior.hint.reveal.off";
+  const hintOff = () => { try { return localStorage.getItem(HINT_KEY) === "1"; } catch (e) { return false; } };
+  function closeHint() {
+    const h = $("reveal-hint"); if (!h || h.classList.contains("hidden")) return;
+    if ($("reveal-hint-off") && $("reveal-hint-off").checked) { try { localStorage.setItem(HINT_KEY, "1"); } catch (e) {} }
+    h.classList.add("hidden");
+  }
+  function showRevealHint() {
+    const h = $("reveal-hint"); if (!h || hintOff()) return false;
+    $("reveal-hint-off").checked = false;
+    h.classList.remove("hidden");
+    const sec = $("reveal"); if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+    h.classList.remove("pulse"); void h.offsetWidth; h.classList.add("pulse");
+    setTimeout(() => { try { $("reveal-hint-close").focus({ preventScroll: true }); } catch (e) {} }, 600);
+    return true;
+  }
+  function wireHint() {
+    const c = $("reveal-hint-close"), x = $("reveal-hint-x"), h = $("reveal-hint");
+    if (c) c.onclick = closeHint; if (x) x.onclick = closeHint;
+    if (h) h.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHint(); });
+  }
+
+  window.SaviorRevealHint = { show: showRevealHint, close: closeHint, isOff: hintOff, reset: () => { try { localStorage.removeItem(HINT_KEY); } catch (e) {} } };
   window.SaviorStakes = { refreshStakes, reveal, revealAll, claimNFT, retryMint, errMsg, state: () => state, collectRevealable };
-  const boot = () => { if (!$("stakes-list")) return; ensureDom(); renderNft(); };
+  const boot = () => { wireHint(); if (!$("stakes-list")) return; ensureDom(); renderNft(); renderPersonal([], 0); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
