@@ -101,9 +101,15 @@
     return { gross, fee, net };
   }
   // minOut for swapExactIn: the staking contract checks it against the NET output (after the 0.3% treasury fee).
+  // Fails closed: throws instead of returning a placeholder, so a swap is never sent without real slippage protection.
   function minOut(q, slipBps) {
-    const m = q.net > 0n ? (q.net * BigInt(10000 - slipBps)) / 10000n : 1n;
-    return m > 0n ? m : 1n; // the staking contract reverts ZeroMinOut on 0
+    const bps = Number(slipBps);
+    if (!q || typeof q.net !== "bigint" || q.net <= 0n) throw quoteError("invalid quote");
+    if (!Number.isInteger(bps) || bps < 0 || bps >= 10000) throw quoteError("invalid slippage");
+    const m = (q.net * BigInt(10000 - bps)) / 10000n;
+    if (m <= 1n) throw quoteError("minimum received too small");
+    return m;
   }
-  window.SaviorQuote = { quote, simulate, readState, sqrtAtTick, minOut };
+  function quoteError(why) { const e = new Error("Could not get a price quote. Please try again."); e.code = "SAVIOR_QUOTE"; e.why = why; return e; }
+  window.SaviorQuote = { quote, simulate, readState, sqrtAtTick, minOut, quoteError };
 })();
