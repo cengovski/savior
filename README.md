@@ -1,9 +1,9 @@
 # $SAVIOR Token Rehberi - Uniswap V4 ile Trench'lerin Kurtarıcısı
 
 **Repo:** https://github.com/cengovski/savior  
-**Network:** Base Mainnet (Chain ID: 8453)  
+**Network:** Arc Mainnet (Chain ID: 5042; hex `0x13B2`)  
 **Token:** $SAVIOR  
-**Tema:** Trench'lerin Kurtarıcısı (Meme + Base Blue + Kahramanlık)
+**Tema:** Trench'lerin Kurtarıcısı (Meme + Arc + Kahramanlık)
 
 Bu rehber, projeyi sıfırdan kurmak, kontratları deploy etmek, siteyi (GitHub Pages) hazırlamak ve bir AI ajanına (Cursor, Claude, Devin vb.) vererek tam projeyi geliştirtmek için **tam kapsamlı** dokümantasyondur. 
 
@@ -11,25 +11,29 @@ Tüm kontratlar, mimari, frontend kodu, deployment adımları ve güvenlik notla
 
 > **⚠️ ÖNEMLİ UYARI:** Bu proje yüksek riskli Uniswap V4 Hook + custom Vault + timelock mekanizması içerir. Production için **mutlaka profesyonel audit** (Cantina, Spearbit, Certik vb.) yaptırın. Hook'lar çok güçlüdür, exploit riski yüksektir.
 
+
+> **Durum ve güvenlik notu (19 Ekim 2026):** Yayındaki arayüz `docs/index.html` Arc Mainnet'i (Chain ID `5042`) hedefler; gas varlığı USDC'dir. Bu README içindeki Base/ETH, %48 kilit ve Vault/Hook örneklerinin bir bölümü eski prototip/skeleton tasarımdan kalmıştır. Örnek kontratlarda tamamlanmamış `TODO` ve `revert` yolları vardır; bunlar canlı uygulamanın gerçek davranışını kanıtlamaz ve production deploy için kullanılmamalıdır. Arayüzde gösterilen %50 kilit ve %2 treasury fee de yalnızca kontrat adresleri ve zincir üstü işlemler doğrulanırsa uygulanıyor kabul edilmelidir. Proje denetlenmiş olarak sunulmamaktadır. Herhangi bir işlemden önce doğru ağ, kontrat adresleri, doğrulanabilir kaynak kodu ve cüzdan imzasındaki calldata kontrol edilmelidir.
+
 ---
 
 ## 1. Token ve Proje Özeti
 
-### Ana Özellikler
-- **Uniswap V4 Hook** ile özel pool: Sadece bu uyumlu V4 pool'da %50 kilit + %2 fee mekanizması çalışır.
-- **Pool Başlangıcı:** 0 ETH / 1.000.000.000 $SAVIOR (çok düşük başlangıç fiyatı, bonding curve benzeri davranış).
+### Arayüzde anlatılan mekanizma (zincir üstünde ayrıca doğrulanmalı)
+- Yayındaki arayüz Arc Mainnet'i (Chain ID 5042) ve USDC ↔ $SAVIOR akışını gösterir.
+- Arayüz açıklaması, alımda %50 anında kullanılabilir / %50 5–10 gün kilitli dağılım ve swap başına %2 treasury ücreti olduğunu söyler. Bu metinler tek başına kontratların bu kuralları uyguladığını kanıtlamaz.
+- Canlı kontrat adresleri, pool kimliği, ücret alıcısı ve kilit/claim akışı doğrulanmadan bu mekanizmaları garanti edilmiş özellikler olarak sunmayın.
 - **Kişisel Kasa (Vault) Sistemi:**
   - Her alım yapan cüzdan için **otomatik / ilk seferde deploy** edilen kişisel Vault kontratı.
-  - Alım yapılan tokenlerin **%48'i** otomatik olarak Vault'a kilitlenir (5-10 gün arası rastgele süre).
+  - **Eski tasarım notu:** Bu örnek %48 kilit öngörür; güncel arayüzdeki %50 açıklamasıyla aynı değildir. Canlı kontratla doğrulanmadan kullanmayın.
   - Kilit süresi **tx anında** belirlenir (block verisi ile pseudo-rastgele), önceden simüle edilemez.
   - Vault sahibi = alım yapan cüzdan. Sadece sahibi claim edebilir, başkası etkileşemez.
-  - Alım/Satım **sadece Vault kontratı üzerinden** yapılabilir (Vault çağrılmazsa tx revert olur → tam enforcement).
-- **%2 Sabit Alım-Satım Fee:** Hook tarafından alınır ve Treasury'ye gider.
+  - Bu enforce iddiası, verilen skeleton kodla doğrulanmış değildir; canlı hook/pool kodu ve başarılı/başarısız swap testleri gerekir.
+- **Ücret:** Arayüz %2 treasury fee gösterir. Aşağıdaki eski örnek kod bu davranışın canlı kontratta uygulandığını kanıtlamaz.
   - Treasury: `0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787`
-- **Başka kontratlarla trade edilemez:** Likidite sadece bu pool'da. Diğer pool'larda veya DEX'lerde trade çalışmaz veya kilit uygulanmaz.
+- **Pool kısıtlaması:** Diğer havuzlarda işlem yapılamayacağı iddiası, token transferleri ve hook davranışı zincir üzerinde test edilmeden doğrulanmış sayılmaz.
 - **Site (GitHub Pages):** 
-  - Trench'lerin kurtarıcısı temalı, Base mavisi + meme estetiği.
-  - Savior-ETH Swap arayüzü (slippage ayarlanabilir).
+  - Arc Mainnet hedefli arayüz; eski Base temalı kopyalar prototip kalıntısıdır.
+  - USDC ↔ $SAVIOR arayüzü (slippage ayarlanabilir).
   - Bağlanan cüzdanın Vault kontrat(lar)ı listesi + unlock countdown + Claim butonu.
   - Pool'a likidite ekleme (slider ile anlık ETH/SAVIOR hesabı).
   - Custom RPC seçici (5 public RPC + manuel giriş).
@@ -42,7 +46,7 @@ Tüm kontratlar, mimari, frontend kodu, deployment adımları ve güvenlik notla
 
 ---
 
-## 2. Teknik Mimari
+## 2. Eski prototip mimarisi (canlı dağıtımın kanıtı değildir)
 
 ```
 Kullanıcı (Cüzdan)
@@ -68,7 +72,7 @@ SaviorToken (ERC20)
 4. **SaviorHook.sol** - Uniswap V4 IHooks implementasyonu. Fee + swap event'leri. (Lock Vault'ta)
 5. **(Opsiyonel) SaviorRouter.sol** - Eğer swap logic'ini hook'tan ayırmak isterseniz.
 
-**Not:** Tam V4 entegrasyonu (delta, settle, tick vs.) için `@uniswap/v4-core` ve `@uniswap/v4-periphery` kullanın. Bu rehberde **ana logic + skeleton** verilmiştir. Ajan bunu genişletebilir.
+**Önemli:** Bu bölüm eski Base/ETH prototipine ait örnek/skeleton koddur; canlı Arc arayüzünün kullandığı kontratlarla eşleştiği doğrulanmamıştır. Tam V4 entegrasyonu (delta, settle, tick vs.) için `@uniswap/v4-core` ve `@uniswap/v4-periphery` kullanın. Bu rehberde **ana logic + skeleton** verilmiştir. Ajan bunu genişletebilir.
 
 ---
 
@@ -358,10 +362,10 @@ contract SaviorHook is IHooks {
 Site tamamen statik (Tailwind + Vanilla JS + Ethers.js). `docs/index.html` olarak koyun ve GitHub Pages'i `/docs` klasöründen yayınlayın.
 
 **Tasarım:**
-- Dark tema, Base mavisi (#0052FF) accent.
+- Dark tema, Arc temalı renk paleti.
 - Hero: Yukarıda generate edilen görsel + "$SAVIOR - Trench'lerin Kurtarıcısı" başlığı.
 - Navbar: Logo, Connect Wallet, RPC Selector (5 public + custom).
-- Swap Sekmesi: ETH ↔ $SAVIOR, slippage inputu (0.1% - 5%), Swap butonu (Vault üzerinden).
+- Swap Sekmesi: USDC ↔ $SAVIOR, slippage inputu (0.1% - 5%), Swap butonu (Vault üzerinden).
 - My Vaults: Vault adresi, toplam kilitli, claimable, locks listesi + countdown (JS interval) + Claim butonları.
 - Add Liquidity: Slider + anlık hesaplama (mock veya V4 SDK ile).
 - Footer: Contracts, Treasury, Socials, Audit badge placeholder.
@@ -404,13 +408,13 @@ Detaylı script'ler `scripts/` klasöründe genişletilebilir.
 - **Fee:** Sadece hook'tan treasury'ye.
 - **Centralization:** Deploy sonrası owner renounce edilebilir (mint, vs.).
 - **Audit Tavsiyesi:** Mutlaka yaptır. Hook + custom swap flow kritik.
-- **Test:** Foundry ile unit + fork test (Base mainnet fork).
+- **Test:** Foundry ile unit + fork test (Arc Mainnet'e uygun test/fork ortamı).
 
 ---
 
 ## 7. Nasıl Kullanılır? (Kullanıcı Akışı)
 
-1. Siteye gir → Connect Wallet (Base).
+1. Siteye gir → Connect Wallet; ağ Arc Mainnet (Chain ID 5042) olmalı.
 2. RPC seç veya custom gir.
 3. İlk alım için: "Deploy My Vault" butonuna bas (bir kere gas ödersin).
 4. Swap arayüzünden ETH gir, slippage ayarla → Swap (Vault otomatik lock yapar).
