@@ -197,11 +197,11 @@
         <div id="lock-preview" class="hidden split-preview mb-4">
           <div class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-wide">Estimated split</div>
           <div class="flex justify-between text-sm mb-1">
-            <span class="text-white/50">Instant (50%)</span>
+            <span class="text-white/50">Intended instant (50%)</span>
             <span class="text-emerald-400 font-semibold" id="immediate-preview">—</span>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/50">Locked 5–10 days (50%)</span>
+            <span class="text-white/50">Intended lock (50%, 5–10 days)</span>
             <span class="text-amber-400 font-semibold" id="locked-preview">—</span>
           </div>
         </div>
@@ -249,7 +249,7 @@
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-purple-300 mb-1.5 flex items-center gap-2">
-              <i class="fa-solid fa-lock"></i>50% auto-lock mechanism
+              <i class="fa-solid fa-lock"></i>Intended 50% lock (unverified)
             </div>
             <div class="text-xs text-white/45 leading-relaxed">Intended design: 50% of the received $SAVIOR is shown as instantly available and 50% as locked for 5–10 days. This is not confirmed until a verified deployment and its on-chain behavior are checked.</div>
           </div>
@@ -261,7 +261,7 @@
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-amber-300 mb-1.5 flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved"></i>Emergency unlock (admin)
+              <i class="fa-solid fa-shield-halved"></i>Emergency unlock option (unverified)
             </div>
             <div class="text-xs text-white/45 leading-relaxed">The admin interface exposes an <code class="text-blue-400">emergencyUnlockAll()</code> action. Its authority and effect must be checked against the verified deployed contract before relying on this description.</div>
           </div>
@@ -296,7 +296,7 @@
         </div>
         <div class="flex items-start gap-3">
           <div class="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-400 flex-shrink-0 mt-0.5">5</div>
-          <div class="text-xs text-white/55 leading-relaxed">After lock expires, claim from <span class="text-white/75 font-semibold">My Stakes</span> tab</div>
+          <div class="text-xs text-white/55 leading-relaxed">If the deployment confirms a matured lock, use the <span class="text-white/75 font-semibold">My Stakes</span> tab to attempt a claim</div>
         </div>
       </div>
     </div>
