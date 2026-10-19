@@ -1,10 +1,9 @@
-// fresh.js: fresh-start staking UI (SaviorStakingFresh lock reveal + Lucky NFT). Inactive unless SAVIOR_CONFIG.freshActive,
-// so with the placeholder addresses empty the site is unchanged. Reads use ONLY the paginated views
-// (lockCount, getLocks(user,offset,limit), pendingRevealable(user,offset,limit), reservedOf(user,offset,limit)), via Multicall3.
+// stakes.js: My Stakes (paginated lock reads, lock reveal, claim), Reveal all and the Lucky NFT card.
+// Reads use ONLY the paginated views getLocks(user, offset, limit) and pendingRevealable(user, offset, limit).
 (function () {
   const C = window.SAVIOR_CONFIG;
-  if (!C || !C.freshActive) return;
-  const ST = C.v2, DIST = C.fresh.distributor, PAGE = 200, BLOCK_S = 0.51;
+  if (!C) return;
+  const ST = C.contracts.staking, DIST = C.contracts.distributor, PAGE = 200, BLOCK_S = 0.51;
   const MC3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
   const STAKING_ABI = [
     "function lockCount(address) view returns (uint256)",
@@ -166,7 +165,7 @@
         c3.appendChild(el("div", "reveal-cd", (s === "claimable" ? "Unlocked " : "Unlocks ") + dateStr(l.unlockAt)));
       }
       const c4 = el("span");
-      if (s === "claimable") { const cb = el("button", "btn btn-primary btn-sm", "Claim"); cb.id = "claim-v2-" + l.i; cb.onclick = () => claimLock(l.i, "v2"); c4.appendChild(cb); }
+      if (s === "claimable") { const cb = el("button", "btn btn-primary btn-sm", "Claim"); cb.id = "claim-" + l.i; cb.onclick = () => claimLock(l.i); c4.appendChild(cb); }
       else c4.appendChild(el("span", "lock-state" + (s === "revealable" || s === "pending" ? " pending" : ""), s === "revealable" ? "Reveal now" : s === "pending" ? "Pending" : "Locked"));
       row.append(c1, c2, c3, c4); list.appendChild(row);
     }
@@ -268,8 +267,8 @@
 
   // ---------- Reveal all pending locks (anyone) ----------
   async function collectRevealable(setSt) {
-    if (window.SaviorLocks) { setSt("Checking new lockers..."); try { await window.SaviorLocks.scanV2(); } catch (e) {} }
-    const wallets = window.SaviorLocks ? window.SaviorLocks.freshWallets() : [];
+    if (window.SaviorLocks) { setSt("Checking new lockers..."); try { await window.SaviorLocks.scan(); } catch (e) {} }
+    const wallets = window.SaviorLocks ? window.SaviorLocks.wallets() : [];
     const pairs = [];
     for (let s = 0; s < wallets.length; s += 100) {               // lockCount for up to 100 wallets per Multicall3 call
       const ws = wallets.slice(s, s + 100);
@@ -313,7 +312,7 @@
     finally { btn.disabled = false; window.SaviorLocks && window.SaviorLocks.refresh(true); refreshStakes(); }
   }
 
-  window.SaviorFresh = { refreshStakes, reveal, revealAll, claimNFT, retryMint, errMsg, state: () => state, collectRevealable };
+  window.SaviorStakes = { refreshStakes, reveal, revealAll, claimNFT, retryMint, errMsg, state: () => state, collectRevealable };
   const boot = () => { if (!$("stakes-list")) return; ensureDom(); renderNft(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
