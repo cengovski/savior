@@ -406,3 +406,14 @@ html,body{overflow-x:clip}
 .nav-links a{white-space:nowrap}
 @media(min-width:1024px) and (max-width:1279px){.nav-links{gap:18px;font-size:14px}}
 @media(min-width:1280px){.nav-links{gap:24px}}
+.step.err{color:var(--danger);border-color:var(--danger)}.step.err i{border-color:var(--danger);background:var(--danger)}
+.log a{color:var(--primary);text-decoration:underline}
+
+/* Locks leaderboard: wallet + total locked only */
+.lb-table .lb-row{grid-template-columns:1fr auto;grid-template-areas:none;column-gap:16px;position:static}
+.lb-table .lb-row.th span:last-child{text-align:right}
+.lb-wallet{display:flex;align-items:center;gap:12px;min-width:0}
+.lb-table .lb-rank{min-width:36px}
+.lb-table .lb-amt{text-align:right;font-weight:700;grid-area:auto}
+.lb-table .lb-addr{grid-area:auto}
+@media(max-width:639px){.lb-table .lb-row.th{display:grid}}
