@@ -251,7 +251,7 @@
             <div class="font-semibold text-sm text-purple-300 mb-1.5 flex items-center gap-2">
               <i class="fa-solid fa-lock"></i>50% auto-lock mechanism
             </div>
-            <div class="text-xs text-white/45 leading-relaxed">Every swap locks 50% of your $SAVIOR for 5–10 days (random). The rest hits your wallet instantly. This reduces sell pressure and rewards patient holders.</div>
+            <div class="text-xs text-white/45 leading-relaxed">Intended design: 50% of the received $SAVIOR is shown as instantly available and 50% as locked for 5–10 days. This is not confirmed until a verified deployment and its on-chain behavior are checked.</div>
           </div>
           <div class="glass-inner p-4">
             <div class="font-semibold text-sm text-emerald-300 mb-1.5 flex items-center gap-2">
@@ -263,7 +263,7 @@
             <div class="font-semibold text-sm text-amber-300 mb-1.5 flex items-center gap-2">
               <i class="fa-solid fa-shield-halved"></i>Emergency unlock (admin)
             </div>
-            <div class="text-xs text-white/45 leading-relaxed">Only the admin can trigger <code class="text-blue-400">emergencyUnlockAll()</code>. This sets <code class="text-blue-400">globalUnlock=true</code> permanently — all locked positions become instantly claimable. Cannot be reversed.</div>
+            <div class="text-xs text-white/45 leading-relaxed">The admin interface exposes an <code class="text-blue-400">emergencyUnlockAll()</code> action. Its authority and effect must be checked against the verified deployed contract before relying on this description.</div>
           </div>
         </div>
       </div>
@@ -288,11 +288,11 @@
         </div>
         <div class="flex items-start gap-3">
           <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0 mt-0.5">3</div>
-          <div class="text-xs text-white/55 leading-relaxed"><span class="text-emerald-400 font-semibold">50% $SAVIOR</span> arrives in your wallet immediately</div>
+          <div class="text-xs text-white/55 leading-relaxed">Intended split: 50% shown as immediately available, conditional on the configured contract's verified behavior.</div>
         </div>
         <div class="flex items-start gap-3">
           <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-400 flex-shrink-0 mt-0.5">4</div>
-          <div class="text-xs text-white/55 leading-relaxed"><span class="text-amber-400 font-semibold">50% $SAVIOR</span> locked 5–10 days in the staking contract</div>
+          <div class="text-xs text-white/55 leading-relaxed">Intended split: 50% shown as locked for 5–10 days; verify against the deployed contract.</div>
         </div>
         <div class="flex items-start gap-3">
           <div class="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-400 flex-shrink-0 mt-0.5">5</div>
@@ -303,7 +303,7 @@
 
     <!-- Contracts -->
     <div class="glass p-5">
-      <div class="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">Deployed Contracts</div>
+      <div class="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">Configured contracts (not independently verified)</div>
       <div class="text-xs space-y-2.5" id="contracts-display">
         <div class="text-white/20">Loading...</div>
       </div>
@@ -326,13 +326,13 @@
           <span class="font-mono text-white/50">0x3600...0000</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-white/40">Treasury</span>
-          <a href="https://explorer.arc.io/address/0xb31113cEaAd11CadBfEBE5ae8420FA09F8f1c7de" target="_blank"
-             class="font-mono text-blue-400 hover:underline">0xb311...c7de</a>
+          <span class="text-white/40">Treasury (reported by staking contract)</span>
+          <a id="treasury-address-display" href="https://explorer.arc.io" target="_blank" rel="noopener noreferrer"
+             class="font-mono text-blue-400 hover:underline">Not verified — configure a staking contract</a>
         </div>
         <div class="flex justify-between">
           <span class="text-white/40">Hook fee</span>
-          <span class="text-white/70">2% per swap</span>
+          <span class="text-white/70">Target: 2% (unverified)</span>
         </div>
       </div>
     </div>
@@ -357,11 +357,11 @@
  *   WalletConnector.on('accountsChanged', fn)
  */
 
-const ARC_TESTNET_PARAMS = {
+const ARC_MAINNET_PARAMS = {
     chainId: '0x13B2', // 5042 — Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-    rpcUrls: ['https://rpc.arc.io'],
+    rpcUrls: ['https://rpc.mainnet.arc.io'],
     blockExplorerUrls: ['https://explorer.arc.io']
 };
 
@@ -417,14 +417,14 @@ const WalletConnector = (() => {
     window.dispatchEvent(new Event('eip6963:requestProvider'));
 
     // ── Switch / add Arc Mainnet ──────────────────────────────────────
-    async function ensureArcTestnet(rawProvider) {
+    async function ensureArcMainnet(rawProvider) {
         const chainId = await rawProvider.request({ method: 'eth_chainId' });
-        if (chainId === ARC_TESTNET_PARAMS.chainId) return;
+        if (chainId === ARC_MAINNET_PARAMS.chainId) return;
         try {
-            await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_PARAMS.chainId }] });
+            await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_MAINNET_PARAMS.chainId }] });
         } catch(e) {
             if (e.code === 4902 || e.code === -32603) {
-                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_PARAMS] });
+                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_MAINNET_PARAMS] });
             } else throw e;
         }
     }
@@ -432,7 +432,7 @@ const WalletConnector = (() => {
     // ── Connect with a specific raw provider ─────────────────────────
     async function connectWithProvider(rawProvider) {
         await rawProvider.request({ method: 'eth_requestAccounts' });
-        await ensureArcTestnet(rawProvider);
+        await ensureArcMainnet(rawProvider);
 
         _rawProvider = rawProvider;
         _provider    = new ethers.BrowserProvider(rawProvider);
@@ -593,6 +593,8 @@ window.WalletConnector = WalletConnector;
 </script>
 <script>
 // ── Constants ──────────────────────────────────────────────────────────
+const ARC_CHAIN_ID = 5042n;
+const ARC_RPC_URL = 'https://rpc.mainnet.arc.io';
 const USDC_ADDR    = '0x3600000000000000000000000000000000000000';
 const POOL_MANAGER = '0x8366a39CC670B4001A1121B8F6A443A643e40951';
 const QUOTER_ADDR  = '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94';
@@ -624,6 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
   STAKING_ADDR = localStorage.getItem('savior_staking') || '';
   TOKEN_ADDR   = localStorage.getItem('savior_token')   || '';
   refreshContractsDisplay();
+  refreshTreasuryDisplay();
 
   WalletConnector.on('connect', async addr => {
     userAddress = addr;
@@ -650,32 +653,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function connectWallet(){
+  const btn = document.getElementById('connect-btn');
   try {
     await WalletConnector.connect();
-    // switch to Arc Mainnet (5042)
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x13B2' }]
-      });
-    } catch(switchErr) {
-      if (switchErr.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: '0x13B2',
-            chainName: 'Arc Mainnet',
-            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-            rpcUrls: ['https://rpc.mainnet.arc.io'],
-            blockExplorerUrls: ['https://explorer.arc.io']
-          }]
-        });
-      }
+    const provider = WalletConnector.provider;
+    if (!provider) throw new Error('Wallet provider unavailable');
+    const network = await provider.getNetwork();
+    if (network.chainId !== 5042n) {
+      throw new Error('Wrong network. Select Arc Mainnet (Chain ID 5042).');
     }
   } catch(e) {
     console.error('Connect error:', e);
     const msg = e.code === 4001 ? 'Connection rejected' : (e.message || 'Unknown error');
-    document.getElementById('connect-btn').innerHTML = `<i class="fa-solid fa-exclamation-circle text-xs text-red-400"></i> ${msg.slice(0,30)}`;
+    btn.innerHTML = `<i class="fa-solid fa-exclamation-circle text-xs text-red-400"></i> ${msg.slice(0,30)}`;
   }
 }
 
@@ -728,126 +718,232 @@ async function updateUSDCBalance(){
   }catch(e){console.warn('Balance',e)}
 }
 
-async function updateSwapQuote(){
-  const amt=parseFloat(document.getElementById('swap-amount').value);
-  const outEl=document.getElementById('savior-out-display');
-  const lockEl=document.getElementById('lock-preview');
-  const warnEl=document.getElementById('pool-key-warning');
-  if(!amt||amt<=0){outEl.textContent='—';lockEl.classList.add('hidden');return;}
+function getReadProvider(){
+  return window.WalletConnector?.provider || new ethers.JsonRpcProvider(ARC_RPC_URL);
+}
 
-  if(STAKING_ADDR&&ethers.isAddress(STAKING_ADDR)){
-    try{
-      const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
-      const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-      const pks=await staking.keySet();
-      warnEl.classList.toggle('hidden',pks);
-      if(!pks){outEl.textContent='—';lockEl.classList.add('hidden');return;}
-    }catch(e){}
+function formatTokenAmount(raw, decimals){
+  return ethers.formatUnits(raw, decimals);
+}
+
+async function getSwapContext(provider){
+  STAKING_ADDR = localStorage.getItem('savior_staking') || '';
+  TOKEN_ADDR = localStorage.getItem('savior_token') || '';
+  const configuredHook = localStorage.getItem('savior_hook') || '';
+
+  if(!ethers.isAddress(STAKING_ADDR) || STAKING_ADDR === ethers.ZeroAddress)
+    throw new Error('No staking contract configured. Do not trade until a verified deployment is supplied.');
+  if(!ethers.isAddress(TOKEN_ADDR) || TOKEN_ADDR === ethers.ZeroAddress)
+    throw new Error('No SAVIOR token contract configured.');
+
+  const network = await provider.getNetwork();
+  if(network.chainId !== ARC_CHAIN_ID) throw new Error('Wrong network: connect to Arc Mainnet (5042).');
+
+  const [stakingCode, tokenCode, poolManagerCode, quoterCode] = await Promise.all([
+    provider.getCode(STAKING_ADDR), provider.getCode(TOKEN_ADDR),
+    provider.getCode(POOL_MANAGER), provider.getCode(QUOTER_ADDR)
+  ]);
+  if(stakingCode === '0x') throw new Error('Configured staking address has no contract code.');
+  if(tokenCode === '0x') throw new Error('Configured SAVIOR address has no contract code.');
+  if(poolManagerCode === '0x') throw new Error('Uniswap V4 PoolManager code was not found on Arc.');
+  if(quoterCode === '0x') throw new Error('Uniswap V4 Quoter code was not found on Arc.');
+
+  const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, provider);
+  const [keySet, key, treasury] = await Promise.all([
+    staking.keySet(), staking.key(), staking.treasury()
+  ]);
+  if(!keySet) throw new Error('Pool key is not configured.');
+
+  const currency0 = ethers.getAddress(key.currency0 ?? key[0]);
+  const currency1 = ethers.getAddress(key.currency1 ?? key[1]);
+  const fee = Number(key.fee ?? key[2]);
+  const tickSpacing = Number(key.tickSpacing ?? key[3]);
+  const hooks = ethers.getAddress(key.hooks ?? key[4]);
+  const usdc = ethers.getAddress(USDC_ADDR);
+  const token = ethers.getAddress(TOKEN_ADDR);
+  let zeroForOne;
+
+  if(currency0 === usdc && currency1 === token) zeroForOne = true;
+  else if(currency1 === usdc && currency0 === token) zeroForOne = false;
+  else throw new Error('The configured pool key does not match the Arc USDC and configured SAVIOR token.');
+
+  if(hooks === ethers.ZeroAddress) throw new Error('The configured pool has no hook; refusing to assume lock/fee enforcement.');
+  if(configuredHook && ethers.isAddress(configuredHook) && ethers.getAddress(configuredHook) !== hooks)
+    throw new Error('The configured hook address does not match the pool key.');
+  if(await provider.getCode(hooks) === '0x') throw new Error('The configured hook address has no contract code.');
+
+  if(!ethers.isAddress(treasury) || ethers.getAddress(treasury) === ethers.ZeroAddress)
+    throw new Error('The staking contract returned an invalid treasury address.');
+
+  const tokenContract = new ethers.Contract(token, ['function decimals() view returns (uint8)'], provider);
+  const tokenDecimals = Number(await tokenContract.decimals());
+  if(!Number.isInteger(tokenDecimals) || tokenDecimals < 0 || tokenDecimals > 36)
+    throw new Error('Unsupported SAVIOR token decimals.');
+
+  return { staking, token, tokenDecimals, treasury: ethers.getAddress(treasury), currency0, currency1, fee, tickSpacing, hooks, zeroForOne };
+}
+
+async function getSwapQuote(amountText, provider){
+  const normalizedAmount = String(amountText || '').trim();
+  if(!/^(?:\\d+)(?:\\.\\d+)?$/.test(normalizedAmount)) throw new Error('Enter a valid USDC amount.');
+  const amountIn = ethers.parseUnits(normalizedAmount, 6);
+  if(amountIn <= 0n) throw new Error('Amount must be greater than zero.');
+  if(amountIn > ((1n << 128n) - 1n)) throw new Error('Amount is too large for the V4 quoter.');
+
+  const context = await getSwapContext(provider);
+  const quoter = new ethers.Contract(QUOTER_ADDR, QUOTER_ABI, provider);
+  const result = await quoter.quoteExactInputSingle.staticCall({
+    poolKey_currency0: context.currency0,
+    poolKey_currency1: context.currency1,
+    poolKey_fee: context.fee,
+    poolKey_tickSpacing: context.tickSpacing,
+    poolKey_hooks: context.hooks,
+    zeroForOne: context.zeroForOne,
+    exactAmount: amountIn,
+    sqrtPriceLimitX96: 0n
+  });
+  const amountOut = BigInt(result.amountOut ?? result[0]);
+  if(amountOut <= 0n) throw new Error('The quote returned zero output.');
+
+  const slippageBps = Number.parseInt(document.getElementById('slippage-range').value || '100', 10);
+  if(!Number.isInteger(slippageBps) || slippageBps < 10 || slippageBps > 500)
+    throw new Error('Invalid slippage setting.');
+  const minOut = amountOut * BigInt(10000 - slippageBps) / 10000n;
+  if(minOut <= 0n) throw new Error('Minimum output rounds to zero; refusing this swap.');
+
+  return { ...context, amountIn, amountOut, minOut, slippageBps };
+}
+
+async function refreshTreasuryDisplay(){
+  const el = document.getElementById('treasury-address-display');
+  if(!el) return;
+  STAKING_ADDR = localStorage.getItem('savior_staking') || '';
+  if(!ethers.isAddress(STAKING_ADDR)) {
+    el.textContent = 'Not verified — configure a staking contract';
+    el.href = 'https://explorer.arc.io';
+    return;
   }
+  try {
+    const provider = getReadProvider();
+    const network = await provider.getNetwork();
+    if(network.chainId !== ARC_CHAIN_ID) throw new Error('wrong network');
+    if(await provider.getCode(STAKING_ADDR) === '0x') throw new Error('no contract code');
+    const staking = new ethers.Contract(STAKING_ADDR, ['function treasury() view returns (address)'], provider);
+    const treasury = ethers.getAddress(await staking.treasury());
+    if(treasury === ethers.ZeroAddress) throw new Error('zero treasury');
+    el.textContent = treasury.slice(0,6) + '…' + treasury.slice(-4) + ' (on-chain response; source unverified)';
+    el.href = 'https://explorer.arc.io/address/' + treasury;
+  } catch(_) {
+    el.textContent = 'Not verified — unable to read configured contract';
+    el.href = 'https://explorer.arc.io';
+  }
+}
 
-  try{
-    const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
-    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-    const pk=await staking.poolKey();
-    const poolKey={currency0:pk[0],currency1:pk[1],fee:Number(pk[2]),tickSpacing:Number(pk[3]),hooks:pk[4]};
-    const usdcIn=BigInt(Math.round(amt*1e6));
-    const zeroForOne=poolKey.currency0.toLowerCase()===USDC_ADDR.toLowerCase();
-    const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,provider);
-    const result=await quoter.quoteExactInputSingle({
-      poolKey_currency0:poolKey.currency0,poolKey_currency1:poolKey.currency1,
-      poolKey_fee:poolKey.fee,poolKey_tickSpacing:poolKey.tickSpacing,poolKey_hooks:poolKey.hooks,
-      zeroForOne,exactAmount:usdcIn,sqrtPriceLimitX96:0,
-    });
-    const saviorOut=Number(result[0])/1e18;
-    outEl.textContent=saviorOut.toLocaleString(undefined,{maximumFractionDigits:3});
-    document.getElementById('immediate-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
-    document.getElementById('locked-preview').textContent=(saviorOut*.5).toLocaleString(undefined,{maximumFractionDigits:3})+' SAVIOR';
+async function updateSwapQuote(){
+  const amountText = document.getElementById('swap-amount').value.trim();
+  const outEl = document.getElementById('savior-out-display');
+  const lockEl = document.getElementById('lock-preview');
+  const warnEl = document.getElementById('pool-key-warning');
+  const btn = document.getElementById('swap-btn');
+  btn.disabled = true;
+  lockEl.classList.add('hidden');
+
+  if(!amountText || Number(amountText) <= 0){
+    outEl.textContent = '—';
+    warnEl.classList.remove('hidden');
+    warnEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i><span>Enter an amount and configure verified contract addresses to request a quote.</span>';
+    return;
+  }
+  outEl.textContent = 'Checking quote…';
+  try {
+    const quote = await getSwapQuote(amountText, getReadProvider());
+    outEl.textContent = formatTokenAmount(quote.amountOut, quote.tokenDecimals) + ' SAVIOR';
+    document.getElementById('immediate-preview').textContent = formatTokenAmount(quote.amountOut / 2n, quote.tokenDecimals) + ' SAVIOR (intended)';
+    document.getElementById('locked-preview').textContent = formatTokenAmount(quote.amountOut / 2n, quote.tokenDecimals) + ' SAVIOR (intended)';
     lockEl.classList.remove('hidden');
-  }catch(e){outEl.textContent='—';lockEl.classList.add('hidden');}
+    warnEl.classList.add('hidden');
+    btn.disabled = false;
+    await refreshTreasuryDisplay();
+  } catch(e) {
+    outEl.textContent = 'Quote unavailable';
+    warnEl.classList.remove('hidden');
+    warnEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i><span>' +
+      String(e.message || 'Unable to verify pool').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])) +
+      ' Swap is disabled until a valid quote and pool configuration are available.</span>';
+  }
 }
 
 async function executeSwap(){
-  if(!WalletConnector?.signer){alert('Connect wallet first');return;}
-  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){alert('SaviorStaking not configured. Check admin panel.');return;}
-  const amt=parseFloat(document.getElementById('swap-amount').value);
-  if(!amt||amt<=0){alert('Enter a valid amount');return;}
-  const slippagePct=parseFloat(document.getElementById('slippage-range').value||'100')/100;
+  if(!window.WalletConnector?.signer){alert('Connect wallet first');return;}
+  const rawAmount = document.getElementById('swap-amount').value.trim();
+  if(!rawAmount || Number(rawAmount)<=0){alert('Enter a valid USDC amount');return;}
+
   const btn=document.getElementById('swap-btn');
   btn.disabled=true;
-  btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Processing...';
-  try{
-    const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,WalletConnector.signer);
-    const pks=await staking.keySet();
-    if(!pks){alert('Pool not initialized yet. Admin must set up the V4 pool first.');return;}
+  btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Verifying pool and quote...';
+  try {
+    const provider = window.WalletConnector.provider;
+    if(!provider) throw new Error('Wallet provider unavailable.');
+    const network = await provider.getNetwork();
+    if(network.chainId !== ARC_CHAIN_ID) throw new Error('Wrong network. Select Arc Mainnet (5042).');
 
-    // USDC is ERC-20 (6 decimals) on Arc — must approve staking to spend
-    const amountIn=BigInt(Math.round(amt*1e6));
-    const usdc=new ethers.Contract(USDC_ADDR,
-      ['function approve(address,uint256) returns(bool)',
-       'function allowance(address,address) view returns(uint256)'],
-      WalletConnector.signer);
-    const allowance=await usdc.allowance(userAddress,STAKING_ADDR);
-    if(allowance<amountIn){
-      btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving USDC...';
-      const approveTx=await usdc.approve(STAKING_ADDR, amountIn*2n);
+    // Never fall back to minOut = 0: quote, pool key and token decimals must all validate.
+    let quote = await getSwapQuote(rawAmount, provider);
+    if(quote.minOut <= 0n) throw new Error('No positive minimum output; refusing to submit.');
+
+    const usdc = new ethers.Contract(USDC_ADDR, [
+      'function allowance(address,address) view returns(uint256)',
+      'function approve(address,uint256) returns(bool)'
+    ], window.WalletConnector.signer);
+    const allowance = await usdc.allowance(userAddress, STAKING_ADDR);
+    if(allowance < quote.amountIn) {
+      btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Approving exact USDC amount...';
+      const approveTx = await usdc.approve(STAKING_ADDR, quote.amountIn);
       await approveTx.wait();
     }
 
-    // Get quote for minOut
-    let minOut=0n;
-    try{
-      const quoter=new ethers.Contract(QUOTER_ADDR,QUOTER_ABI,WalletConnector.provider||new ethers.BrowserProvider(window.ethereum));
-      const q=await quoter.quoteExactInputSingle.staticCall({
-        poolKey_currency0:USDC_ADDR,
-        poolKey_currency1:TOKEN_ADDR||'0x0000000000000000000000000000000000000001',
-        poolKey_fee:10000,
-        poolKey_tickSpacing:200,
-        poolKey_hooks:STAKING_ADDR,
-        zeroForOne:true,
-        exactAmount:amountIn,
-        sqrtPriceLimitX96:0n
-      });
-      minOut=BigInt(Math.floor(Number(q.amountOut)*(1-slippagePct/100)));
-    }catch(_){minOut=0n;}
+    // Re-quote after the approval transaction to reduce stale-quote risk.
+    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Refreshing quote...';
+    quote = await getSwapQuote(rawAmount, provider);
+    if(quote.minOut <= 0n) throw new Error('No positive minimum output; refusing to submit.');
 
-    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Swapping...';
-    // zeroForOne=true: USDC(currency0) → SAVIOR(currency1)
-    const tx=await staking.swapExactIn(true,amountIn,minOut);
-    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming...';
+    const staking = new ethers.Contract(STAKING_ADDR, STAKING_ABI, window.WalletConnector.signer);
+    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirm swap in wallet...';
+    const tx = await staking.swapExactIn(quote.zeroForOne, quote.amountIn, quote.minOut);
+    btn.innerHTML='<i class="fa-solid fa-spinner spin text-sm mr-2"></i>Confirming transaction...';
     await tx.wait();
-    alert('Swap successful! 50% instant, 50% in My Stakes tab.');
+
+    alert('Swap confirmed. Check balances and lock records on-chain; the displayed 50/50 split is an intended design, not an audit guarantee.');
     await updateUSDCBalance();
     await refreshStakes();
-  }catch(e){
-    const raw=e.reason||e.shortMessage||e.message||String(e);
-    let msg=raw;
-    if(raw.includes('OnlyStaking'))msg='Hook: only staking contract can swap.';
-    else if(raw.includes('PoolNotInitialized'))msg='Pool not initialized. Contact admin.';
-    else if(raw.includes('Slippage'))msg='Slippage too high — try higher slippage tolerance.';
-    else if(raw.includes('SameBlock'))msg='Cannot sell in same block as buy.';
-    else if(raw.includes('ZeroAmount'))msg='Amount must be greater than 0.';
+  } catch(e) {
     console.error('Swap error full:',e);
-    alert('Swap error: '+msg);
-  }finally{
-    btn.disabled=false;
+    const raw = String(e.reason || e.shortMessage || e.message || e);
+    alert('Swap not submitted or failed: ' + raw.slice(0,240));
+  } finally {
     btn.innerHTML='<i class="fa-solid fa-shield-halved text-sm mr-2"></i>Swap via Staking';
+    await updateSwapQuote();
   }
 }
 
 async function refreshStakes(){
   if(!userAddress){document.getElementById('stakes-loading').textContent='Connect wallet to see your positions';return;}
-  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)){document.getElementById('stakes-loading').textContent='SaviorStaking not configured';return;}
+  TOKEN_ADDR = localStorage.getItem('savior_token') || '';
+  if(!STAKING_ADDR||!ethers.isAddress(STAKING_ADDR)||!TOKEN_ADDR||!ethers.isAddress(TOKEN_ADDR)){document.getElementById('stakes-loading').textContent='Staking/token contract not configured';return;}
   document.getElementById('stakes-loading').textContent='Loading...';
   document.getElementById('stakes-list').innerHTML='';
   try{
     const provider=WalletConnector?.provider||new ethers.BrowserProvider(window.ethereum);
     const staking=new ethers.Contract(STAKING_ADDR,STAKING_ABI,provider);
-    const [locks,globalUnlock]=await Promise.all([
-      staking.getLocks(userAddress), staking.globalUnlock()
+    const [locks,globalUnlock,tokenDecimalsRaw]=await Promise.all([
+      staking.getLocks(userAddress), staking.globalUnlock(),
+      new ethers.Contract(TOKEN_ADDR, ['function decimals() view returns (uint8)'], provider).decimals()
     ]);
+    const tokenDecimals = Number(tokenDecimalsRaw);
+    if(!Number.isInteger(tokenDecimals) || tokenDecimals < 0 || tokenDecimals > 36) throw new Error('Unsupported token decimals.');
     const now=Math.floor(Date.now()/1000);
     // New struct: {uint128 amount, uint64 unlockAt} — amount=0 means claimed
-    const active=locks.filter(l=>Number(l.amount)>0);
+    const active=locks.filter(l=>BigInt(l.amount)>0n);
     if(active.length===0){
       document.getElementById('stakes-loading').textContent='No active locks. Swap to start staking.';
       document.getElementById('stakes-loading').classList.remove('hidden');
@@ -856,10 +952,10 @@ async function refreshStakes(){
     }
     document.getElementById('stakes-loading').classList.add('hidden');
     const list=document.getElementById('stakes-list');
-    let claimableTotal=0;
+    let claimableTotal=0n;
     for(let i=0;i<locks.length;i++){
       const lock=locks[i];
-      if(Number(lock.amount)===0) continue; // claimed
+      if(BigInt(lock.amount)===0n) continue; // claimed
       const unlockTs=Number(lock.unlockAt);
       const matured=globalUnlock||now>=unlockTs;
       const remaining=Math.max(0,unlockTs-now);
@@ -867,8 +963,8 @@ async function refreshStakes(){
       const hours=Math.floor((remaining%86400)/3600);
       const progress=matured?100:Math.min(100,Math.round((1-remaining/864000)*100));
       // SAVIOR is 6 decimals
-      const amt=(Number(lock.amount)/1e6).toLocaleString(undefined,{maximumFractionDigits:2});
-      if(matured) claimableTotal+=Number(lock.amount)/1e6;
+      const amt=ethers.formatUnits(lock.amount, tokenDecimals);
+      if(matured) claimableTotal+=BigInt(lock.amount);
       list.innerHTML+=`
         <div class="lock-row">
           <div class="flex justify-between items-start">
@@ -886,9 +982,9 @@ async function refreshStakes(){
           <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
         </div>`;
     }
-    const totalLocked=active.reduce((s,l)=>s+Number(l.amount)/1e6,0);
-    document.getElementById('total-locked-display').textContent=totalLocked.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
-    document.getElementById('claimable-display').textContent=claimableTotal.toLocaleString(undefined,{maximumFractionDigits:2})+' SAVIOR';
+    const totalLocked=active.reduce((sum,l)=>sum+BigInt(l.amount),0n);
+    document.getElementById('total-locked-display').textContent=ethers.formatUnits(totalLocked,tokenDecimals)+' SAVIOR';
+    document.getElementById('claimable-display').textContent=ethers.formatUnits(claimableTotal,tokenDecimals)+' SAVIOR';
     document.getElementById('stakes-summary').classList.remove('hidden');
   }catch(e){
     document.getElementById('stakes-loading').textContent='Error: '+(e.reason||e.message);
