@@ -16,9 +16,34 @@ async function loadKit() {
 function explorerLink(step) {
   return step && (step.explorerUrl || step.txHash || "");
 }
+// Move the wallet to `chain` before Bridge Kit asks for signatures. Uses the shared connector (AppKit
+// switchNetwork with wallet_switchEthereumChain / wallet_addEthereumChain fallback) when a wallet is connected
+// through it, otherwise talks to the injected wallet directly.
+async function switchWalletTo(chain) {
+  const wc = window.WalletConnector;
+  if (wc && wc.address && wc.switchChain) return wc.switchChain(chain.id);
+  const eth = getWallet(); if (!eth) throw new Error("Connect a wallet first.");
+  const hex = "0x" + chain.id.toString(16);
+  if (Number(await eth.request({ method: "eth_chainId" })) === chain.id) return true;
+  try { await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] }); }
+  catch (e) {
+    if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
+      await eth.request({ method: "wallet_addEthereumChain", params: [window.saviorAddChainParams(chain)] });
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] }).catch(() => {});
+    } else throw e;
+  }
+  return true;
+}
+const hold = (on) => { try { window.WalletConnector && window.WalletConnector.holdNetwork && window.WalletConnector.holdNetwork(on); } catch (_) {} };
+async function backToArc() {
+  const wc = window.WalletConnector;
+  if (!wc || !wc.address || !wc.ensureArc || wc.chainId === 5042) return;
+  try { await wc.ensureArc(); log("Wallet switched back to Arc.", "muted"); } catch (e) { log("Switch your wallet back to Arc for swaps and claims: " + (e.shortMessage || e.message), "muted"); }
+}
 async function runBridge() {
   const btn = $("bridge-btn");
   const from = $("bridge-from").value;
+  const src = window.saviorChainByKey && window.saviorChainByKey(from);
   const amount = ($("bridge-amount").value || "").trim();
   const recipient = ($("bridge-recipient").value || "").trim();
   const speed = $("bridge-speed").value;
@@ -27,8 +52,12 @@ async function runBridge() {
   const eip1193 = getWallet();
   if (!eip1193) return log("Connect a wallet first (browser wallet or WalletConnect).", "err");
   if (recipient && !/^0x[0-9a-fA-F]{40}$/.test(recipient)) return log("Recipient must be a 0x EVM address.", "err");
+  if (!src) return log("Choose a source chain.", "err");
   btn.disabled = true;
+  hold(true);
   try {
+    log(`Switching your wallet to ${src.name}…`, "muted");
+    await switchWalletTo(src);
     const { BridgeKit, createEthersAdapterFromProvider } = await loadKit();
     const kit = new BridgeKit();
     const adapter = await createEthersAdapterFromProvider({ provider: getWallet() });
@@ -51,7 +80,7 @@ async function runBridge() {
       const est = await kit.estimate(params);
       log("Estimate: " + JSON.stringify(est, (k, v) => (typeof v === "bigint" ? v.toString() : v)).slice(0, 400), "muted");
     } catch (e) { log("Estimate unavailable: " + (e.shortMessage || e.message), "muted"); }
-    log(`Bridging ${amount} USDC ${from} to Arc (CCTP domain 26). Confirm each step in your wallet: approve to burn to (attestation) to mint on Arc.`, "warn");
+    log(`Bridging ${amount} USDC ${src.name} to Arc (CCTP domain 26). Confirm each step in your wallet: approve to burn to (attestation) to mint on Arc.`, "warn");
     const res = await kit.bridge(params);
     window.lastBridgeResult = res;
     for (const s of res.steps || []) log(`✓ ${s.name}: ${s.state}${explorerLink(s) ? " " + explorerLink(s) : ""}`, s.state === "error" ? "err" : "ok");
@@ -63,14 +92,16 @@ async function runBridge() {
     console.error("[bridge]", e);
     log("Error: " + (e.shortMessage || e.message || String(e)), "err");
     if (window.toast) toast("error", "Bridge failed", e.shortMessage || e.message || String(e), { retry: runBridge });
-  } finally { btn.disabled = false; }
+  } finally { hold(false); btn.disabled = false; await backToArc(); }
 }
 async function retryBridge() {
   if (!window.lastBridgeResult) return log("Nothing to retry.", "muted");
   const { BridgeKit, createEthersAdapterFromProvider } = await loadKit();
   const kit = new BridgeKit();
   const adapter = await createEthersAdapterFromProvider({ provider: getWallet() });
+  hold(true);
   try { const r = await kit.retry(window.lastBridgeResult, { from: adapter, to: adapter }); window.lastBridgeResult = r; log("Retry result: " + r.state, "ok"); }
   catch (e) { log("Retry failed: " + (e.shortMessage || e.message), "err"); }
+  finally { hold(false); await backToArc(); }
 }
 window.SaviorBridge = { run: runBridge, retry: retryBridge, preload: () => loadKit().then(() => log("Bridge Kit ready.", "muted")).catch((e) => log("Failed to load Bridge Kit: " + e.message, "err")) };
