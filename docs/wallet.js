@@ -13,11 +13,11 @@
  *   WalletConnector.on('accountsChanged', fn)
  */
 
-const ARC_TESTNET_PARAMS = {
+const ARC_MAINNET_PARAMS = {
     chainId: '0x13B2', // 5042 — Arc Mainnet
     chainName: 'Arc',
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-    rpcUrls: ['https://rpc.arc.io'],
+    rpcUrls: ['https://rpc.mainnet.arc.io'],
     blockExplorerUrls: ['https://explorer.arc.io']
 };
 
@@ -73,14 +73,14 @@ const WalletConnector = (() => {
     window.dispatchEvent(new Event('eip6963:requestProvider'));
 
     // ── Switch / add Arc Mainnet ──────────────────────────────────────
-    async function ensureArcTestnet(rawProvider) {
+    async function ensureArcMainnet(rawProvider) {
         const chainId = await rawProvider.request({ method: 'eth_chainId' });
-        if (chainId === ARC_TESTNET_PARAMS.chainId) return;
+        if (chainId === ARC_MAINNET_PARAMS.chainId) return;
         try {
-            await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_TESTNET_PARAMS.chainId }] });
+            await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_MAINNET_PARAMS.chainId }] });
         } catch(e) {
             if (e.code === 4902 || e.code === -32603) {
-                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_TESTNET_PARAMS] });
+                await rawProvider.request({ method: 'wallet_addEthereumChain', params: [ARC_MAINNET_PARAMS] });
             } else throw e;
         }
     }
@@ -88,7 +88,7 @@ const WalletConnector = (() => {
     // ── Connect with a specific raw provider ─────────────────────────
     async function connectWithProvider(rawProvider) {
         await rawProvider.request({ method: 'eth_requestAccounts' });
-        await ensureArcTestnet(rawProvider);
+        await ensureArcMainnet(rawProvider);
 
         _rawProvider = rawProvider;
         _provider    = new ethers.BrowserProvider(rawProvider);
@@ -124,7 +124,7 @@ const WalletConnector = (() => {
             projectId: WC_PROJECT_ID,
             chains: [5042],
             optionalChains: [1],
-            rpcMap: { 5042: 'https://rpc.arc.io', 1: 'https://cloudflare-eth.com' },
+            rpcMap: { 5042: 'https://rpc.mainnet.arc.io', 1: 'https://cloudflare-eth.com' },
             showQrModal: true,
             qrModalOptions: { themeMode: 'dark' },
             metadata: {
