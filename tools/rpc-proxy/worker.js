@@ -12,6 +12,8 @@ const UPSTREAMS = [
   "https://arc-mainnet.drpc.org",
 ];
 const ALLOWED_ORIGINS = [
+  "https://arcsavior.trade",
+  "https://www.arcsavior.trade",
   "https://cengovski.github.io",
   "https://savior-cengovski.vercel.app",
   /^https:\/\/savior-[a-z0-9-]+-cengovski\.vercel\.app$/, // Vercel previews
