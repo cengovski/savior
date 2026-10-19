@@ -211,13 +211,30 @@ img{max-width:100%;display:block}
 .step i{width:10px;height:10px;border-radius:50%;border:2px solid var(--border)}
 .step.active{color:var(--primary);border-color:var(--primary)}.step.active i{border-color:var(--primary);background:var(--primary)}
 .step.done{color:var(--success)}.step.done i{border-color:var(--success);background:var(--success)}
-.chains{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
-.chain{font-size:14px;font-weight:500;border:1px solid var(--border);border-radius:var(--r-pill);padding:8px 14px;display:inline-flex;align-items:center;gap:6px}
 .chain-logo{width:16px;height:16px;flex:none;object-fit:contain;margin:0 2px}
 .chain-logo[src$="arbitrum.svg"]{width:24px;height:24px;margin:-4px 0}
 .chain-dest{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0 4px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-pill);width:fit-content}
-/* active pill keeps a neutral background so original chain logos (e.g. Base blue) stay legible */
-.chain.active{background:var(--surface);border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary);color:var(--text)}
+/* From chain: select-style dropdown (custom listbox so each chain can show its logo) */
+.chain-select{position:relative;margin:8px 0 16px;max-width:420px}
+.chain-select-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-input);padding:11px 14px;font-size:15px;font-weight:500;color:var(--text);text-align:left;cursor:pointer;min-height:48px}
+.chain-select-btn:hover{border-color:var(--primary)}
+.chain-select-btn:focus-visible,.chain-select.open .chain-select-btn{outline:0;border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.cs-value{display:inline-flex;align-items:center;gap:10px;min-width:0}
+.cs-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-caret{flex:none;color:var(--muted);transition:transform .15s}
+.chain-select.open .cs-caret{transform:rotate(180deg)}
+.chain-select .chain-logo,.chain-list .chain-logo{width:20px;height:20px;margin:0}
+.chain-select .chain-logo[src$="arbitrum.svg"],.chain-list .chain-logo[src$="arbitrum.svg"]{width:24px;height:24px;margin:-2px}
+.chain-mono{width:20px;height:20px;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;background:var(--c,#334155);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.chain-list{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-input);box-shadow:var(--shadow-modal);max-height:min(320px,55vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;outline:0}
+.chain-list li{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:var(--r-md);font-size:15px;cursor:pointer;color:var(--text);min-height:44px}
+.chain-list li .cs-gas{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.chain-list li:hover,.chain-list li.kb{background:var(--surface-2)}
+.chain-list li[aria-selected="true"]{box-shadow:inset 0 0 0 1px var(--primary)}
+.chain-list li[aria-selected="true"]::after{content:"";width:6px;height:10px;border:solid var(--primary);border-width:0 2px 2px 0;transform:rotate(45deg);margin:0 4px 3px 2px;flex:none}
+.chain-list li[aria-selected="true"] .cs-gas{margin-left:auto}
+.chain-list .cs-group{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px 4px;min-height:0;cursor:default}
+.chain-list .cs-group:hover{background:none}
 .bridge-grid{display:grid;gap:10px}
 @media(min-width:640px){.bridge-grid{grid-template-columns:1fr 1fr}}
 .select,.text-in{width:100%;background:var(--surface-2);border:1px solid transparent;border-radius:var(--r-input);padding:12px 14px;font-size:15px;outline:0}
@@ -334,3 +351,58 @@ html,body{overflow-x:clip}
 .nft-doc img{width:120px;height:120px;border-radius:var(--r-lg,16px);flex:none;image-rendering:pixelated}
 .nft-doc a.mono{overflow-wrap:anywhere}
 @media(max-width:520px){.nft-doc{flex-direction:column}}
+
+/* Section headings: larger, stronger, accent underline (all sections, responsive) */
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em}
+.sec-head .eyebrow,.swap-wrap .eyebrow,.sub-h .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:14px}
+.sec-head .eyebrow::before,.swap-wrap .eyebrow::before,.sub-h .eyebrow::before{content:"";width:18px;height:2px;border-radius:2px;background:currentColor}
+.h1{font-size:clamp(34px,5.2vw,58px);line-height:1.08;font-weight:800;letter-spacing:-.02em;color:var(--text);margin:8px 0 16px}
+@media(min-width:1024px){.h1{font-size:58px}}
+.sec-head .h1::after,.swap-wrap .h1::after{content:"";display:block;width:72px;height:4px;border-radius:4px;margin-top:14px;background:linear-gradient(90deg,var(--primary),var(--accent))}
+.tok .h1{color:#fff}
+.h2{font-size:clamp(26px,3.4vw,36px);font-weight:800;letter-spacing:-.01em;color:var(--text)}
+.tok .h2{color:#fff}
+.sec-head .chip,.swap-wrap>div>.chip{width:52px;height:52px;border-radius:14px}
+.sec-head .chip .ico,.swap-wrap>div>.chip .ico{width:26px;height:26px}
+.lead{font-size:18px}
+.doc-sec h2.h2{font-size:clamp(26px,3.2vw,34px)}
+.sec-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-left:10px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.02em;color:#fff;background:linear-gradient(135deg,#E9A13F,#D14424);border-radius:999px;padding:4px 12px;animation:badgePulse 2s ease-in-out infinite}
+@keyframes badgePulse{50%{box-shadow:0 0 0 6px rgba(233,161,63,.18)}}
+@media(prefers-reduced-motion:reduce){.sec-badge,.reveal-hint.pulse{animation:none}}
+.nav-reveal{position:relative}
+.nav-reveal.has-dot::after{content:"";position:absolute;top:-2px;right:-9px;width:8px;height:8px;border-radius:50%;background:var(--warning);box-shadow:0 0 0 2px var(--bg)}
+
+/* Personal reveal */
+.preveal-facts{margin-top:16px}
+.preveal-facts .value{font-size:22px}
+.preveal-card{padding:8px 16px}
+.preveal-list{display:flex;flex-direction:column}
+.preveal-row{display:flex;align-items:center;gap:16px;padding:16px 4px;border-top:1px solid var(--border)}
+.preveal-row:first-child{border-top:0}
+.preveal-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.preveal-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.preveal-top .lucky-chip{margin-left:0}
+.preveal-id{color:var(--muted);font-size:13px}
+.preveal-cd{font-size:14px;color:var(--muted)}
+.preveal-cd b{color:var(--text);font-size:15px}
+.preveal-row.is-open .preveal-cd b{color:var(--primary)}
+.preveal-bar{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;max-width:420px}
+.preveal-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--primary),var(--accent));transition:width 1s linear}
+.preveal-bar.low i{background:linear-gradient(90deg,var(--warning),var(--danger))}
+.preveal-btn{min-width:120px;flex:none}
+@media(max-width:639px){.preveal-row{flex-direction:column;align-items:stretch}.preveal-btn{width:100%}}
+#preveal-all-slot{margin-top:20px}
+#preveal-all-slot .reveal-all{margin-top:6px}
+.reveal-hint{position:relative;display:flex;gap:12px;align-items:flex-start;margin:0 0 16px;padding:16px 48px 16px 16px;border-radius:var(--r-lg);border:1px solid color-mix(in srgb,var(--warning) 55%,transparent);background:color-mix(in srgb,var(--warning) 12%,var(--surface));box-shadow:var(--shadow-card)}
+.reveal-hint.pulse{animation:hintIn .5s ease-out}
+@keyframes hintIn{from{transform:translateY(-6px);opacity:0}to{transform:none;opacity:1}}
+.reveal-hint-ico{flex:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--warning);color:#fff}
+.reveal-hint-body b{font-size:16px}
+.reveal-hint-body p{margin:4px 0 10px;font-size:14px;color:var(--text)}
+.reveal-hint-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.reveal-hint .check{display:inline-flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.reveal-hint .check input{width:16px;height:16px;accent-color:var(--primary)}
+.reveal-hint-x{position:absolute;top:10px;right:10px;width:32px;height:32px}
+.nav-links a{white-space:nowrap}
+@media(min-width:1024px) and (max-width:1279px){.nav-links{gap:18px;font-size:14px}}
+@media(min-width:1280px){.nav-links{gap:24px}}

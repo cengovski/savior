@@ -84,13 +84,92 @@
     return { update: paint, close };
   };
 
-  // ---------- bridge chain pills + steps ----------
-  document.addEventListener("click", (e) => {
-    const c = e.target.closest && e.target.closest(".chain");
-    if (!c) return;
-    document.querySelectorAll(".chain").forEach((x) => x.classList.toggle("active", x === c));
-    $("bridge-from").value = c.dataset.chain;
-  });
+  // ---------- bridge "From chain" dropdown (listbox) + steps ----------
+  (function chainSelect() {
+    const wrap = $("bridge-chain-select"), btn = $("bridge-from-btn"), list = $("bridge-chain-list"), input = $("bridge-from");
+    const chains = window.SAVIOR_BRIDGE_CHAINS || [];
+    if (!wrap || !btn || !list || !input || !chains.length) return;
+    const POPULAR = 8;
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const icon = (c) => c.logo
+      ? `<img class="chain-logo" src="assets/logos/${c.logo}" alt="" width="20" height="20"/>`
+      : `<span class="chain-mono" style="--c:${c.color || "#334155"}" aria-hidden="true">${esc(c.name.charAt(0))}</span>`;
+    const optId = (c) => "bridge-chain-" + c.key;
+    list.innerHTML = chains.map((c, i) =>
+      (i === 0 ? '<li class="cs-group" role="presentation">Popular</li>' : i === POPULAR ? '<li class="cs-group" role="presentation">More chains</li>' : "") +
+      `<li role="option" id="${optId(c)}" data-chain="${esc(c.key)}" aria-selected="false">${icon(c)}<span>${esc(c.name)}</span><span class="cs-gas">${esc(c.native.symbol)}</span></li>`).join("");
+    const opts = () => Array.from(list.querySelectorAll('[role="option"]'));
+    let active = -1, typed = "", typedAt = 0;
+    const isOpen = () => !list.classList.contains("hidden");
+    function highlight(i, scroll = true) {
+      const o = opts(); if (!o.length) return;
+      active = Math.max(0, Math.min(o.length - 1, i));
+      o.forEach((x, k) => x.classList.toggle("kb", k === active));
+      list.setAttribute("aria-activedescendant", o[active].id);
+      if (scroll) o[active].scrollIntoView({ block: "nearest" });
+    }
+    function select(key, fire = true) {
+      const c = chains.find((x) => x.key === key); if (!c) return;
+      const changed = input.value !== key;
+      input.value = key;
+      opts().forEach((x) => x.setAttribute("aria-selected", String(x.dataset.chain === key)));
+      $("bridge-from-value").innerHTML = icon(c) + `<span class="cs-name">${esc(c.name)}</span>`;
+      const gas = $("bridge-gas-note"); if (gas) gas.textContent = `${c.native.symbol} on ${c.name}`;
+      if (fire && changed) {
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        document.dispatchEvent(new CustomEvent("savior:bridge-chain", { detail: c }));
+      }
+    }
+    function open() {
+      if (isOpen()) return;
+      list.classList.remove("hidden"); wrap.classList.add("open"); btn.setAttribute("aria-expanded", "true");
+      const i = opts().findIndex((x) => x.dataset.chain === input.value);
+      highlight(i < 0 ? 0 : i, false);
+      const o = opts()[active]; if (o) list.scrollTop = Math.max(0, o.offsetTop - list.clientHeight / 2 + o.offsetHeight / 2);
+      list.focus({ preventScroll: true });
+    }
+    function close(focusBtn = true) {
+      if (!isOpen()) return;
+      list.classList.add("hidden"); wrap.classList.remove("open"); btn.setAttribute("aria-expanded", "false");
+      list.removeAttribute("aria-activedescendant");
+      if (focusBtn) btn.focus({ preventScroll: true });
+    }
+    btn.addEventListener("click", () => (isOpen() ? close() : open()));
+    btn.addEventListener("keydown", (e) => {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) { e.preventDefault(); open(); }
+    });
+    list.addEventListener("click", (e) => {
+      const li = e.target.closest('[role="option"]'); if (!li) return;
+      select(li.dataset.chain); close();
+    });
+    list.addEventListener("mousemove", (e) => {
+      const li = e.target.closest('[role="option"]'); if (!li) return;
+      const i = opts().indexOf(li); if (i !== active) highlight(i, false);
+    });
+    list.addEventListener("keydown", (e) => {
+      const n = opts().length, page = 6;
+      switch (e.key) {
+        case "ArrowDown": e.preventDefault(); highlight(active + 1); break;
+        case "ArrowUp": e.preventDefault(); highlight(active - 1); break;
+        case "Home": e.preventDefault(); highlight(0); break;
+        case "End": e.preventDefault(); highlight(n - 1); break;
+        case "PageDown": e.preventDefault(); highlight(active + page); break;
+        case "PageUp": e.preventDefault(); highlight(active - page); break;
+        case "Enter": case " ": e.preventDefault(); if (active >= 0) select(opts()[active].dataset.chain); close(); break;
+        case "Escape": e.preventDefault(); close(); break;
+        case "Tab": close(false); break;
+        default:
+          if (e.key.length === 1 && /\S/.test(e.key)) {   // type-ahead
+            const now = Date.now(); typed = (now - typedAt < 700 ? typed : "") + e.key.toLowerCase(); typedAt = now;
+            const i = chains.findIndex((c) => c.name.toLowerCase().startsWith(typed));
+            if (i >= 0) highlight(i);
+          }
+      }
+    });
+    document.addEventListener("pointerdown", (e) => { if (isOpen() && !wrap.contains(e.target)) close(false); });
+    select(input.value || window.SAVIOR_DEFAULT_BRIDGE_CHAIN || chains[0].key, false);
+    window.SaviorChainSelect = { open, close, select, get value() { return input.value; } };
+  })();
   window.setBridgeStep = (active, done = []) => {
     document.querySelectorAll("#bridge-steps .step").forEach((s) => {
       s.classList.toggle("done", done.includes(s.dataset.step));

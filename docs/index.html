@@ -89,7 +89,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <li>You pay USDC. The pool swaps it for SAVIOR.</li>
         <li><b>50% of the SAVIOR goes to your wallet right away.</b></li>
         <li><b>The other 50% is locked</b> in the staking contract for 10 days by default.</li>
-        <li><b>Reveal your lock</b> within about 70 minutes of the buy and it can drop to a random 5 to 10 days. Anyone can reveal, so the app also has a public Reveal all button.</li>
+        <li><b>Reveal your lock</b> within about 70 minutes of the buy and it can drop to a random 5 to 10 days. The <b>Personal reveal</b> section, right below Swap, lists your locks that are still open for a reveal, with a countdown and a Reveal button. Anyone can reveal, so the app also has a public Reveal all button.</li>
         <li>When a lock expires, you claim it from the Locks section of the app.</li>
       </ol>
       <p>Selling works the other way around: you send SAVIOR and receive USDC. Sells are not locked. Selling in the same block as a buy is not allowed.</p>
@@ -156,7 +156,7 @@ document.documentElement.setAttribute('data-theme',t);})();
         <li><b>Mint on Arc:</b> the same amount of native USDC is minted to your address on Arc.</li>
       </ol>
       <p>You need USDC and gas on the source chain, plus a little USDC on Arc to pay for the mint. <b>Fast</b> transfers finish in minutes for a small fee. <b>Standard</b> transfers have no fast fee but wait for source-chain finality. If a transfer stops partway, use <b>Retry last transfer</b>.</p>
-      <p>Supported source chains: Ethereum, Base, Arbitrum, OP Mainnet, Avalanche, Polygon PoS, Linea and Unichain.</p>
+      <p>Supported source chains (every EVM mainnet that Circle Bridge Kit supports with CCTP V2): Ethereum, Base, Arbitrum, OP Mainnet, Polygon PoS, Avalanche, Linea, Unichain, Codex, Cronos, Edge, HyperEVM, Injective, Ink, Monad, Morph, Pharos, Plasma, Plume, Sei, Sonic, World Chain, X Layer and XDC. Pick one in the From chain dropdown. Your wallet is asked to switch to that chain for approve and burn, and back to Arc for the mint.</p>
     </section>
 
     <section id="contracts" class="doc-sec">
