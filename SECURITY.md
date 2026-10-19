@@ -7,7 +7,7 @@ This file records what can be verified from the repository as of 19 October 2026
 ## Repository findings
 
 - The current frontend targets Arc Mainnet, chain ID `5042`, and uses the Arc USDC ERC-20 predeploy at `0x3600000000000000000000000000000000000000` (6 ERC-20 decimals). Native USDC accounting for gas uses 18 decimals.
-- The frontend obtains `savior_staking`, `savior_token`, and `savior_hook` addresses from browser `localStorage`. There is no canonical, verified SAVIOR deployment address set committed for users to independently check.
+- The frontend obtains `savior_staking`, `savior_token`, and `savior_hook` addresses from browser `localStorage`. There is no canonical, verified SAVIOR deployment address set committed for users to independently check. For this reason, the patched UI disables swap submission and claim/unstake actions until a canonical verified deployment registry is added; values in `localStorage` alone are not trusted.
 - The admin panel embeds compiled `TOKEN_BC`, `HOOK_BC`, and `STAKING_BC` bytecode. The review could not locate matching Solidity source files for those embedded implementations at the expected contract paths or via repository code search; the Solidity snippets in `README.md` are explicitly treated as prototype/skeleton examples.
 - The UI and admin panel have not had a proven ABI/source match. The trade UI therefore fails closed if the configured key, treasury, hook wiring, canonical PoolManager, token decimals, or quote cannot be read and validated. A failed quote must never become a swap with `minOut = 0`.
 - Token units must be read from the deployed token's `decimals()`; don't assume SAVIOR is 6 or 18 decimals based only on a label or code comment.
