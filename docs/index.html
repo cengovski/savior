@@ -38,6 +38,9 @@ document.documentElement.setAttribute('data-theme',t);})();
 .kv:first-child{border-top:0}
 .kv span:last-child{font-family:var(--mono);text-align:right}
 .contracts a{word-break:break-all;text-align:right}
+.doc-illus{max-width:420px;margin:16px 0}
+.doc-grid{margin-top:16px;max-width:720px}
+.doc-grid .card{margin-top:0}
 .risk{border-color:color-mix(in srgb,var(--warning) 50%,transparent)}
 </style>
 </head>
@@ -48,6 +51,7 @@ document.documentElement.setAttribute('data-theme',t);})();
  <symbol id="i-bridge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-8 15-8 18 0"/><path d="M3 17h18M8 17v-4M16 17v-4M12 17v-6"/></symbol>
  <symbol id="i-tokenomics" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 6.2"/></symbol>
  <symbol id="i-vault" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="12" r="4"/><path d="M12 8v1M12 15v1M8 12h1M15 12h1"/></symbol>
+ <symbol id="i-liquidity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z"/></symbol>
  <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
@@ -57,7 +61,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   <div class="container nav-in">
     <a href="../" class="brand"><img src="../logo.svg" alt="$SAVIOR logo" width="32" height="32"/>$SAVIOR</a>
     <nav class="nav-links" aria-label="Docs sections">
-      <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks</a><a href="#nft">NFT</a><a href="#bridge">Bridge</a><a href="#contracts">Contracts</a><a href="#risks">Risks</a>
+      <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#tokenomics">Tokenomics</a><a href="#liquidity">Liquidity</a><a href="#locks">Locks</a><a href="#nft">NFT</a><a href="#bridge">Bridge</a><a href="#contracts">Contracts</a><a href="#risks">Risks</a>
     </nav>
     <div class="nav-right">
       <span class="pill-net">DOCS</span>
@@ -79,7 +83,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 <main class="container docs">
   <nav class="toc" aria-label="On this page">
     <span class="label">On this page</span>
-    <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#locks">Locks and claims</a><a href="#nft">Savior Weapons NFT</a><a href="#bridge">Bridge</a><a href="#contracts">Contract addresses</a><a href="#risks">Risks</a>
+    <a href="#how">How it works</a><a href="#fees">Fees</a><a href="#tokenomics">Tokenomics</a><a href="#liquidity">Liquidity</a><a href="#locks">Locks and claims</a><a href="#nft">Savior Weapons NFT</a><a href="#bridge">Bridge</a><a href="#contracts">Contract addresses</a><a href="#risks">Risks</a>
   </nav>
   <div>
     <section id="how" class="doc-sec">
@@ -112,6 +116,30 @@ document.documentElement.setAttribute('data-theme',t);})();
       </div>
       <p style="margin-top:16px"><b>Slippage.</b> The default tolerance is 0.5%. You can pick 0.1%, 0.5%, 1% or a custom value. If the price moves more than that before your swap lands, the swap reverts and you only pay gas. Above 1% the app shows a warning.</p>
       <p><b>Small pool.</b> Liquidity is still small, so large trades move the price a lot. If an amount is bigger than the pool can fill, the app tells you before you sign.</p>
+    </section>
+
+    <section id="tokenomics" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-tokenomics"/></svg></span>Tokenomics</h2>
+      <p>Every buy is split in two. Half goes to your wallet right away, the other half is locked for 10 days. Reveal your lock within about 70 minutes and it can drop to 5 to 10 days; buys of 10 USDC or more also get a 5% Lucky NFT chance.</p>
+      <img class="illus doc-illus theme-light-only" src="../assets/illus-tokenomics-light.svg" alt="50/50 split, instant and locked"/><img class="illus doc-illus theme-dark-only" src="../assets/illus-tokenomics-dark.svg" alt="50/50 split, instant and locked"/>
+      <div class="grid g3 doc-grid">
+        <div class="card"><div class="label">Decimals</div><div class="value">6</div></div>
+        <div class="card"><div class="label">Instant share</div><div class="value">50%</div></div>
+        <div class="card"><div class="label">Lock period</div><div class="value">10 days, 5 to 10 on reveal</div></div>
+        <div class="card"><div class="label">Supply</div><div class="value" id="tok-supply">-</div></div>
+        <div class="card"><div class="label">Treasury</div><div class="value" style="font-size:18px"><a class="mono" target="_blank" rel="noopener" href="https://explorer.arc.io/address/0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787">0xb676...b787</a></div><div class="sub">Receives 0.3% of each swap</div></div>
+        <div class="card"><div class="label">Gas token</div><div class="value">USDC</div></div>
+      </div>
+    </section>
+
+    <section id="liquidity" class="doc-sec">
+      <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-liquidity"/></svg></span>Liquidity</h2>
+      <p>Liquidity lives in a Uniswap V4 pool (SAVIOR / USDC) guarded by the SAVIOR hook.</p>
+      <div class="grid g3 doc-grid">
+        <div class="card stat"><div class="label">Pool</div><div class="value">SAVIOR / USDC</div><div class="sub">1% pool fee</div></div>
+        <div class="card stat"><div class="label">Hook</div><div class="value">Uniswap V4 Hook</div><div class="sub">50% of every buy is locked</div></div>
+        <div class="card stat"><div class="label">Price</div><div class="value" id="pool-price">-</div><div class="sub">USDC per 1M SAVIOR, read on-chain</div></div>
+      </div>
     </section>
 
     <section id="locks" class="doc-sec">
@@ -210,6 +238,25 @@ function paintThemeBtn(){var t=document.documentElement.getAttribute('data-theme
 function toggleTheme(){var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('savior.theme',t)}catch(e){}paintThemeBtn();}
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){if(!localStorage.getItem('savior.theme')){document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');paintThemeBtn();}})}catch(e){}
 paintThemeBtn();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js" crossorigin="anonymous"></script>
+<script>if(typeof ethers==="undefined"){document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"><\/script>')}</script>
+<script src="../config.js"></script>
+<script src="../rpc.js"></script>
+<script src="../quote.js"></script>
+<script>
+// Live supply and pool price (read-only, public Arc RPC), same math as the app.
+(async function stats(){
+  try {
+    var p = window.SaviorRPC.provider();
+    var st = await window.SaviorQuote.readState(p);
+    var x = window.SAVIOR_CONFIG.saviorIsCurrency0 ? Number(st.sqrtP * 1000000n / (1n << 96n)) / 1e6 : Number((1n << 96n) * 1000000n / st.sqrtP) / 1e6;
+    document.getElementById('pool-price').textContent = (x * x * 1e6).toLocaleString('en-US', { maximumFractionDigits: 4 }) + ' USDC';
+    var tok = new ethers.Contract(window.SAVIOR_CONFIG.contracts.token, ['function totalSupply() view returns (uint256)'], p);
+    var n = Number(ethers.formatUnits(await tok.totalSupply(), 6));
+    var el = document.getElementById('tok-supply'); el.textContent = n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 }); el.title = n.toLocaleString('en-US') + ' SAVIOR';
+  } catch (e) { console.warn('stats', e); setTimeout(stats, 30000); }
+})();
 </script>
 </body>
 </html>

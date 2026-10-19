@@ -53,7 +53,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   <div class="container nav-in">
     <a href="#top" class="brand"><img src="logo.svg" alt="$SAVIOR logo" width="32" height="32"/>$SAVIOR</a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="#swap">Swap</a><a href="#reveal" class="nav-reveal">Reveal</a><a href="#locks">Locks</a><a href="#trades">Live Trades</a><a href="#bridge">Bridge</a><a href="#liquidity">Liquidity</a><a href="#nft">NFT</a><a href="#tokenomics">Tokenomics</a><a href="docs/">Docs</a>
+      <a href="#swap">Swap</a><a href="#reveal" class="nav-reveal">Reveal</a><a href="#locks">Locks</a><a href="#trades">Live Trades</a><a href="#bridge">Bridge</a><a href="#nft">NFT</a><a href="docs/#tokenomics">Tokenomics</a><a href="docs/#liquidity">Liquidity</a><a href="docs/">Docs</a>
     </nav>
     <div class="nav-right">
       <span class="pill-net">ARC MAINNET</span>
@@ -65,7 +65,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 </header>
 <div id="menu-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="Menu">
   <div class="sheet-head"><a href="#top" class="brand" onclick="closeMenu()" style="border:0;font-size:18px"><img src="logo.svg" alt="" width="32" height="32"/>$SAVIOR</a><button class="icon-btn" onclick="closeMenu()" aria-label="Close menu"><svg class="ico-18"><use href="#i-x"/></svg></button></div>
-  <a href="#swap" onclick="closeMenu()">Swap</a><a href="#reveal" class="nav-reveal" onclick="closeMenu()">Reveal</a><a href="#locks" onclick="closeMenu()">Locks</a><a href="#trades" onclick="closeMenu()">Live Trades</a><a href="#bridge" onclick="closeMenu()">Bridge</a><a href="#liquidity" onclick="closeMenu()">Liquidity</a><a href="#nft" onclick="closeMenu()">NFT</a><a href="#tokenomics" onclick="closeMenu()">Tokenomics</a><a href="docs/" onclick="closeMenu()">Docs</a>
+  <a href="#swap" onclick="closeMenu()">Swap</a><a href="#reveal" class="nav-reveal" onclick="closeMenu()">Reveal</a><a href="#locks" onclick="closeMenu()">Locks</a><a href="#trades" onclick="closeMenu()">Live Trades</a><a href="#bridge" onclick="closeMenu()">Bridge</a><a href="#nft" onclick="closeMenu()">NFT</a><a href="docs/#tokenomics" onclick="closeMenu()">Tokenomics</a><a href="docs/#liquidity" onclick="closeMenu()">Liquidity</a><a href="docs/" onclick="closeMenu()">Docs</a>
 </div>
 
 <main id="top">
@@ -76,7 +76,7 @@ document.documentElement.setAttribute('data-theme',t);})();
     <span class="hero-pill">Uniswap V4 Hook on Arc Mainnet</span>
     <h1 class="display">Buy SAVIOR.<br/>Half now, half locked.</h1>
     <p class="hero-sub">Every buy: 50% to your wallet instantly, 50% locked for up to 10 days. Sub-second finality, USDC as gas.</p>
-    <div class="hero-ctas"><a href="#swap" class="btn btn-primary">Swap now</a><a href="#tokenomics" class="btn btn-ghost">How it works</a></div>
+    <div class="hero-ctas"><a href="#swap" class="btn btn-primary">Swap now</a><a href="docs/#tokenomics" class="btn btn-ghost">How it works</a></div>
     <div class="hero-stats">
       <div class="hero-stat"><b>Sub-second Finality</b><span>Speed</span></div>
       <div class="hero-stat"><b>USDC</b><span>Gas token</span></div>
@@ -197,16 +197,12 @@ document.documentElement.setAttribute('data-theme',t);})();
     <div id="stakes-summary" class="hidden"></div>
 
 
-    <div class="sub-h">
+    <div class="sub-h" id="leaderboard">
       <div><div class="eyebrow">Locks leaderboard</div><h3 class="h2">Who is holding for the long run</h3></div>
       <div id="lb-status" class="mono sub">Loading...</div>
     </div>
-    <div class="grid g2" style="margin-bottom:16px">
-      <div class="card stat"><div class="label">Total locked supply</div><div class="value" id="lb-total">-</div><div class="sub" id="lb-holders">-</div></div>
-      <div class="card stat stat-warn"><div class="label">Unlocking in next 24h</div><div class="value" id="lb-soon">-</div><div class="sub">Highlighted below</div></div>
-    </div>
-    <div class="table" role="table" aria-label="Locks leaderboard">
-      <div class="tr lb-row th" role="row"><span>Rank</span><span>Wallet</span><span>Total locked</span><span>Locks</span><span>Next unlock</span><span>Last unlock</span></div>
+    <div class="table lb-table" role="table" aria-label="Locks leaderboard">
+      <div class="tr lb-row th" role="row"><span role="columnheader">Wallet</span><span role="columnheader">Total locked $SAVIOR</span></div>
       <div id="lb-body"></div>
     </div>
     <p class="sub mono" style="margin-top:10px">Read directly from the staking contract on Arc Mainnet. Amounts in SAVIOR.</p>
@@ -267,23 +263,6 @@ document.documentElement.setAttribute('data-theme',t);})();
   </div>
 </section>
 
-<!-- Liquidity -->
-<section id="liquidity" class="section alt">
-  <div class="container">
-    <div class="sec-head">
-      <div class="chip"><svg class="ico"><use href="#i-liquidity"/></svg></div>
-      <div class="eyebrow">Liquidity</div>
-      <h2 class="h1">SAVIOR / USDC Pool</h2>
-      <p class="lead">Liquidity lives in a Uniswap V4 pool guarded by the SAVIOR hook.</p>
-    </div>
-    <div class="grid g3">
-      <div class="card stat"><div class="chip"><svg class="ico"><use href="#i-liquidity"/></svg></div><div class="label">Pool</div><div class="value">SAVIOR / USDC</div><div class="sub">1% pool fee</div></div>
-      <div class="card stat"><div class="chip"><svg class="ico"><use href="#i-bolt"/></svg></div><div class="label">Hook</div><div class="value">Uniswap V4 Hook</div><div class="sub">50% of every buy is locked</div></div>
-      <div class="card stat"><div class="chip"><svg class="ico"><use href="#i-tokenomics"/></svg></div><div class="label">Price</div><div class="value" id="pool-price">-</div><div class="sub">USDC per 1M SAVIOR, read on-chain</div></div>
-    </div>
-  </div>
-</section>
-
 <!-- NFT -->
 <section id="nft" class="section">
   <div class="container">
@@ -318,28 +297,6 @@ document.documentElement.setAttribute('data-theme',t);})();
   </div>
 </section>
 
-<!-- Tokenomics -->
-<section id="tokenomics" class="section tok">
-  <div class="container">
-    <div class="sec-head">
-      <div class="chip"><svg class="ico"><use href="#i-tokenomics"/></svg></div>
-      <div class="eyebrow">Tokenomics</div>
-      <h2 class="h1">How SAVIOR works</h2>
-      <p class="lead">Every buy is split in two. Half goes to your wallet right away, the other half is locked for 10 days. Reveal your lock within about 70 minutes and it can drop to 5 to 10 days; buys of 10 USDC or more also get a 5% Lucky NFT chance.</p>
-    </div>
-    <div class="tok-wrap">
-      <img class="illus" src="assets/illus-tokenomics-dark.svg" alt="50/50 split, instant and locked"/>
-      <div class="grid g3">
-        <div class="card"><div class="label">Decimals</div><div class="value">6</div></div>
-        <div class="card"><div class="label">Instant share</div><div class="value">50%</div></div>
-        <div class="card"><div class="label">Lock period</div><div class="value">10 days, 5 to 10 on reveal</div></div>
-        <div class="card"><div class="label">Supply</div><div class="value" id="tok-supply">-</div></div>
-        <div class="card"><div class="label">Treasury</div><div class="value" style="font-size:18px"><a class="mono" target="_blank" rel="noopener" href="https://explorer.arc.io/address/0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787">0xb676...b787</a></div><div class="sub">Receives 0.3% of each swap</div></div>
-        <div class="card"><div class="label">Gas token</div><div class="value">USDC</div></div>
-      </div>
-    </div>
-  </div>
-</section>
 </main>
 
 <footer class="footer">
