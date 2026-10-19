@@ -2460,18 +2460,25 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
   const rpcOverride = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get('rpc');
   const RPC = rpcOverride || 'https://rpc.mainnet.arc.io';
   let ro = null;
-  const reader = () => ro || (ro = new ethers.JsonRpcProvider(RPC, 5042, { staticNetwork: true }));
+  // Same read path as the working Lucky NFT / drop config code: the connected wallet provider (rp() = provider),
+  // falling back to the public Arc RPC only when no wallet is connected.
+  const pub = () => ro || (ro = new ethers.JsonRpcProvider(RPC, 5042));
+  const reader = () => (!rpcOverride && typeof provider !== 'undefined' && provider) ? provider : pub();
+  async function readWith(fn){
+    const first = reader();
+    try { return await fn(first); }
+    catch (e) { if (first === pub()) throw e; return await fn(pub()); } // wallet read failed: try the public RPC once
+  }
   const $ = id => document.getElementById(id);
   const out = (id, msg, cls) => { const el = $(id); el.textContent = msg; el.className = 'result' + (cls ? ' ' + cls : ''); };
   const eq = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
-  const nft = () => new ethers.Contract(NFT, IFACE, reader());
+  const nft = (r) => new ethers.Contract(NFT, IFACE, r || reader());
   const wErr = e => (e && (e.data && e.data.message || e.shortMessage || e.reason || e.message)) || String(e);
   let busy = false;
 
   async function status(){
     await ready();
-    const c = nft();
-    const [v, owner] = await Promise.all([c.getTransferValidator(), c.owner()]);
+    const [v, owner] = await readWith(r => { const c = nft(r); return Promise.all([c.getTransferValidator(), c.owner()]); });
     const off = v === ethers.ZeroAddress;
     return { v, owner, off };
   }
@@ -2490,12 +2497,15 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       $('tvDisableBtn').disabled = busy || s.off;
       $('tvEnableBtn').disabled = busy || !s.off;
       return s;
-    } catch (e) { out('tvStatus', 'Could not read status: ' + wErr(e), 'err'); }
+    } catch (e) {
+      out('tvStatus', 'Could not read status: ' + wErr(e) + '\nConnect the owner wallet (Deploy tab) and press Refresh. The buttons still work: they re-check owner() before sending.', 'err');
+      $('tvDisableBtn').disabled = $('tvEnableBtn').disabled = busy;
+    }
   };
 
   async function waitReceipt(hash){
     for (let i = 0; i < 180; i++) {
-      const rc = await reader().getTransactionReceipt(hash).catch(() => null)
+      const rc = await readWith(r => r.getTransactionReceipt(hash)).catch(() => null)
         || await window.ethereum.request({ method: 'eth_getTransactionReceipt', params: [hash] }).catch(() => null);
       if (rc) return rc;
       await new Promise(r => setTimeout(r, 1000));
@@ -2514,6 +2524,7 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const from = accs && accs[0] ? ethers.getAddress(accs[0]) : null;
       if (!from) throw new Error('Wallet not connected');
+      if (typeof provider === 'undefined' || !provider) throw new Error('Wallet not connected. Use Connect wallet on the Deploy tab first.');
       const s = await status();
       if (!eq(from, s.owner)) throw new Error('Connected wallet ' + from + ' is not the NFT owner (' + s.owner + '). Switch to the owner wallet and try again.');
       if (eq(s.v, target)) { out('tvTx', 'Nothing to do: validator is already ' + target, 'ok'); return; }
@@ -2533,8 +2544,8 @@ const FRESH_ART = {"tokenBytecode": "0x608060405234801561000f575f80fd5b506040516
       }
       const data = IFACE.encodeFunctionData('setTransferValidator', [target]);
       out('tvTx', 'Simulating ' + label + ' from ' + from + ' (eth_call + eth_estimateGas)...', '');
-      await reader().call({ from, to: NFT, data });
-      const est = await reader().estimateGas({ from, to: NFT, data });
+      await readWith(r => r.call({ from, to: NFT, data }));
+      const est = await readWith(r => r.estimateGas({ from, to: NFT, data }));
       const gas = '0x' + (est * 13n / 10n + 10000n).toString(16);
       out('tvTx', 'Simulation OK. Confirm ' + label + ' in your wallet...', '');
       const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: NFT, data, value: '0x0', chainId: CHAIN_HEX, gas }] });
