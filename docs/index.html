@@ -785,7 +785,7 @@ async function getSwapContext(provider){
 
 async function getSwapQuote(amountText, provider){
   const normalizedAmount = String(amountText || '').trim();
-  if(!/^(?:\\d+)(?:\\.\\d+)?$/.test(normalizedAmount)) throw new Error('Enter a valid USDC amount.');
+  if(!/^(?:\d+)(?:\.\d+)?$/.test(normalizedAmount)) throw new Error('Enter a valid USDC amount.');
   const amountIn = ethers.parseUnits(normalizedAmount, 6);
   if(amountIn <= 0n) throw new Error('Amount must be greater than zero.');
   if(amountIn > ((1n << 128n) - 1n)) throw new Error('Amount is too large for the V4 quoter.');
