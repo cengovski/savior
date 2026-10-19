@@ -50,6 +50,9 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
 <div id="mainContent">
   <h1>⚙️ SAVIOR Admin Panel</h1>
   <p class="subtitle">Arc Mainnet — Kontrat Deploy &amp; Yönetim</p>
+  <div class="warning" style="margin:0 0 20px;padding:14px;border:1px solid rgba(245,158,11,.35);border-radius:12px;background:rgba(245,158,11,.08);color:#fbbf24;font-size:13px;line-height:1.55">
+    <strong>Security notice:</strong> This is a public static admin interface. Its password is only a client-side UI gate, not authentication. The repository contains compiled bytecode but no matching auditable Solidity source for the deployed implementation. Do not deploy, upgrade, initialize, approve tokens, or trigger emergency actions until the bytecode, source, addresses and owner privileges have been independently reviewed.
+  </div>
   <div class="tab-bar">
     <div class="tab active" onclick="showTab('deploy')">Deploy</div>
     <div class="tab" onclick="showTab('manage')">Yönetim</div>
@@ -79,7 +82,7 @@ button:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
     </div>
     <div class="card"><h2><span class="step-badge">5</span> SaviorStaking Deploy</h2>
       <div class="grid2">
-        <div><label>Treasury</label><input id="stakingTreasury" value="0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787"></div>
+        <div><label>Verified Treasury (required)</label><input id="stakingTreasury" placeholder="0x… — enter a verified address explicitly"></div>
         <div><label>USDC</label><input id="stakingUsdc" value="0x3600000000000000000000000000000000000000"></div>
       </div>
       <button onclick="deployStaking()">Staking Deploy Et</button>
@@ -346,7 +349,7 @@ async function connectWallet() {
         await provider.send('wallet_addEthereumChain',[{
           chainId:'0x'+ARC_CHAIN_ID.toString(16), chainName:'Arc Mainnet',
           nativeCurrency:{name:'USDC',symbol:'USDC',decimals:18},
-          rpcUrls:['https://rpc.arc.io'], blockExplorerUrls:['https://explorer.arc.io']
+          rpcUrls:['https://rpc.mainnet.arc.io'], blockExplorerUrls:['https://explorer.arc.io']
         }]);
       }
       provider = new ethers.BrowserProvider(window.ethereum);
@@ -424,7 +427,10 @@ async function deployStaking() {
     await ensureSigner();
     // initialize(saviorToken, usdcToken, poolManager, treasury, owner)
     const USDC = '0x3600000000000000000000000000000000000000';
-    const TREASURY = document.getElementById('stakingTreasury')?.value?.trim() || '0xb6768f8D1b1df86bD92a8bAE78202F797dAbb787';
+    const treasuryInput = document.getElementById('stakingTreasury')?.value?.trim() || '';
+    if (!ethers.isAddress(treasuryInput) || ethers.getAddress(treasuryInput) === ethers.ZeroAddress)
+      throw new Error('Enter and verify a non-zero treasury address explicitly; no default treasury is assumed.');
+    const TREASURY = ethers.getAddress(treasuryInput);
     if (!tokenAddr) throw new Error('Önce Token deploy edin (Step 1)');
     const iface = new ethers.Interface(['function initialize(address,address,address,address,address)']);
     const initData = iface.encodeFunctionData('initialize',[tokenAddr, USDC, POOL_MANAGER, TREASURY, deployer]);
@@ -541,7 +547,10 @@ async function setPoolKeyAndApprove() {
     const tokenC   = new ethers.Contract(tokenAddr,   TOKEN_ABI,   signer);
     const t1 = await stakingC.setPoolKey(USDC, tokenAddr, fee, tickSpacing, hookAddr, {gasLimit: 200000});
     await t1.wait();
-    const t2 = await tokenC.approve(stakingAddr, ethers.MaxUint256);
+    const availableSavior = await tokenC.balanceOf(deployer);
+    if (availableSavior <= 0n) throw new Error('Deployer has no SAVIOR balance to approve.');
+    if (!confirm('Approve the staking contract to spend only the SAVIOR currently held by this deployer wallet ('+ethers.formatUnits(availableSavior, 6)+' tokens)? This is a finite allowance, not unlimited. Continue only after verifying the staking contract address.')) throw new Error('Approval cancelled.');
+    const t2 = await tokenC.approve(stakingAddr, availableSavior);
     await t2.wait();
     // index.html'in pool parametrelerini bilmesi için localStorage'a yaz
     localStorage.setItem('pool_fee', String(fee));
