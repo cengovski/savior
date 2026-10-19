@@ -262,7 +262,7 @@ document.documentElement.setAttribute('data-theme',t);})();
       <button id="bridge-btn" onclick="SaviorBridge.run()" class="btn btn-primary btn-block" style="margin-top:16px"><svg class="ico-18"><use href="#i-bridge"/></svg>Bridge to Arc</button>
       <div style="text-align:center;margin-top:10px"><button class="link" onclick="SaviorBridge.retry()">Retry last transfer</button></div>
       <div id="bridge-log" class="log"></div>
-      <p class="sub" style="margin-top:12px">You need USDC and gas on the source chain (<span id="bridge-gas-note">ETH on Base</span>), plus a little USDC on Arc for the mint. Your wallet is switched to the source chain for approve and burn, then back to Arc for the mint. Powered by Circle Bridge Kit, Arc CCTP domain 26.</p>
+      <p class="sub" style="margin-top:12px">You need USDC and gas on the source chain (<span id="bridge-gas-note">ETH on Base</span>), plus a little USDC on Arc for the mint. Your wallet is switched to the source chain for approve and burn, then back to Arc for the mint. Powered by Circle CCTP V2 (Arc domain 26). The approval covers only the amount you bridge.</p>
     </div>
   </div>
 </section>

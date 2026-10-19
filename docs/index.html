@@ -148,7 +148,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 
     <section id="bridge" class="doc-sec">
       <h2 class="h2"><span class="chip"><svg class="ico"><use href="#i-bridge"/></svg></span>Bridge USDC to Arc</h2>
-      <p>The Bridge section moves native USDC from another chain to Arc with <b>Circle CCTP</b> (Arc is CCTP domain 26). It uses Circle Bridge Kit in your browser. Your wallet signs every step, and no one else holds your funds.</p>
+      <p>The Bridge section moves native USDC from another chain to Arc with <b>Circle CCTP</b> (Arc is CCTP domain 26). The site calls Circle's CCTP V2 contracts directly from your browser: a standard USDC approval for the exact amount, the burn on the source chain, and the mint on Arc. Each step is a normal transaction that your wallet shows and you confirm. No message signatures are requested, and no one else holds your funds.</p>
       <ol>
         <li><b>Approve:</b> allow USDC to be burned on the source chain.</li>
         <li><b>Burn on source:</b> the USDC is burned on the source chain.</li>
