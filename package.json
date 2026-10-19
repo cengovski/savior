@@ -1,7 +1,7 @@
 {
   "name": "savior-protocol",
   "version": "1.0.0",
-  "description": "$SAVIOR - Arc Testnet Protocol",
+  "description": "$SAVIOR interface for Arc Mainnet (chain ID 5042)",
   "scripts": {
     "start": "bunx serve docs -l 7860"
   }
