@@ -108,9 +108,9 @@
   <div class="flex flex-wrap gap-2 mb-6">
     <span class="badge bg-purple-500/15 text-purple-300 border border-purple-500/20"><i class="fa-solid fa-bolt text-xs mr-1.5"></i>Sub-second Finality</span>
     <span class="badge bg-blue-500/15 text-blue-300 border border-blue-500/20"><i class="fa-solid fa-dollar-sign text-xs mr-1.5"></i>USDC Gas Token</span>
-    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>50% Auto-Lock</span>
-    <span class="badge bg-amber-500/15 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-clock text-xs mr-1.5"></i>5–10 Day Staking</span>
-    <span class="badge bg-pink-500/15 text-pink-300 border border-pink-500/20"><i class="fa-brands fa-uniswap text-xs mr-1.5"></i>Uniswap V4 Hook</span>
+    <span class="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-lock text-xs mr-1.5"></i>Target: 50% Lock (unverified)</span>
+    <span class="badge bg-amber-500/15 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-clock text-xs mr-1.5"></i>Target: 5–10 Day Lock</span>
+    <span class="badge bg-pink-500/15 text-pink-300 border border-pink-500/20"><i class="fa-brands fa-uniswap text-xs mr-1.5"></i>Intended V4 Hook (unverified)</span>
     <div class="ml-auto flex items-center gap-1.5 text-xs text-white/25 self-center hidden sm:flex">
       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
       Arc Mainnet · Chain 5042
@@ -468,7 +468,7 @@ const WalletConnector = (() => {
             projectId: WC_PROJECT_ID,
             chains: [5042],
             optionalChains: [1],
-            rpcMap: { 5042: 'https://rpc.arc.io', 1: 'https://cloudflare-eth.com' },
+            rpcMap: { 5042: 'https://rpc.mainnet.arc.io', 1: 'https://cloudflare-eth.com' },
             showQrModal: true,
             qrModalOptions: { themeMode: 'dark' },
             metadata: {
