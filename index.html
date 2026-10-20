@@ -53,7 +53,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   <div class="container nav-in">
     <a href="#top" class="brand"><img src="logo.svg" alt="$SAVIOR logo" width="32" height="32"/>$SAVIOR</a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="#swap">Swap</a><a href="#reveal" class="nav-reveal">Reveal</a><a href="#locks">Locks</a><a href="#trades">Live Trades</a><a href="#bridge">Bridge</a><a href="#nft">NFT</a><a href="docs/#tokenomics">Tokenomics</a><a href="docs/#liquidity">Liquidity</a><a href="docs/">Docs</a>
+      <a href="#swap">Swap</a><a href="#reveal" class="nav-reveal">Reveal</a><a href="#locks">Locks</a><a href="#nft-holders">Holders</a><a href="#trades">Live Trades</a><a href="#bridge">Bridge</a><a href="#nft">NFT</a><a href="docs/#tokenomics">Tokenomics</a><a href="docs/#liquidity">Liquidity</a><a href="docs/">Docs</a>
     </nav>
     <div class="nav-right">
       <span class="pill-net">ARC MAINNET</span>
@@ -65,7 +65,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 </header>
 <div id="menu-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="Menu">
   <div class="sheet-head"><a href="#top" class="brand" onclick="closeMenu()" style="border:0;font-size:18px"><img src="logo.svg" alt="" width="32" height="32"/>$SAVIOR</a><button class="icon-btn" onclick="closeMenu()" aria-label="Close menu"><svg class="ico-18"><use href="#i-x"/></svg></button></div>
-  <a href="#swap" onclick="closeMenu()">Swap</a><a href="#reveal" class="nav-reveal" onclick="closeMenu()">Reveal</a><a href="#locks" onclick="closeMenu()">Locks</a><a href="#trades" onclick="closeMenu()">Live Trades</a><a href="#bridge" onclick="closeMenu()">Bridge</a><a href="#nft" onclick="closeMenu()">NFT</a><a href="docs/#tokenomics" onclick="closeMenu()">Tokenomics</a><a href="docs/#liquidity" onclick="closeMenu()">Liquidity</a><a href="docs/" onclick="closeMenu()">Docs</a>
+  <a href="#swap" onclick="closeMenu()">Swap</a><a href="#reveal" class="nav-reveal" onclick="closeMenu()">Reveal</a><a href="#locks" onclick="closeMenu()">Locks</a><a href="#nft-holders" onclick="closeMenu()">NFT Holders</a><a href="#trades" onclick="closeMenu()">Live Trades</a><a href="#bridge" onclick="closeMenu()">Bridge</a><a href="#nft" onclick="closeMenu()">NFT</a><a href="docs/#tokenomics" onclick="closeMenu()">Tokenomics</a><a href="docs/#liquidity" onclick="closeMenu()">Liquidity</a><a href="docs/" onclick="closeMenu()">Docs</a>
 </div>
 
 <main id="top">
@@ -206,6 +206,22 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div id="lb-body"></div>
     </div>
     <p class="sub mono" style="margin-top:10px">Read directly from the staking contract on Arc Mainnet. Amounts in SAVIOR.</p>
+
+    <div class="sub-h" id="nft-holders">
+      <div><div class="eyebrow">NFT holders leaderboard</div><h3 class="h2">Savior Weapons holders</h3></div>
+      <div id="nh-status" class="mono sub">Loading...</div>
+    </div>
+    <div class="podium" id="nh-podium" aria-label="Top 3 NFT holders"></div>
+    <div class="table nh-table" role="table" aria-label="NFT holders">
+      <div class="tr nh-row th" role="row"><span role="columnheader">Wallet</span><span role="columnheader">NFTs held</span></div>
+      <div id="nh-body"></div>
+    </div>
+    <div class="nh-pager" id="nh-pager">
+      <button class="icon-btn" id="nh-prev" aria-label="Previous page" disabled><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <span class="mono sub" id="nh-page">Page 1 of 1</span>
+      <button class="icon-btn" id="nh-next" aria-label="Next page" disabled><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+    <p class="sub mono" style="margin-top:10px">Savior Weapons on Arc Mainnet, read with ownerOf for every minted token. Lucky NFT wins that are not claimed yet are not counted.</p>
   </div>
 </section>
 
@@ -1063,6 +1079,7 @@ async function claimLock(i) {
 <script src="ui.js"></script>
 <script src="quote.js"></script>
 <script src="locks.js"></script>
+<script src="nftholders.js"></script>
 <script src="feed.js"></script>
 <script src="stakes.js"></script>
 <script type="module" src="bridge.js"></script>
