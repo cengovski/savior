@@ -461,3 +461,9 @@ a.podium-addr:hover{text-decoration:underline}
  .nh-tier span{display:none}.nh-tier{padding:1px}
 }
 .podium-addr.muted{white-space:normal;font-family:var(--sans)}
+/* podium soldiers standing on the blocks */
+.podium-col{align-items:center}
+.podium-figure{display:block;width:auto;height:84px;margin-bottom:-2px;position:relative;z-index:1;filter:drop-shadow(0 6px 8px rgba(0,1,28,.25));pointer-events:none}
+.p1 .podium-figure{height:104px}
+.podium-col.empty .podium-figure{opacity:.18;filter:grayscale(1)}
+@media(max-width:639px){.podium-figure{height:58px}.p1 .podium-figure{height:72px}}
