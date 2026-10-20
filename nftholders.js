@@ -58,6 +58,10 @@
     for (const rank of [2, 1, 3]) {
       const r = rows[rank - 1];
       const col = el("div", "podium-col p" + rank + (r ? "" : " empty"));
+      const FIG = { 1: ["soldier-gold-swords", "Gold soldier with dual swords"], 2: ["soldier-silver-spear", "Silver soldier with spear"], 3: ["soldier-copper-bow", "Copper soldier with bow"] }[rank];
+      const fig = el("img", "podium-figure"); fig.src = "assets/podium/" + FIG[0] + ".svg"; fig.alt = r ? FIG[1] : ""; fig.width = 64; fig.height = 100; fig.decoding = "async";
+      if (!r) fig.setAttribute("aria-hidden", "true");
+      col.appendChild(fig); // soldier stands on top of the block
       const block = el("div", "podium-block"); // rank badge, title, wallet and count sit ON the block
       block.appendChild(badgeImg("assets/badges/rank-" + rank + ".svg", "Rank " + rank, "podium-medal"));
       block.appendChild(el("div", "podium-title", TITLES[rank]));
