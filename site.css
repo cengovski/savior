@@ -467,3 +467,9 @@ a.podium-addr:hover{text-decoration:underline}
 .p1 .podium-figure{height:104px}
 .podium-col.empty .podium-figure{opacity:.18;filter:grayscale(1)}
 @media(max-width:639px){.podium-figure{height:58px}.p1 .podium-figure{height:72px}}
+/* Header: brand and nav never overlap */
+.brand{flex-shrink:0;white-space:nowrap;margin-right:8px}
+.nav-right{flex-shrink:0}
+.nav-links{min-width:0;flex:0 1 auto;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 10px 4px 0}
+.nav-links::-webkit-scrollbar{display:none}
+@media(min-width:1024px){.nav-links{margin-left:24px;margin-right:auto}}
